@@ -1,0 +1,28 @@
+{
+  "name": "catfood-admin",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.81",
+    "@supabase/supabase-js": "^2.48.1",
+    "@vercel/analytics": "1.6.1",
+    "ai": "^6.0.193",
+    "next": "16.2.6",
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.4",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "supabase": "^2.102.0",
+    "typescript": "^5.9.3"
+  }
+}
