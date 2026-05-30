@@ -1,0 +1,303 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+:root {
+  --bg: #fafaf9;
+  --card: #fff;
+  --ink: #1c1917;
+  --mut: #78716c;
+  --line: #e7e5e4;
+  --accent: #c2410c;
+  --accent-soft: #ffedd5;
+  --ok: #15803d;
+  --warn: #b45309;
+  --warn-bg: #fffbeb;
+  --warn-line: #fde68a;
+  --err: #b91c1c;
+  --err-bg: #fef2f2;
+  --err-line: #fecaca;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "IBM Plex Sans KR", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 모바일 우선: 단일 컬럼, 좁은 패딩, 큰 터치 타깃 */
+.wrap {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 16px 14px 48px;
+}
+.hd h1 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+.hd p {
+  color: var(--mut);
+  font-size: 13px;
+  margin: 4px 0 16px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 14px;
+  margin-bottom: 14px;
+}
+.card h2 {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 18px 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tag {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+.muted {
+  color: var(--mut);
+  font-weight: 400;
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 10px 0 6px;
+  color: #44403c;
+}
+.lblrow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.lblrow label {
+  margin-top: 0;
+}
+textarea {
+  width: 100%;
+  min-height: 150px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font:
+    13px/1.6 "IBM Plex Mono",
+    monospace;
+  resize: vertical;
+  background: var(--bg);
+}
+textarea.sm {
+  min-height: 80px;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.primary {
+  width: 100%;
+  padding: 14px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
+  margin-top: 12px;
+}
+.ghost {
+  padding: 5px 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+}
+.save {
+  width: 100%;
+  padding: 15px;
+  background: var(--ok);
+  color: #fff;
+  font-size: 15px;
+  margin-top: 16px;
+}
+
+.err {
+  margin-top: 10px;
+  padding: 10px;
+  background: var(--err-bg);
+  border: 1px solid var(--err-line);
+  color: var(--err);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.frow {
+  display: flex;
+  gap: 10px;
+}
+.f {
+  flex: 1;
+  margin-bottom: 4px;
+}
+.f span {
+  display: block;
+  font-size: 11px;
+  color: var(--mut);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.f input,
+.f select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #fff;
+}
+
+/* 보장성분: 모바일에서 2줄 그리드 (값+출처 / 근거) */
+.nutrients {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.nrow {
+  display: grid;
+  grid-template-columns: 1fr 84px;
+  grid-template-areas: "label label" "input src" "ev ev";
+  gap: 6px;
+  padding: 10px;
+  background: var(--bg);
+  border-radius: 10px;
+}
+.nlabel {
+  grid-area: label;
+  font-size: 12px;
+  font-weight: 600;
+  color: #44403c;
+}
+.ninput {
+  grid-area: input;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font:
+    14px "IBM Plex Mono",
+    monospace;
+  text-align: right;
+}
+.nsrc {
+  grid-area: src;
+  padding: 10px 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 12px;
+  background: #fff;
+}
+.ev {
+  grid-area: ev;
+  font:
+    11px "IBM Plex Mono",
+    monospace;
+  color: #57534e;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.evmiss {
+  color: var(--err);
+  font-style: italic;
+}
+
+.derived {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.dcell {
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 10px;
+  text-align: center;
+}
+.dlabel {
+  font-size: 11px;
+  color: var(--mut);
+  margin-bottom: 4px;
+}
+.dval {
+  font:
+    18px "IBM Plex Mono",
+    monospace;
+  font-weight: 700;
+}
+.dnote {
+  font-size: 10px;
+  color: var(--mut);
+  margin-top: 2px;
+}
+
+.flags {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+.flag {
+  font-size: 12px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  font-weight: 500;
+}
+.flag.error {
+  background: var(--err-bg);
+  color: var(--err);
+  border: 1px solid var(--err-line);
+}
+.flag.warn {
+  background: var(--warn-bg);
+  color: var(--warn);
+  border: 1px solid var(--warn-line);
+}
+
+pre {
+  background: #1c1917;
+  color: #d6d3d1;
+  padding: 14px;
+  border-radius: 10px;
+  font:
+    11px/1.6 "IBM Plex Mono",
+    monospace;
+  overflow: auto;
+}
+
+/* 데스크탑: 보장성분 한 줄로 펼침 */
+@media (min-width: 560px) {
+  .nrow {
+    grid-template-columns: 150px 90px 90px 1fr;
+    grid-template-areas: "label input src ev";
+    align-items: center;
+  }
+  .derived {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
