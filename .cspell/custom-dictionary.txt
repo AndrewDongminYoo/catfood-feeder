@@ -1,0 +1,10 @@
+# Custom Dictionary Words
+ACANA
+carb
+catfood
+Petfoods
+plpgsql
+probiotics
+Supabase
+timestamptz
+vercel
