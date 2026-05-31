@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { parseManufacturerEnergy, parseKcal } from "@/lib/domain";
+import {
+  detectSourceConflicts,
+  parseManufacturerEnergy,
+  parseKcal,
+} from "@/lib/domain";
 
 // 서버에서만 Claude 호출 — API 키 비노출.
 // 환경변수: ANTHROPIC_API_KEY
@@ -115,8 +119,9 @@ export async function POST(req: NextRequest) {
     // 제조사 원문에서 P/F/C 열량비·kcal 직접 추출 (정규식, LLM 비의존)
     const mfgEnergy = parseManufacturerEnergy(manufacturerText);
     const mfgKcal = parseKcal(manufacturerText);
+    const conflicts = detectSourceConflicts(manufacturerText, krLabelText);
 
-    return NextResponse.json({ parsed, mfgEnergy, mfgKcal });
+    return NextResponse.json({ parsed, mfgEnergy, mfgKcal, conflicts });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: msg }, { status: 500 });

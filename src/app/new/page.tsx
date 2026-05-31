@@ -4,11 +4,13 @@ import { useMemo, useState } from "react";
 import {
   NUTRIENT_FIELDS,
   computeDerived,
+  resolveAsh,
   validate,
   num,
   type NutrientKey,
   type Source,
   type CookingMethod,
+  type SourceConflict,
 } from "@/lib/domain";
 
 // ACANA Grasslands — 해피케이스 테스트 픽스처
@@ -43,6 +45,22 @@ type NutrientState = Record<
   { value: string; evidence: string | null; source: Source | null }
 >;
 
+type FeatureFlags = {
+  grain_free: boolean;
+  meal_free: boolean;
+  has_probiotics: boolean;
+  has_cranberry: boolean;
+  has_yucca: boolean;
+};
+
+const emptyFlags = (): FeatureFlags => ({
+  grain_free: false,
+  meal_free: false,
+  has_probiotics: false,
+  has_cranberry: false,
+  has_yucca: false,
+});
+
 const emptyNutrients = (): NutrientState =>
   Object.fromEntries(
     NUTRIENT_FIELDS.map(([k]) => [
@@ -66,6 +84,9 @@ export default function NewFoodPage() {
     f: number | null;
     c: number | null;
   } | null>(null);
+  const [featureFlags, setFeatureFlags] = useState<FeatureFlags>(emptyFlags());
+  const [ingredientsText, setIngredientsText] = useState("[]");
+  const [conflicts, setConflicts] = useState<SourceConflict[]>([]);
   const [extracted, setExtracted] = useState(false);
   const [saved, setSaved] = useState<object | null>(null);
 
@@ -128,6 +149,9 @@ export default function NewFoodPage() {
       }
       setNutrients(ns);
       setMfgEnergy(data.mfgEnergy ?? null);
+      setFeatureFlags({ ...emptyFlags(), ...(p.flags ?? {}) });
+      setIngredientsText(JSON.stringify(p.ingredients ?? [], null, 2));
+      setConflicts(data.conflicts ?? []);
       setExtracted(true);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -145,10 +169,27 @@ export default function NewFoodPage() {
     setNutrients((n) => ({ ...n, [k]: { ...n[k], ...patch } }));
   }
 
-  function save() {
+  async function save() {
+    setErr(null);
+    setSaved(null);
+    let ingredients;
+    try {
+      ingredients = JSON.parse(ingredientsText || "[]");
+    } catch {
+      setErr("원료 JSON 형식을 확인해 주세요.");
+      return;
+    }
+
+    const resolvedAsh = resolveAsh(
+      nutrients.ash_pct.value,
+      nutrients.ash_pct.source,
+      cooking || null,
+    );
     const sources: Record<string, Source> = {};
     for (const [k] of NUTRIENT_FIELDS)
       if (nutrients[k].source) sources[k] = nutrients[k].source!;
+    if (!sources.ash_pct && resolvedAsh.estimated)
+      sources.ash_pct = "estimated";
     if (energyFromMfg) {
       sources.energy_p_pct = "manufacturer";
       sources.energy_f_pct = "manufacturer";
@@ -166,7 +207,10 @@ export default function NewFoodPage() {
       brand,
       cooking_method: cooking || null,
       ...Object.fromEntries(
-        NUTRIENT_FIELDS.map(([k]) => [k, num(nutrients[k].value)]),
+        NUTRIENT_FIELDS.map(([k]) => [
+          k,
+          k === "ash_pct" ? resolvedAsh.value : num(nutrients[k].value),
+        ]),
       ),
       carb_pct: derived.carb_pct,
       carb_is_estimated: derived.carb_is_estimated,
@@ -174,11 +218,25 @@ export default function NewFoodPage() {
       energy_f_pct: derived.energy_f_pct,
       energy_c_pct: derived.energy_c_pct,
       ca_p_ratio: derived.ca_p_ratio,
+      mfg_energy: mfgEnergy,
       nutrient_sources: sources,
+      ingredients,
+      flags: featureFlags,
+      source_conflicts: conflicts,
       data_verified_at: new Date().toISOString(),
     };
-    setSaved(payload);
-    // 실제: await fetch("/api/foods", {method:"POST", body: JSON.stringify(payload)}) → Supabase service insert
+
+    const response = await fetch("/api/foods", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setErr(data.error ?? "저장 실패");
+      return;
+    }
+    setSaved(data);
   }
 
   return (
@@ -253,6 +311,39 @@ export default function NewFoodPage() {
             </select>
           </div>
 
+          <div className="checks">
+            {[
+              ["grain_free", "그레인프리"],
+              ["meal_free", "밀프리"],
+              ["has_probiotics", "프로바이오틱스"],
+              ["has_cranberry", "크랜베리"],
+              ["has_yucca", "유카"],
+            ].map(([key, label]) => (
+              <label className="check" key={key}>
+                <input
+                  type="checkbox"
+                  checked={featureFlags[key as keyof FeatureFlags]}
+                  onChange={(e) =>
+                    setFeatureFlags((flags) => ({
+                      ...flags,
+                      [key]: e.target.checked,
+                    }))
+                  }
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+
+          <label>
+            원료 구조화 JSON <span className="muted">(name, pct, type)</span>
+          </label>
+          <textarea
+            className="sm"
+            value={ingredientsText}
+            onChange={(e) => setIngredientsText(e.target.value)}
+          />
+
           <h2>
             보장성분 <span className="tag">편집 · 출처 · 근거 대조</span>
           </h2>
@@ -324,6 +415,17 @@ export default function NewFoodPage() {
               {flags.map((f, i) => (
                 <div key={i} className={"flag " + f.level}>
                   {f.level === "error" ? "✕" : "⚠"} {f.msg}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {conflicts.length > 0 && (
+            <div className="flags">
+              {conflicts.map((conflict) => (
+                <div key={conflict.key} className="flag warn">
+                  소스 충돌: {conflict.label} 제조사 {conflict.manufacturer} /
+                  국내라벨 {conflict.kr_label}
                 </div>
               ))}
             </div>
