@@ -15,7 +15,15 @@ type OpenFdaRecall = {
 
 const OPENFDA_ENDPOINT = "https://api.fda.gov/food/enforcement.json";
 
+export async function GET(req: NextRequest) {
+  return syncRecalls(req);
+}
+
 export async function POST(req: NextRequest) {
+  return syncRecalls(req);
+}
+
+async function syncRecalls(req: NextRequest) {
   const configuredSecret = process.env.CRON_SECRET;
   const auth = req.headers.get("authorization");
   if (configuredSecret && auth !== `Bearer ${configuredSecret}`) {
