@@ -57,6 +57,9 @@ create table brands (
   unique (name, manufacturer)
 );
 
+create unique index brands_name_manufacturer_normalized_idx
+  on brands (lower(name), coalesce(lower(manufacturer), ''));
+
 -- ─────────────────────────────────────────────────────────────
 -- 사료 제품: foods
 -- ─────────────────────────────────────────────────────────────
@@ -174,6 +177,7 @@ create index foods_brand_idx        on foods (brand_id);
 create index foods_protein_idx      on foods (protein_pct);
 create index foods_carb_idx         on foods (carb_pct);
 create index foods_verified_idx     on foods (data_verified_at);
+create index foods_filter_idx       on foods (grain_free, cooking_method, protein_pct);
 
 -- 배열/JSON 검색을 위한 GIN 인덱스(검색 성능)
 create index foods_caution_gin      on foods using gin (caution_ingredients);
@@ -315,6 +319,7 @@ create index feeding_logs_cat_idx on feeding_logs (cat_id, started_on desc);
 alter table foods    enable row level security;
 alter table brands   enable row level security;
 alter table recalls  enable row level security;
+alter table prices   enable row level security;
 alter table cats         enable row level security;
 alter table feeding_logs enable row level security;
 
@@ -323,13 +328,24 @@ alter table feeding_logs enable row level security;
 -- ---------------------------
 -- using (true) => 조건 제한 없음(모두 select 가능)
 create policy "public read foods"
-  on foods for select using (true);
+  on foods for select
+  to anon, authenticated
+  using (true);
 
 create policy "public read brands"
-  on brands for select using (true);
+  on brands for select
+  to anon, authenticated
+  using (true);
 
 create policy "public read recalls"
-  on recalls for select using (true);
+  on recalls for select
+  to anon, authenticated
+  using (true);
+
+create policy "public read prices"
+  on prices for select
+  to anon, authenticated
+  using (true);
 
 -- ---------------------------
 -- Owner manage: cats
@@ -342,8 +358,9 @@ create policy "public read recalls"
 --   - 새로 INSERT/UPDATE될 row가 owner 조건을 만족해야 허용
 create policy "owner manages cats" on cats
   for all
-  using (auth.uid() = owner_id)
-  with check (auth.uid() = owner_id);
+  to authenticated
+  using ((select auth.uid()) = owner_id)
+  with check ((select auth.uid()) = owner_id);
 
 -- ---------------------------
 -- Owner manage: feeding_logs
@@ -351,12 +368,13 @@ create policy "owner manages cats" on cats
 -- feeding_logs는 feeding_logs.cat_id -> cats.id 를 통해 owner를 간접 참조
 create policy "owner manages logs" on feeding_logs
   for all
+  to authenticated
   using (
     exists (
       select 1
       from cats
       where cats.id = feeding_logs.cat_id
-        and cats.owner_id = auth.uid()
+        and cats.owner_id = (select auth.uid())
     )
   )
   with check (
@@ -364,7 +382,7 @@ create policy "owner manages logs" on feeding_logs
       select 1
       from cats
       where cats.id = feeding_logs.cat_id
-        and cats.owner_id = auth.uid()
+        and cats.owner_id = (select auth.uid())
     )
   );
 

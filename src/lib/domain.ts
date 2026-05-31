@@ -128,6 +128,13 @@ export interface Flag {
   msg: string;
 }
 
+export interface SourceConflict {
+  key: NutrientKey;
+  label: string;
+  manufacturer: number;
+  kr_label: number;
+}
+
 export function validate(n: NutrientInput, d: Derived): Flag[] {
   const flags: Flag[] = [];
   const p = num(n.protein_pct),
@@ -156,6 +163,76 @@ export function validate(n: NutrientInput, d: Derived): Flag[] {
   if (d.ca_p_ratio !== null && d.ca_p_ratio > 1.0)
     flags.push({ level: "warn", msg: `Ca:P 역전 (P/Ca=${d.ca_p_ratio})` });
   return flags;
+}
+
+const CONFLICT_PATTERNS: Record<NutrientKey, RegExp[]> = {
+  protein_pct: [
+    /crude\s+protein[^\d]{0,30}(\d+(?:\.\d+)?)/i,
+    /조단백(?:질)?[^\d]{0,30}(\d+(?:\.\d+)?)/i,
+  ],
+  fat_pct: [
+    /crude\s+fat[^\d]{0,30}(\d+(?:\.\d+)?)/i,
+    /조지방[^\d]{0,30}(\d+(?:\.\d+)?)/i,
+  ],
+  fiber_pct: [
+    /crude\s+fiber[^\d]{0,30}(\d+(?:\.\d+)?)/i,
+    /조섬유[^\d]{0,30}(\d+(?:\.\d+)?)/i,
+  ],
+  ash_pct: [
+    /crude\s+ash[^\d]{0,30}(\d+(?:\.\d+)?)/i,
+    /조회분[^\d]{0,30}(\d+(?:\.\d+)?)/i,
+  ],
+  moisture_pct: [
+    /moisture[^\d]{0,30}(\d+(?:\.\d+)?)/i,
+    /수분[^\d]{0,30}(\d+(?:\.\d+)?)/i,
+  ],
+  calcium_pct: [
+    /calcium[^\d]{0,30}(\d+(?:\.\d+)?)/i,
+    /칼슘[^\d]{0,30}(\d+(?:\.\d+)?)/i,
+  ],
+  phosphorus_pct: [
+    /phosphorus[^\d]{0,30}(\d+(?:\.\d+)?)/i,
+    /(?:인|phosphorus)[^\d]{0,30}(\d+(?:\.\d+)?)/i,
+  ],
+  kcal_per_kg: [
+    /(\d{3,4}(?:\.\d+)?)\s*kcal\s*\/\s*kg/i,
+    /(\d{3,4}(?:\.\d+)?)\s*kcal\s*\/?\s*kg/i,
+  ],
+};
+
+export function extractNutrientHints(
+  text: string,
+): Partial<Record<NutrientKey, number>> {
+  const hints: Partial<Record<NutrientKey, number>> = {};
+  for (const [key, patterns] of Object.entries(CONFLICT_PATTERNS) as [
+    NutrientKey,
+    RegExp[],
+  ][]) {
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (!match?.[1]) continue;
+      hints[key] = parseFloat(match[1]);
+      break;
+    }
+  }
+  return hints;
+}
+
+export function detectSourceConflicts(
+  manufacturerText: string,
+  krLabelText: string,
+): SourceConflict[] {
+  const manufacturer = extractNutrientHints(manufacturerText);
+  const krLabel = extractNutrientHints(krLabelText);
+
+  return NUTRIENT_FIELDS.flatMap(([key, label]) => {
+    const mfg = manufacturer[key];
+    const kr = krLabel[key];
+    if (mfg === undefined || kr === undefined) return [];
+    const tolerance = key === "kcal_per_kg" ? 25 : 0.05;
+    if (Math.abs(mfg - kr) <= tolerance) return [];
+    return [{ key, label, manufacturer: mfg, kr_label: kr }];
+  });
 }
 
 // 제조사 원문에서 "37% from protein, 23% from carbohydrates, 40% from fat" 패턴 추출
