@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { FoodWithBrand } from "@/lib/catalog";
+import { isSupabaseConfigured, type FoodWithBrand } from "@/lib/catalog";
 
 export interface FeedingFood {
   id: number;
@@ -38,12 +38,16 @@ export interface FeedingInsight {
 }
 
 export async function getFeedingDashboard() {
+  if (!isSupabaseConfigured()) {
+    return { user: null, cats: [], insights: [], configured: false };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return { user: null, cats: [], insights: [] };
+  if (!user) return { user: null, cats: [], insights: [], configured: true };
 
   const { data, error } = await supabase
     .from("cats")
@@ -77,7 +81,7 @@ export async function getFeedingDashboard() {
 
   if (error) {
     console.error("Failed to load feeding dashboard", error);
-    return { user, cats: [], insights: [] };
+    return { user, cats: [], insights: [], configured: true };
   }
 
   const cats = ((data ?? []) as unknown as CatProfile[]).map((cat) => ({
@@ -87,7 +91,7 @@ export async function getFeedingDashboard() {
     ),
   }));
 
-  return { user, cats, insights: buildFeedingInsights(cats) };
+  return { user, cats, insights: buildFeedingInsights(cats), configured: true };
 }
 
 export function buildFeedingInsights(cats: CatProfile[]): FeedingInsight[] {

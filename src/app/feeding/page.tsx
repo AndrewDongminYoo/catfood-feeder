@@ -5,7 +5,7 @@ import { getFoods } from "@/lib/catalog";
 import { getFeedingDashboard } from "@/lib/feeding";
 
 export default async function FeedingPage() {
-  const [{ user, cats, insights }, foods] = await Promise.all([
+  const [{ user, cats, insights, configured }, foods] = await Promise.all([
     getFeedingDashboard(),
     getFoods(),
   ]);
@@ -20,7 +20,16 @@ export default async function FeedingPage() {
         <p>제품 교체 주기와 영양·열량 급변을 기록합니다.</p>
       </header>
 
-      {!user ? (
+      {!configured ? (
+        <section className="card">
+          <h2>Supabase 설정 필요</h2>
+          <p className="muted">
+            급여 기록은 Supabase Auth와 개인 데이터 테이블이 필요합니다. Vercel
+            환경변수에 NEXT_PUBLIC_SUPABASE_URL,
+            NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY를 설정한 뒤 다시 배포하세요.
+          </p>
+        </section>
+      ) : !user ? (
         <section className="card">
           <AuthForm />
         </section>
