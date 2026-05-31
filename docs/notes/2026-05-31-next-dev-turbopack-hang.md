@@ -44,6 +44,24 @@ $ curl --max-time 20 -I http://localhost:3000
 HTTP/1.1 200 OK
 ```
 
+## Follow-up Retest
+
+After removing `next/font/google` usage from `src/app/layout.tsx`, Turbopack dev was retested directly:
+
+```plaintext
+$ pnpm exec next dev -p 3001
+Next.js 16.2.6 (Turbopack)
+Ready in 139ms
+Compiling / ...
+```
+
+```plaintext
+$ curl --max-time 20 -I http://localhost:3001/
+curl: (28) Operation timed out after 20002 milliseconds with 0 bytes received
+```
+
+The issue is therefore not explained only by Google Fonts fetching. Keep the webpack dev fallback.
+
 ## Environment Notes
 
 - The Codex sandbox blocked local port binding with `listen EPERM: operation not permitted 0.0.0.0:3000`.

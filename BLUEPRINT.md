@@ -47,55 +47,55 @@
 
 ## Phase 0 — 데이터 모델 확정
 
-- [ ] `brands` (수입사 nullable, 변경 잦음) / `foods` / `prices`(보류) / `recalls` 스키마 마이그레이션 SQL 작성
-- [ ] `foods`: 핵심 필터 수치(protein/fat/fiber/ash/moisture/Ca/P/kcal)는 평탄 numeric 컬럼
-- [ ] `carb_pct`는 generated stored 해제 → 일반 컬럼(회분 유무로 계산 가능 여부 갈림) + `carb_is_estimated boolean`
-- [ ] `ca_p_ratio`만 generated stored 유지 (phosphorus/calcium, 단 calcium>0)
-- [ ] `nutrient_sources jsonb` 컬럼: 항목별 출처 메타 {protein_pct:"manufacturer", ash_pct:"kr_label", ...}
-- [ ] `ingredients jsonb`: [{name, pct, type:"meat"|"fish"|"plant"|"other"}]
-- [ ] `cooking_method` enum(extrusion/baked/freeze_dried/dried) — 회분 추정 허용 여부 결정에 사용
-- [ ] `data_verified_at timestamptz` — 오래된 데이터 갱신 우선순위 쿼리용
-- [ ] 기능성 불리언: grain_free / meal_free / has_probiotics / has_cranberry / has_yucca
-- [ ] GIN 인덱스(caution_ingredients), brand_id 인덱스
+- [x] `brands` (수입사 nullable, 변경 잦음) / `foods` / `prices`(보류) / `recalls` 스키마 마이그레이션 SQL 작성
+- [x] `foods`: 핵심 필터 수치(protein/fat/fiber/ash/moisture/Ca/P/kcal)는 평탄 numeric 컬럼
+- [x] `carb_pct`는 generated stored 해제 → 일반 컬럼(회분 유무로 계산 가능 여부 갈림) + `carb_is_estimated boolean`
+- [x] `ca_p_ratio`만 generated stored 유지 (phosphorus/calcium, 단 calcium>0)
+- [x] `nutrient_sources jsonb` 컬럼: 항목별 출처 메타 {protein_pct:"manufacturer", ash_pct:"kr_label", ...}
+- [x] `ingredients jsonb`: [{name, pct, type:"meat"|"fish"|"plant"|"other"}]
+- [x] `cooking_method` enum(extrusion/baked/freeze_dried/dried) — 회분 추정 허용 여부 결정에 사용
+- [x] `data_verified_at timestamptz` — 오래된 데이터 갱신 우선순위 쿼리용
+- [x] 기능성 불리언: grain_free / meal_free / has_probiotics / has_cranberry / has_yucca
+- [x] GIN 인덱스(caution_ingredients), brand_id 인덱스
 
 ## Phase 1 — 입력 도구 (프로젝트의 진짜 핵심)
 
-- [ ] 프로토타입(catfood-admin-tool.jsx)을 Next.js 관리자 페이지로 이식
-- [ ] Claude 호출을 `/api/extract` 서버 라우트로 이동(키 비노출)
-- [ ] **이중 입력칸**: 제조사 원문 + 국내 라벨 원문 분리 입력
-- [ ] 제조사 P/F/C·열량 직접 추출("X% from protein" / "kcal/kg" 패턴) → manufacturer 출처
-- [ ] 회분 3단 폴백 UI(라벨값 / 익스트루전 9.0 추정 / 계산불가) + cooking_method 연동
-- [ ] 각 수치에 **출처 드롭다운**(제조사/국내라벨/추정) + 원문 근거 구절 대조 표시
-- [ ] 추정/계산값과 실측값 시각 구분(추정은 회색·물음표, P/F/C는 "제조사 명시" vs "NFE 계산" 배지)
-- [ ] 두 소스 충돌 감지 경고
-- [ ] 검증 규칙(합계>100 차단 / 단백질<30 / 지방>30 / 탄수>35 / Ca:P 역전 경고)
-- [ ] 저장 시 Supabase insert + data_verified_at 기록
-- [ ] ACANA Grasslands 회귀 테스트 케이스 내장
+- [x] 프로토타입(catfood-admin-tool.jsx)을 Next.js 관리자 페이지로 이식
+- [x] Claude 호출을 `/api/extract` 서버 라우트로 이동(키 비노출)
+- [x] **이중 입력칸**: 제조사 원문 + 국내 라벨 원문 분리 입력
+- [x] 제조사 P/F/C·열량 직접 추출("X% from protein" / "kcal/kg" 패턴) → manufacturer 출처
+- [x] 회분 3단 폴백 UI(라벨값 / 익스트루전 9.0 추정 / 계산불가) + cooking_method 연동
+- [x] 각 수치에 **출처 드롭다운**(제조사/국내라벨/추정) + 원문 근거 구절 대조 표시
+- [x] 추정/계산값과 실측값 시각 구분(추정은 회색·물음표, P/F/C는 "제조사 명시" vs "NFE 계산" 배지)
+- [x] 두 소스 충돌 감지 경고
+- [x] 검증 규칙(합계>100 차단 / 단백질<30 / 지방>30 / 탄수>35 / Ca:P 역전 경고)
+- [x] 저장 시 Supabase insert + data_verified_at 기록
+- [x] ACANA Grasslands 회귀 테스트 케이스 내장
 
 ## Phase 2 — 공개 카탈로그
 
-- [ ] 사료 목록/상세 페이지 (SSG)
-- [ ] 다중 필터: 그레인프리 / 단백질 35%+ / Ca:P 정상범위 / 제조법 / 단백질 열량비 상위 등
-- [ ] 두 제품 나란히 비교 뷰
-- [ ] 성분 출처·"라벨 보증치 기반" 고지 노출(단정 표현 회피)
-- [ ] 검색(클라이언트 사이드)
+- [x] 사료 목록/상세 페이지 (SSG)
+- [x] 다중 필터: 그레인프리 / 단백질 35%+ / Ca:P 정상범위 / 제조법 / 단백질 열량비 상위 등
+- [x] 두 제품 나란히 비교 뷰
+- [x] 성분 출처·"라벨 보증치 기반" 고지 노출(단정 표현 회피)
+- [x] 검색(클라이언트 사이드)
 
 ## Phase 3 — 리콜 통합
 
-- [ ] openFDA Food Enforcement 동기화 잡(주간) → recalls 테이블
-- [ ] 브랜드/제품 매칭(recalling_firm ↔ brands, 느슨한 연결, food_id nullable)
-- [ ] 상세 페이지에 리콜 이력 배지 + 사유/로트/출처 링크(FDA 원문)
-- [ ] "실시간 경보 아님 / 이력 정보" 명시(openFDA 약관: 상태 미갱신, 경보 용도 금지)
-- [ ] 한국 공공데이터(검역본부/식품안전나라) 사료 회수 API 현황 조사
+- [x] openFDA Food Enforcement 동기화 잡(주간) → recalls 테이블
+- [x] 브랜드/제품 매칭(recalling_firm ↔ brands, 느슨한 연결, food_id nullable)
+- [x] 상세 페이지에 리콜 이력 배지 + 사유/로트/출처 링크(FDA 원문)
+- [x] "실시간 경보 아님 / 이력 정보" 명시(openFDA 약관: 상태 미갱신, 경보 용도 금지)
+- [x] 한국 공공데이터(검역본부/식품안전나라) 사료 회수 API 현황 조사
 
 ## Phase 4 — 급여 기록 (재방문 동력)
 
-- [ ] 반려묘 프로필(다묘 가정 지원) + 사용자 인증(Supabase Auth)
-- [ ] 급여 로그: 제품 + 기간(시작/교체일). 사용자 실제 패턴 = 약 6주(한 달 반) 주기 교체
-- [ ] 교체 타임라인 시각화
-- [ ] **교체 인사이트**: 직전↔신규 제품의 P/F/C·열량 폭 급변 감지·경고
+- [x] 반려묘 프로필(다묘 가정 지원) + 사용자 인증(Supabase Auth)
+- [x] 급여 로그: 제품 + 기간(시작/교체일). 사용자 실제 패턴 = 약 6주(한 달 반) 주기 교체
+- [x] 교체 타임라인 시각화
+- [x] **교체 인사이트**: 직전↔신규 제품의 P/F/C·열량 폭 급변 감지·경고
       (도메인 근거: 열량 급변은 간 부담 → 비슷한 사료끼리 점진 교체 권장)
-- [ ] (후순위) 리콜 제품을 급여 중이면 알림
+- [x] (후순위) 리콜 제품을 급여 중이면 알림
 
 ## Phase 5 — (보류) 가격/알림
 

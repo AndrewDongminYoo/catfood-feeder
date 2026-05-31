@@ -5,9 +5,9 @@
 ## 빠른 시작
 
 ```bash
-npm install
+pnpm install
 cp .env.example .env.local   # ANTHROPIC_API_KEY 등 입력
-npm run dev                  # http://localhost:3000/new
+pnpm dev                     # http://localhost:3000
 ```
 
 `/new` 에서 "샘플" 버튼 → ACANA Grasslands 해피케이스가 채워집니다.
@@ -32,7 +32,12 @@ NFE = 100 − (단백질36 + 지방18 + 섬유4 + 회분9 + 수분10) = 23% → 
 supabase/0001_init.sql   확정 스키마 (brands/foods/recalls/prices/cats/feeding_logs + RLS)
 src/lib/domain.ts        파생 계산·검증·제조사 P/F/C 파싱 (서버/클라 공용)
 src/app/api/extract/     Claude 추출 서버 라우트
+src/app/api/foods/       관리자 저장 라우트(Supabase server key)
+src/app/api/recalls/     openFDA 리콜 동기화 라우트
 src/app/new/             입력 도구 (모바일 우선)
+src/app/foods/           공개 카탈로그/상세
+src/app/compare/         제품 비교
+src/app/feeding/         급여 기록/교체 인사이트
 ```
 
 ## 배포 (Vercel)
@@ -42,8 +47,7 @@ src/app/new/             입력 도구 (모바일 우선)
 3. Supabase에서 `supabase/0001_init.sql` 실행.
 4. `save()`의 주석대로 `/api/foods` 라우트를 추가해 service_role로 insert 연결.
 
-## 다음 작업 (BLUEPRINT Phase 1 잔여)
+## 보류 범위
 
-- [ ] `/api/foods` insert 라우트 + brands upsert
-- [ ] 두 소스 값 충돌 감지 경고
-- [ ] 원료(ingredients) 편집 UI
+- 가격/알림은 BLUEPRINT Phase 5의 보류 범위입니다.
+- 한국 리콜 데이터는 공개 API 엔드포인트와 이용조건이 확인되기 전까지 동기화하지 않습니다.
