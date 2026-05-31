@@ -1,0 +1,8 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignoreExportsUsedInFile": true,
+  "tags": ["-lintignore"],
+  "project": ["**/*.{js,ts,tsx}", "!.trunk"],
+  "ignore": ["src/lib/supabase/types.ts"],
+  "ignoreDependencies": ["tailwindcss", "tw-animate-css"]
+}
