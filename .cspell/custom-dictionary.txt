@@ -7,7 +7,6 @@ attname
 attnum
 attrelid
 autoanalyze
-autovacuum
 Autovacuum
 Bifidobacterium
 birthchart
@@ -27,6 +26,7 @@ docosahexaenoic
 dotenvx
 dval
 eicosapentaenoic
+EPERM
 evmiss
 fkey
 hashtext
@@ -66,12 +66,10 @@ proteinate
 regclass
 relname
 rosehips
-sendgrid
 SENDGRID
 shadcn
 signups
 SIWS
-solana
 Solana
 SQLSTATE
 Supabase
@@ -79,10 +77,10 @@ textlocal
 timebox
 timestamptz
 tldts
-totp
 TOTP
 tsquery
 tsvector
+Turbopack
 unindexed
 upserts
 uuidv
