@@ -1,3 +1,4 @@
+import type { Database } from "@/types/supabase";
 import { createClient } from "@supabase/supabase-js";
 
 export function createAdminClient() {
@@ -9,7 +10,7 @@ export function createAdminClient() {
     throw new Error("Supabase server key is not configured.");
   }
 
-  return createClient(url, key, {
+  return createClient<Database>(url, key, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
