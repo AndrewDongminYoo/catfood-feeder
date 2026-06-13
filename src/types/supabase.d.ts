@@ -128,6 +128,7 @@ export type Database = {
           energy_c_pct: number | null;
           energy_f_pct: number | null;
           energy_p_pct: number | null;
+          external_id: string | null;
           fat_pct: number | null;
           fiber_pct: number | null;
           grain_free: boolean;
@@ -145,6 +146,7 @@ export type Database = {
           phosphorus_pct: number | null;
           product_name: string;
           protein_pct: number | null;
+          source: string | null;
           updated_at: string;
           weight_kg: number | null;
         };
@@ -162,6 +164,7 @@ export type Database = {
           energy_c_pct?: number | null;
           energy_f_pct?: number | null;
           energy_p_pct?: number | null;
+          external_id?: string | null;
           fat_pct?: number | null;
           fiber_pct?: number | null;
           grain_free?: boolean;
@@ -179,6 +182,7 @@ export type Database = {
           phosphorus_pct?: number | null;
           product_name: string;
           protein_pct?: number | null;
+          source?: string | null;
           updated_at?: string;
           weight_kg?: number | null;
         };
@@ -196,6 +200,7 @@ export type Database = {
           energy_c_pct?: number | null;
           energy_f_pct?: number | null;
           energy_p_pct?: number | null;
+          external_id?: string | null;
           fat_pct?: number | null;
           fiber_pct?: number | null;
           grain_free?: boolean;
@@ -213,6 +218,7 @@ export type Database = {
           phosphorus_pct?: number | null;
           product_name?: string;
           protein_pct?: number | null;
+          source?: string | null;
           updated_at?: string;
           weight_kg?: number | null;
         };
