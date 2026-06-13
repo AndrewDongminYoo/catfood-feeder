@@ -7,6 +7,16 @@ export async function updateSession(request: NextRequest) {
     request,
   });
 
+  // Supabase 미설정 시(예: 로컬/미리보기) 세션 갱신을 건너뛴다.
+  // catalog.ts와 동일한 정책 — 미설정이면 fixtures로 동작하며 라우트를 막지 않는다.
+  // (isSupabaseConfigured는 next/headers에 의존하므로 미들웨어에서 import하지 않고 인라인 체크)
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  ) {
+    return supabaseResponse;
+  }
+
   // With Fluid compute, don't put this client in a global environment
   // variable. Always create a new one on each request.
   const supabase = createServerClient<Database>(
@@ -41,12 +51,18 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const user = data?.claims;
 
+  // 보호 경로만 로그인으로 리다이렉트한다.
+  // 공개 카탈로그(/, /foods, /compare, /recalls)는 열려 있어야 하고,
+  // /feeding은 미로그인 시 인라인 AuthForm을 직접 렌더링하므로 게이팅 대상이 아니다.
+  // API 라우트는 각자 getUser()/시크릿으로 자체 인증을 강제한다.
+  const PROTECTED_PREFIXES = ["/new"];
   if (
     !user &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/auth")
+    PROTECTED_PREFIXES.some((prefix) =>
+      request.nextUrl.pathname.startsWith(prefix),
+    )
   ) {
-    // no user, potentially respond by redirecting the user to the login page
+    // no user, redirect the user to the login page
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
     return NextResponse.redirect(url);
