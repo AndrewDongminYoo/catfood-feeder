@@ -134,7 +134,8 @@ async function research(brand, productName, weightKg) {
       .map((b) => b.text)
       .join("");
     // web_search 응답엔 서술 텍스트가 섞일 수 있으므로 첫 '{'~마지막 '}'만 추출
-    const m = text.replace(/```json|```/g, "").match(/\{[\s\S]*\}/);
+    // (greedy `{…}` 매치가 코드펜스를 자연스럽게 건너뛴다 — 별도 strip 불필요)
+    const m = text.match(/\{[\s\S]*\}/);
     if (!m) throw new Error(`JSON을 찾지 못함: ${text.slice(0, 120)}`);
     return JSON.parse(m[0]);
   }
