@@ -121,10 +121,13 @@ async function research(brand, productName, weightKg) {
       },
       body: JSON.stringify({ ...body, messages }),
     });
-    if (!res.ok)
-      throw new Error(
-        `Claude ${res.status}: ${(await res.text()).slice(0, 300)}`,
-      );
+    if (!res.ok) {
+      const errText = (await res.text()).slice(0, 300);
+      // 크레딧 소진/인증 같은 계정 단위 오류는 모든 후속 호출도 실패하므로 배치 전체 중단
+      if (/credit balance|authentication|rate_limit/i.test(errText))
+        throw new Error(`ABORT_BATCH Claude ${res.status}: ${errText}`);
+      throw new Error(`Claude ${res.status}: ${errText}`);
+    }
     const data = await res.json();
     if (data.stop_reason === "pause_turn") {
       messages = [...messages, { role: "assistant", content: data.content }];
@@ -163,8 +166,11 @@ console.log(
   `대상 ${targets.length}건 · 모델 ${MODEL} · 동시 ${CONCURRENCY} · ${WRITE ? "WRITE" : "DRY-RUN"}\n`,
 );
 
+let aborted = null; // 계정 단위 오류 발생 시 메시지 저장 → 나머지 작업 중단
+
 // 한 제품 처리 — 로그를 한 번에 모아 출력(동시 실행 시 줄 섞임 방지)
 async function processOne(f) {
+  if (aborted) return "skipped";
   const brand = f.brands?.name ?? "";
   const lines = [`▶ [${f.id}] ${brand} — ${f.product_name}`];
   try {
@@ -201,7 +207,16 @@ async function processOne(f) {
     console.log(lines.join("\n"));
     return found.length ? "found" : "no-evidence";
   } catch (e) {
-    lines.push(`  ✗ 실패: ${e instanceof Error ? e.message : String(e)}`);
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.startsWith("ABORT_BATCH") && !aborted) {
+      aborted = msg;
+      lines.push(
+        `  ✗ 계정 오류로 배치 중단: ${msg.replace("ABORT_BATCH ", "")}`,
+      );
+      console.log(lines.join("\n"));
+      return "aborted";
+    }
+    lines.push(`  ✗ 실패: ${msg}`);
     console.log(lines.join("\n"));
     return "error";
   }
