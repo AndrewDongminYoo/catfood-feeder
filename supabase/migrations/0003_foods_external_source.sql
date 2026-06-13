@@ -10,9 +10,9 @@
 -- 서로 distinct로 취급하므로 unique 인덱스가 그런 행들을 막지 않는다.
 -- ============================================================
 
-alter table foods add column if not exists source text;
-alter table foods add column if not exists external_id text;
+ALTER TABLE foods ADD COLUMN IF NOT EXISTS source text;
+ALTER TABLE foods ADD COLUMN IF NOT EXISTS external_id text;
 
 -- 외부 소스 행의 중복 적재 방지(예: source='pet_friends', external_id=productId)
-create unique index if not exists foods_source_external_id_key
-  on foods (source, external_id);
+CREATE UNIQUE INDEX IF NOT EXISTS foods_source_external_id_key
+  ON foods (source, external_id);

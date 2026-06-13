@@ -14,60 +14,60 @@
 -- ============================================================
 
 -- 1) 0001에 있으나 원격에 누락된 인덱스
-create unique index if not exists brands_name_manufacturer_normalized_idx
-  on brands (lower(name), coalesce(lower(manufacturer), ''));
-create index if not exists foods_filter_idx
-  on foods (grain_free, cooking_method, protein_pct);
+CREATE UNIQUE INDEX IF NOT EXISTS brands_name_manufacturer_normalized_idx
+  ON brands (lower(name), coalesce(lower(manufacturer), ''));
+CREATE INDEX IF NOT EXISTS foods_filter_idx
+  ON foods (grain_free, cooking_method, protein_pct);
 
 -- 2) 정책을 0001 정의(`to anon, authenticated`)에 맞춰 재정렬.
 --    원격은 `public` role로 생성됨 — 기능상 동등하나 베이스라인을 정직하게 만들기 위해 재생성.
 --    prices 정책은 원격에 아예 없었음.
-drop policy if exists "public read foods" on foods;
-create policy "public read foods" on foods
-  for select to anon, authenticated using (true);
+DROP POLICY IF EXISTS "public read foods" ON foods;
+CREATE POLICY "public read foods" ON foods
+  FOR SELECT TO anon, authenticated USING (true);
 
-drop policy if exists "public read brands" on brands;
-create policy "public read brands" on brands
-  for select to anon, authenticated using (true);
+DROP POLICY IF EXISTS "public read brands" ON brands;
+CREATE POLICY "public read brands" ON brands
+  FOR SELECT TO anon, authenticated USING (true);
 
-drop policy if exists "public read recalls" on recalls;
-create policy "public read recalls" on recalls
-  for select to anon, authenticated using (true);
+DROP POLICY IF EXISTS "public read recalls" ON recalls;
+CREATE POLICY "public read recalls" ON recalls
+  FOR SELECT TO anon, authenticated USING (true);
 
-drop policy if exists "public read prices" on prices;
-create policy "public read prices" on prices
-  for select to anon, authenticated using (true);
+DROP POLICY IF EXISTS "public read prices" ON prices;
+CREATE POLICY "public read prices" ON prices
+  FOR SELECT TO anon, authenticated USING (true);
 
-drop policy if exists "owner manages cats" on cats;
-create policy "owner manages cats" on cats
-  for all to authenticated
-  using ((select auth.uid()) = owner_id)
-  with check ((select auth.uid()) = owner_id);
+DROP POLICY IF EXISTS "owner manages cats" ON cats;
+CREATE POLICY "owner manages cats" ON cats
+  FOR ALL TO authenticated
+  USING ((SELECT auth.uid()) = owner_id)
+  WITH CHECK ((SELECT auth.uid()) = owner_id);
 
-drop policy if exists "owner manages logs" on feeding_logs;
-create policy "owner manages logs" on feeding_logs
-  for all to authenticated
-  using (
-    exists (
-      select 1 from cats
-      where cats.id = feeding_logs.cat_id
-        and cats.owner_id = (select auth.uid())
+DROP POLICY IF EXISTS "owner manages logs" ON feeding_logs;
+CREATE POLICY "owner manages logs" ON feeding_logs
+  FOR ALL TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM cats
+      WHERE cats.id = feeding_logs.cat_id
+        AND cats.owner_id = (SELECT auth.uid())
     )
   )
-  with check (
-    exists (
-      select 1 from cats
-      where cats.id = feeding_logs.cat_id
-        and cats.owner_id = (select auth.uid())
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM cats
+      WHERE cats.id = feeding_logs.cat_id
+        AND cats.owner_id = (SELECT auth.uid())
     )
   );
 
 -- 3) set_updated_at search_path 하드닝 (advisor 0011: mutable search_path).
 --    본문은 now()만 호출 — now()는 pg_catalog라 빈 search_path에서도 해석된다.
-create or replace function set_updated_at() returns trigger
-  language plpgsql
-  set search_path = ''
-as $$
+CREATE OR REPLACE FUNCTION set_updated_at() RETURNS trigger
+  LANGUAGE plpgsql
+  SET search_path = ''
+AS $$
 begin
   new.updated_at = now();
   return new;
@@ -77,11 +77,11 @@ $$;
 -- 4) 외부 설치된 RLS 자동 활성화 메커니즘을 로컬 스키마에 정본화하고,
 --    불필요한 EXECUTE 권한을 회수한다 (advisor 0028/0029).
 --    이벤트 트리거는 owner(postgres) 권한으로 동작하므로 권한 회수가 기능에 영향 없음.
-create or replace function rls_auto_enable() returns event_trigger
-  language plpgsql
-  security definer
-  set search_path = pg_catalog
-as $$
+CREATE OR REPLACE FUNCTION rls_auto_enable() RETURNS event_trigger
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path = pg_catalog
+AS $$
 declare
   cmd record;
 begin
@@ -104,11 +104,11 @@ begin
 end;
 $$;
 
-revoke execute on function rls_auto_enable() from anon, authenticated, public;
+REVOKE EXECUTE ON FUNCTION rls_auto_enable() FROM anon, authenticated, public;
 
 -- 이벤트 트리거는 CREATE EVENT TRIGGER IF NOT EXISTS가 없으므로 존재 확인 후 생성.
 -- (원격엔 이미 존재 → no-op; 로컬 db reset / 신규 환경에서만 생성)
-do $$
+DO $$
 begin
   if not exists (select 1 from pg_event_trigger where evtname = 'ensure_rls') then
     create event trigger ensure_rls on ddl_command_end
