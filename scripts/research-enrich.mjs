@@ -29,6 +29,10 @@ const ID = flag("--id");
 const LIMIT = parseInt(flag("--limit") ?? "1", 10);
 const MODEL = "claude-sonnet-4-6"; // /api/extract와 동일 tier (고볼륨 추출에 적합)
 
+// 자기참조 방지: 기존 큐레이션 CSV(수입사료 DB)의 2020년 출처 블로그를 검색에서 제외한다.
+// 이 블로그를 다시 인용하면 stale한 원본 데이터를 "독립 재수집"이 아니라 순환 검증하게 된다.
+const BLOCKED_DOMAINS = ["catminzzi.tistory.com"];
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey =
   process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -79,6 +83,7 @@ CRITICAL RULES (anti-hallucination — identical to the app's /api/extract):
 - Prefer manufacturer values for protein/fat/fiber/moisture/calcium/phosphorus; use kr_label to fill what's missing (typically ash, kcal).
 - Do NOT compute carbohydrate/NFE or energy ratios. Only extract values literally on the labels.
 - cooking_method: infer only if clearly stated.
+- Prefer PRIMARY/CURRENT sources: the manufacturer's official site and current Korean importer/retailer product pages. Do NOT rely on hobbyist blogs or aggregated community posts — they may be stale (pre-2021) and are not authoritative.
 - List the pages you used in "sources_checked".
 
 Return ONLY the JSON object, no markdown, no preamble.
@@ -91,7 +96,13 @@ async function research(brand, productName, weightKg) {
   const body = {
     model: MODEL,
     max_tokens: 4000,
-    tools: [{ type: "web_search_20260209", name: "web_search" }],
+    tools: [
+      {
+        type: "web_search_20260209",
+        name: "web_search",
+        blocked_domains: BLOCKED_DOMAINS,
+      },
+    ],
     messages: [
       { role: "user", content: buildPrompt(brand, productName, weightKg) },
     ],
@@ -122,8 +133,10 @@ async function research(brand, productName, weightKg) {
       .filter((b) => b.type === "text")
       .map((b) => b.text)
       .join("");
-    const clean = text.replace(/```json|```/g, "").trim();
-    return JSON.parse(clean);
+    // web_search 응답엔 서술 텍스트가 섞일 수 있으므로 첫 '{'~마지막 '}'만 추출
+    const m = text.replace(/```json|```/g, "").match(/\{[\s\S]*\}/);
+    if (!m) throw new Error(`JSON을 찾지 못함: ${text.slice(0, 120)}`);
+    return JSON.parse(m[0]);
   }
   throw new Error("web_search가 계속 pause_turn — 중단");
 }
