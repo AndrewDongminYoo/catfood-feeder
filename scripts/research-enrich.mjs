@@ -27,6 +27,7 @@ const WRITE = args.includes("--write");
 const NAME = flag("--name");
 const ID = flag("--id");
 const LIMIT = parseInt(flag("--limit") ?? "1", 10);
+const CONCURRENCY = Math.max(1, parseInt(flag("--concurrency") ?? "5", 10));
 const MODEL = "claude-sonnet-4-6"; // /api/extract와 동일 tier (고볼륨 추출에 적합)
 
 // 자기참조 방지: 기존 큐레이션 CSV(수입사료 DB)의 2020년 출처 블로그를 검색에서 제외한다.
@@ -159,20 +160,21 @@ if (!targets?.length) {
 }
 
 console.log(
-  `대상 ${targets.length}건 · 모델 ${MODEL} · ${WRITE ? "WRITE" : "DRY-RUN"}\n`,
+  `대상 ${targets.length}건 · 모델 ${MODEL} · 동시 ${CONCURRENCY} · ${WRITE ? "WRITE" : "DRY-RUN"}\n`,
 );
 
-for (const f of targets) {
+// 한 제품 처리 — 로그를 한 번에 모아 출력(동시 실행 시 줄 섞임 방지)
+async function processOne(f) {
   const brand = f.brands?.name ?? "";
-  console.log(`▶ [${f.id}] ${brand} — ${f.product_name}`);
+  const lines = [`▶ [${f.id}] ${brand} — ${f.product_name}`];
   try {
     const r = await research(brand, f.product_name, f.weight_kg);
     const found = NUTRIENT_KEYS.filter((k) => r.nutrients?.[k]?.value != null);
-    console.log(
+    lines.push(
       `  추출: ${found.map((k) => `${k}=${r.nutrients[k].value}(${r.nutrients[k].source})`).join(", ") || "(근거 있는 값 없음)"}`,
     );
     if (r.sources_checked?.length)
-      console.log(
+      lines.push(
         `  출처: ${r.sources_checked
           .map((s) => s.url)
           .join(" , ")
@@ -192,13 +194,34 @@ for (const f of targets) {
         .update(patch)
         .eq("id", f.id);
       if (ue) throw ue;
-      console.log(
-        `  → DRAFT 기록 (data_verified_at은 null 유지, 사람 검토 대기)`,
-      );
-    } else if (!WRITE) {
-      console.log(`  (dry-run — 기록하지 않음)`);
+      lines.push(`  → DRAFT 기록 (data_verified_at은 null 유지)`);
+      console.log(lines.join("\n"));
+      return "written";
     }
+    console.log(lines.join("\n"));
+    return found.length ? "found" : "no-evidence";
   } catch (e) {
-    console.log(`  ✗ 실패: ${e instanceof Error ? e.message : String(e)}`);
+    lines.push(`  ✗ 실패: ${e instanceof Error ? e.message : String(e)}`);
+    console.log(lines.join("\n"));
+    return "error";
   }
 }
+
+// 제한된 동시성 풀
+async function runPool(items, n, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(n, items.length) }, async () => {
+      while (next < items.length) {
+        const i = next++;
+        out[i] = await fn(items[i]);
+      }
+    }),
+  );
+  return out;
+}
+
+const statuses = await runPool(targets, CONCURRENCY, processOne);
+const tally = statuses.reduce((a, s) => ((a[s] = (a[s] || 0) + 1), a), {});
+console.log(`\n완료 — ${JSON.stringify(tally)}`);
