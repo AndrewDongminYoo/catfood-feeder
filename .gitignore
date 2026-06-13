@@ -194,3 +194,9 @@ sketch
 !.trunk/trunk.yaml
 
 # End of https://www.toptal.com/developers/gitignore/api/node,react,nextjs
+
+# Local data / export artifacts (not part of the repo — see scripts/README.md)
+/pet-fritends.json
+/foods_rows.csv
+/수입사료정리 - DB.csv
+/pre_reconcile_schema.sql
