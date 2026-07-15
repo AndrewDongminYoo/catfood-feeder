@@ -1,19 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+
+const calendarDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine(isCalendarDate);
+const feedingLogSchema = z.object({
+  cat_id: z.number().int().positive(),
+  food_id: z.number().int().positive(),
+  started_on: calendarDateSchema,
+  ended_on: calendarDateSchema.nullable().optional(),
+  note: z.string().max(2_000).nullable().optional(),
+});
 
 export async function POST(req: NextRequest) {
   try {
-    const payload = (await req.json()) as {
-      cat_id?: number;
-      food_id?: number;
-      started_on?: string;
-      ended_on?: string | null;
-      note?: string | null;
-    };
-
-    if (!payload.cat_id || !payload.food_id || !payload.started_on) {
+    const parsedPayload = feedingLogSchema.safeParse(await req.json());
+    if (!parsedPayload.success) {
       return NextResponse.json(
         { error: "고양이, 제품, 시작일은 필수입니다." },
+        { status: 400 },
+      );
+    }
+    const payload = parsedPayload.data;
+    if (payload.ended_on && payload.ended_on < payload.started_on) {
+      return NextResponse.json(
+        { error: "종료일은 시작일보다 빠를 수 없습니다." },
         { status: 400 },
       );
     }
@@ -46,8 +59,21 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ feeding_log: data });
-  } catch (error) {
+  } catch (error: unknown) {
+    if (error instanceof SyntaxError) {
+      return NextResponse.json(
+        { error: "요청 JSON 형식이 올바르지 않습니다." },
+        { status: 400 },
+      );
+    }
     const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+function isCalendarDate(value: string): boolean {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return (
+    Number.isFinite(date.getTime()) && date.toISOString().startsWith(value)
+  );
 }

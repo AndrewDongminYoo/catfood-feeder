@@ -19,41 +19,52 @@ export function FeedingForm({
   const [endedOn, setEndedOn] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const hasDateOrderError = !!endedOn && !!startedOn && endedOn < startedOn;
 
   async function createCat() {
     setError(null);
-    const response = await fetch("/api/cats", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: catName, birth_date: birthDate || null }),
-    });
-    const data = await response.json();
-    if (!response.ok) {
-      setError(data.error ?? "고양이 등록 실패");
-      return;
+    try {
+      const response = await fetch("/api/cats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: catName, birth_date: birthDate || null }),
+      });
+      if (!response.ok) {
+        setError(await responseError(response, "고양이 등록 실패"));
+        return;
+      }
+      window.location.reload();
+    } catch {
+      setError("고양이 등록 요청에 실패했습니다. 네트워크를 확인해 주세요.");
     }
-    window.location.reload();
   }
 
   async function createFeedingLog() {
     setError(null);
-    const response = await fetch("/api/feeding-logs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        cat_id: Number(catId),
-        food_id: Number(foodId),
-        started_on: startedOn,
-        ended_on: endedOn || null,
-        note: note || null,
-      }),
-    });
-    const data = await response.json();
-    if (!response.ok) {
-      setError(data.error ?? "급여 기록 실패");
+    if (hasDateOrderError) {
+      setError("종료일은 시작일보다 빠를 수 없습니다.");
       return;
     }
-    window.location.reload();
+    try {
+      const response = await fetch("/api/feeding-logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cat_id: Number(catId),
+          food_id: Number(foodId),
+          started_on: startedOn,
+          ended_on: endedOn || null,
+          note: note || null,
+        }),
+      });
+      if (!response.ok) {
+        setError(await responseError(response, "급여 기록 실패"));
+        return;
+      }
+      window.location.reload();
+    } catch {
+      setError("급여 기록 요청에 실패했습니다. 네트워크를 확인해 주세요.");
+    }
   }
 
   return (
@@ -126,6 +137,9 @@ export function FeedingForm({
             />
           </label>
         </div>
+        {hasDateOrderError && (
+          <div className="err">종료일은 시작일보다 빠를 수 없습니다.</div>
+        )}
         <label>
           메모
           <input
@@ -136,7 +150,7 @@ export function FeedingForm({
         <button
           className="primary"
           onClick={createFeedingLog}
-          disabled={!catId || !foodId || !startedOn}
+          disabled={!catId || !foodId || !startedOn || hasDateOrderError}
         >
           기록
         </button>
@@ -144,4 +158,13 @@ export function FeedingForm({
       {error && <div className="err">{error}</div>}
     </section>
   );
+}
+
+async function responseError(response: Response, fallback: string) {
+  try {
+    const data = (await response.json()) as { error?: string };
+    return data.error ?? fallback;
+  } catch {
+    return fallback;
+  }
 }
