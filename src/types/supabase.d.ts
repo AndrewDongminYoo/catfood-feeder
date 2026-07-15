@@ -106,6 +106,116 @@ export type Database = {
           },
         ];
       };
+      food_nutrient_evidence: {
+        Row: {
+          captured_at: string;
+          created_at: string;
+          excerpt: string;
+          food_id: number;
+          id: number;
+          is_current: boolean;
+          nutrient_key: string;
+          source_id: number;
+          value: number;
+        };
+        Insert: {
+          captured_at: string;
+          created_at?: string;
+          excerpt: string;
+          food_id: number;
+          id?: never;
+          is_current?: boolean;
+          nutrient_key: string;
+          source_id: number;
+          value: number;
+        };
+        Update: {
+          captured_at?: string;
+          created_at?: string;
+          excerpt?: string;
+          food_id?: number;
+          id?: never;
+          is_current?: boolean;
+          nutrient_key?: string;
+          source_id?: number;
+          value?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "food_nutrient_evidence_food_id_fkey";
+            columns: ["food_id"];
+            referencedRelation: "foods";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "food_nutrient_evidence_source_id_fkey";
+            columns: ["source_id"];
+            referencedRelation: "food_sources";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      food_sources: {
+        Row: {
+          attempted_at: string;
+          capture_method: string;
+          captured_at: string | null;
+          captured_text: string | null;
+          content_hash: string | null;
+          created_at: string;
+          created_by: string | null;
+          failure_code: string | null;
+          fetch_status: string;
+          food_id: number;
+          id: number;
+          is_current: boolean;
+          kind: Database["public"]["Enums"]["nutrient_source"];
+          observed_at: string | null;
+          url: string;
+        };
+        Insert: {
+          attempted_at?: string;
+          capture_method: string;
+          captured_at?: string | null;
+          captured_text?: string | null;
+          content_hash?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          failure_code?: string | null;
+          fetch_status: string;
+          food_id: number;
+          id?: never;
+          is_current?: boolean;
+          kind: Database["public"]["Enums"]["nutrient_source"];
+          observed_at?: string | null;
+          url: string;
+        };
+        Update: {
+          attempted_at?: string;
+          capture_method?: string;
+          captured_at?: string | null;
+          captured_text?: string | null;
+          content_hash?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          failure_code?: string | null;
+          fetch_status?: string;
+          food_id?: number;
+          id?: never;
+          is_current?: boolean;
+          kind?: Database["public"]["Enums"]["nutrient_source"];
+          observed_at?: string | null;
+          url?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "food_sources_food_id_fkey";
+            columns: ["food_id"];
+            referencedRelation: "foods";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       foods: {
         Row: {
           ash_pct: number | null;
@@ -336,7 +446,14 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      apply_food_evidence_draft: {
+        Args: { p_evidence: Json; p_food_id: number };
+        Returns: undefined;
+      };
+      consume_extract_quota: {
+        Args: { p_limit: number; p_subject: string; p_window_seconds: number };
+        Returns: number;
+      };
     };
     Enums: {
       cooking_method: "extrusion" | "baked" | "freeze_dried" | "dried";
