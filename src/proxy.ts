@@ -1,7 +1,7 @@
 import { type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   // 세션 쿠키 갱신(랜덤 로그아웃 방지) + 보호 경로(/new) 게이팅.
   return await updateSession(request);
 }
