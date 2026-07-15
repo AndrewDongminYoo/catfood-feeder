@@ -1,13 +1,66 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { authorizeCurator } from "@/lib/admin-auth";
 import {
+  COOKING_METHOD_VALUES,
+  NUTRIENT_FIELDS,
   detectSourceConflicts,
   parseManufacturerEnergy,
-  parseKcal,
 } from "@/lib/domain";
+import { consumeRateLimit } from "@/lib/request-rate-limit";
 
-// 서버에서만 Claude 호출 — API 키 비노출.
-// 환경변수: ANTHROPIC_API_KEY
 export const runtime = "nodejs";
+
+const MAX_BODY_BYTES = 64 * 1024;
+const MAX_TEXT_LENGTH = 30_000;
+const labelSourceSchema = z.enum(["manufacturer", "kr_label"]);
+const extractionCellSchema = z.object({
+  value: z.number().finite().nullable(),
+  evidence: z.string().nullable(),
+  source: labelSourceSchema.nullable(),
+});
+const extractionRequestSchema = z
+  .object({
+    manufacturerText: z.string().max(MAX_TEXT_LENGTH).default(""),
+    krLabelText: z.string().max(MAX_TEXT_LENGTH).default(""),
+  })
+  .strict();
+const modelOutputSchema = z.object({
+  product_name: z.string().nullable().default(null),
+  brand: z.string().nullable().default(null),
+  manufacturer: z.string().nullable().default(null),
+  cooking_method: z.enum(COOKING_METHOD_VALUES).nullable().default(null),
+  nutrients: z.record(z.string(), extractionCellSchema).default({}),
+  flags: z
+    .object({
+      grain_free: z.boolean().optional(),
+      meal_free: z.boolean().optional(),
+      has_probiotics: z.boolean().optional(),
+      has_cranberry: z.boolean().optional(),
+      has_yucca: z.boolean().optional(),
+    })
+    .default({}),
+  ingredients: z
+    .array(
+      z.object({
+        name: z.string(),
+        pct: z.number().finite().nullable(),
+        type: z.enum(["meat", "fish", "plant", "other"]),
+      }),
+    )
+    .default([]),
+});
+const anthropicResponseSchema = z.object({
+  content: z.array(
+    z.object({
+      type: z.string(),
+      text: z.string().optional(),
+    }),
+  ),
+});
+
+type ModelOutput = z.infer<typeof modelOutputSchema>;
+type ExtractionCell = z.infer<typeof extractionCellSchema>;
 
 const SCHEMA = `{
   "product_name": string | null,
@@ -58,8 +111,44 @@ ${krText || "(none)"}
 }
 
 export async function POST(req: NextRequest) {
+  const authorization = await authorizeCurator(req);
+  if (authorization.kind === "denied") {
+    return NextResponse.json(
+      { error: authorization.message },
+      { status: authorization.status },
+    );
+  }
+
+  if (authorization.origin === "automation") {
+    return NextResponse.json(
+      { error: "자동화 자격 증명으로는 원문 추출을 실행할 수 없습니다." },
+      { status: 403 },
+    );
+  }
+
+  const rateLimit = await consumeRateLimit(
+    `extract:${authorization.rateLimitKey}`,
+  );
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "추출 요청 한도를 초과했습니다." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+      },
+    );
+  }
+
   try {
-    const { manufacturerText = "", krLabelText = "" } = await req.json();
+    const request = extractionRequestSchema.safeParse(await readJsonBody(req));
+    if (!request.success) {
+      return NextResponse.json(
+        { error: "요청 형식이 올바르지 않습니다." },
+        { status: 400 },
+      );
+    }
+
+    const { manufacturerText, krLabelText } = request.data;
     if (!manufacturerText && !krLabelText) {
       return NextResponse.json(
         { error: "원문이 비어 있습니다." },
@@ -89,6 +178,7 @@ export async function POST(req: NextRequest) {
           { role: "user", content: buildPrompt(manufacturerText, krLabelText) },
         ],
       }),
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (!res.ok) {
@@ -99,31 +189,136 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const data = await res.json();
-    const text = (data.content || [])
-      .filter((b: { type: string }) => b.type === "text")
-      .map((b: { text: string }) => b.text)
-      .join("");
-    const clean = text.replace(/```json|```/g, "").trim();
-
-    let parsed;
-    try {
-      parsed = JSON.parse(clean);
-    } catch {
+    const anthropicResponse = anthropicResponseSchema.safeParse(
+      await res.json(),
+    );
+    if (!anthropicResponse.success) {
       return NextResponse.json(
-        { error: "JSON 파싱 실패", raw: clean.slice(0, 500) },
+        { error: "Claude API 응답 형식 오류" },
         { status: 502 },
       );
     }
 
-    // 제조사 원문에서 P/F/C 열량비·kcal 직접 추출 (정규식, LLM 비의존)
+    const text = anthropicResponse.data.content
+      .filter((block) => block.type === "text" && block.text)
+      .map((block) => block.text)
+      .join("");
+    const clean = text.replace(/```json|```/g, "").trim();
+    const modelOutput = parseModelOutput(clean);
+    if (!modelOutput) {
+      return NextResponse.json(
+        { error: "Claude JSON 응답 형식 오류", raw: clean.slice(0, 500) },
+        { status: 502 },
+      );
+    }
+
+    const parsed = sanitizeModelOutput(
+      modelOutput,
+      manufacturerText,
+      krLabelText,
+    );
     const mfgEnergy = parseManufacturerEnergy(manufacturerText);
-    const mfgKcal = parseKcal(manufacturerText);
     const conflicts = detectSourceConflicts(manufacturerText, krLabelText);
 
-    return NextResponse.json({ parsed, mfgEnergy, mfgKcal, conflicts });
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ parsed, mfgEnergy, conflicts });
+  } catch (error: unknown) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return NextResponse.json(
+        { error: "원문은 64KB 이하로 입력해 주세요." },
+        { status: 413 },
+      );
+    }
+    if (error instanceof SyntaxError) {
+      return NextResponse.json(
+        { error: "요청 JSON 형식이 올바르지 않습니다." },
+        { status: 400 },
+      );
+    }
+    if (error instanceof DOMException && error.name === "TimeoutError") {
+      return NextResponse.json(
+        { error: "Claude API 요청 시간이 초과되었습니다." },
+        { status: 504 },
+      );
+    }
+    const message =
+      error instanceof Error ? error.message : "추출 요청 처리 실패";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+function parseModelOutput(text: string): ModelOutput | null {
+  try {
+    const parsed = modelOutputSchema.safeParse(JSON.parse(text));
+    return parsed.success ? parsed.data : null;
+  } catch (error: unknown) {
+    if (error instanceof SyntaxError) return null;
+    throw error;
+  }
+}
+
+function sanitizeModelOutput(
+  output: ModelOutput,
+  manufacturerText: string,
+  krLabelText: string,
+) {
+  const nutrients: Record<string, ExtractionCell> = {};
+  for (const [key] of NUTRIENT_FIELDS) {
+    const cell = output.nutrients[key];
+    nutrients[key] = isEvidenceBacked(cell, manufacturerText, krLabelText)
+      ? cell
+      : { value: null, evidence: null, source: null };
+  }
+
+  return { ...output, nutrients };
+}
+
+function isEvidenceBacked(
+  cell: ExtractionCell | undefined,
+  manufacturerText: string,
+  krLabelText: string,
+): cell is ExtractionCell & {
+  readonly value: number;
+  readonly evidence: string;
+} {
+  if (!cell || cell.value === null || !cell.evidence || !cell.source)
+    return false;
+  const sourceText =
+    cell.source === "manufacturer" ? manufacturerText : krLabelText;
+  return normalizeEvidence(sourceText).includes(
+    normalizeEvidence(cell.evidence),
+  );
+}
+
+function normalizeEvidence(value: string): string {
+  return value.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+class RequestBodyTooLargeError extends Error {
+  readonly name = "RequestBodyTooLargeError";
+}
+
+async function readJsonBody(request: Request): Promise<unknown> {
+  const contentLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
+    throw new RequestBodyTooLargeError();
+  }
+
+  if (!request.body) throw new SyntaxError("Request body is missing.");
+
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder();
+  let size = 0;
+  let text = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > MAX_BODY_BYTES) {
+      await reader.cancel();
+      throw new RequestBodyTooLargeError();
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+
+  return JSON.parse(text + decoder.decode());
 }
