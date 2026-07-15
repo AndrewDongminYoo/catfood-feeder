@@ -9,6 +9,7 @@ overrides:
 allowBuilds:
   msw: true
   sharp: true
+  unrs-resolver: true
 
 minimumReleaseAgeExclude:
   - "@ai-sdk/anthropic@3.0.97"
