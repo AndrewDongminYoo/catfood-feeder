@@ -1,8 +1,24 @@
 {
-  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "$schema": "https://unpkg.com/knip@6/schema.json",
   "ignoreExportsUsedInFile": true,
   "tags": ["-lintignore"],
   "project": ["**/*.{js,ts,tsx}", "!.trunk"],
-  "ignore": ["src/lib/supabase/types.ts"],
-  "ignoreDependencies": ["tailwindcss", "tw-animate-css"]
+  "ignoreFiles": ["src/lib/utils.ts"],
+  "ignoreIssues": {
+    "src/lib/fixtures.ts": ["exports"]
+  },
+  "ignoreDependencies": [
+    "@ai-sdk/anthropic",
+    "@vercel/analytics",
+    "ai",
+    "class-variance-authority",
+    "clsx",
+    "lucide-react",
+    "radix-ui",
+    "shadcn",
+    "supabase",
+    "tailwind-merge",
+    "tailwindcss",
+    "tw-animate-css"
+  ]
 }
