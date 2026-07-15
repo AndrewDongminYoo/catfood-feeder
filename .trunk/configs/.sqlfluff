@@ -1,0 +1,22 @@
+[sqlfluff]
+dialect = postgres
+
+rules = core, layout
+exclude_rules = CP02, LT01, LT02, LT05
+
+# AL01: Implicit/explicit aliasing of table. 
+# AM05: Join clauses should be fully qualified.
+# CP01: Keywords must be upper case.
+# CP02: Unquoted identifiers must be consistently lower case.
+# CP04: Expected single whitespace between comma ',' and quoted literal.
+# LT01: Expected single whitespace between naked identifier and start bracket '('.
+# LT02: Line should not be indented.
+# LT05: Line is too long
+# LT12: Files must end with a single trailing newline.
+# RF04: Keywords should not be used as identifiers.
+# RF06: Unnecessary quoted identifier "proofs_admin_all".
+# ST09: Joins should list the table referenced earlier first.
+
+[sqlfluff:rules:capitalisation.keywords]
+# Keywords
+capitalisation_policy = upper

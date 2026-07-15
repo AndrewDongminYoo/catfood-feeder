@@ -183,16 +183,6 @@ psd
 thumb
 sketch
 
-# Ignore everything below the trunk
-.trunk/**
-
-# The necessary “parent directory” must be restored.
-!.trunk/configs/**
-
-# Keep the necessary individual files as well.
-!.trunk/.gitignore
-!.trunk/trunk.yaml
-
 # End of https://www.toptal.com/developers/gitignore/api/node,react,nextjs
 
 # Local data / export artifacts (not part of the repo — see scripts/README.md)
