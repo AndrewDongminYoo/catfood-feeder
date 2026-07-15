@@ -96,6 +96,8 @@ export const getFoods = cache(async (): Promise<FoodWithBrand[]> => {
       prices (id, retailer, price, price_per_100g, url, captured_at)
     `,
     )
+    .not("data_verified_at", "is", null)
+    .not("protein_pct", "is", null)
     .order("product_name", { ascending: true });
 
   if (error) {

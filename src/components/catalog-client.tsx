@@ -26,12 +26,7 @@ export function CatalogClient({ foods }: { foods: FoodWithBrand[] }) {
         if (highProtein && (food.protein_pct ?? 0) < 35) return false;
         if (cookingMethod && food.cooking_method !== cookingMethod)
           return false;
-        if (
-          normalCaP &&
-          (food.ca_p_ratio === null ||
-            food.ca_p_ratio < 0.8 ||
-            food.ca_p_ratio > 1.3)
-        ) {
+        if (normalCaP && (food.ca_p_ratio === null || food.ca_p_ratio < 1.0)) {
           return false;
         }
         return true;
@@ -88,7 +83,7 @@ export function CatalogClient({ foods }: { foods: FoodWithBrand[] }) {
               checked={normalCaP}
               onChange={(event) => setNormalCaP(event.target.checked)}
             />
-            Ca:P 0.8-1.3
+            Ca:P 1.0+
           </label>
         </div>
         <div className="frow">

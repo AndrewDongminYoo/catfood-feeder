@@ -1,75 +1,115 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { authorizeCurator } from "@/lib/admin-auth";
 import {
+  COOKING_METHOD_VALUES,
+  NUTRIENT_FIELDS,
+  SOURCE_VALUES,
   computeDerived,
+  resolveAsh,
   validate,
-  type CookingMethod,
-  type Source,
 } from "@/lib/domain";
+import type { Source } from "@/lib/domain";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
 
-type FoodPayload = {
-  brand?: string;
-  product_name?: string;
-  cooking_method?: CookingMethod | null;
-  protein_pct?: number | null;
-  fat_pct?: number | null;
-  fiber_pct?: number | null;
-  ash_pct?: number | null;
-  moisture_pct?: number | null;
-  calcium_pct?: number | null;
-  phosphorus_pct?: number | null;
-  kcal_per_kg?: number | null;
-  mfg_energy?: { p: number | null; f: number | null; c: number | null };
-  nutrient_sources?: Record<string, string>;
-  ingredients?: unknown;
-  flags?: Record<string, boolean>;
-  manufacturer_url?: string | null;
-  kr_label_source?: string | null;
-};
+const sourceSchema = z.enum(SOURCE_VALUES);
+const finiteNumberSchema = z.number().finite().nullable().optional();
+const sourceConflictSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  manufacturer: z.number().finite(),
+  kr_label: z.number().finite(),
+});
+const foodPayloadSchema = z
+  .object({
+    brand: z.string().trim().min(1),
+    product_name: z.string().trim().min(1),
+    cooking_method: z.enum(COOKING_METHOD_VALUES).nullable().optional(),
+    protein_pct: finiteNumberSchema,
+    fat_pct: finiteNumberSchema,
+    fiber_pct: finiteNumberSchema,
+    ash_pct: finiteNumberSchema,
+    moisture_pct: finiteNumberSchema,
+    calcium_pct: finiteNumberSchema,
+    phosphorus_pct: finiteNumberSchema,
+    kcal_per_kg: finiteNumberSchema,
+    mfg_energy: z
+      .object({
+        p: z.number().finite().nullable(),
+        f: z.number().finite().nullable(),
+        c: z.number().finite().nullable(),
+      })
+      .optional(),
+    nutrient_sources: z.record(z.string(), sourceSchema).default({}),
+    ingredients: z.array(z.json()).default([]),
+    flags: z
+      .object({
+        grain_free: z.boolean().optional(),
+        meal_free: z.boolean().optional(),
+        has_probiotics: z.boolean().optional(),
+        has_cranberry: z.boolean().optional(),
+        has_yucca: z.boolean().optional(),
+      })
+      .default({}),
+    manufacturer_url: z.string().url().nullable().optional(),
+    kr_label_source: z.string().url().nullable().optional(),
+    source_conflicts: z.array(sourceConflictSchema).default([]),
+  })
+  .strict();
+
+type FoodPayload = z.infer<typeof foodPayloadSchema>;
 
 export async function POST(req: NextRequest) {
+  const authorization = await authorizeCurator(req);
+  if (authorization.kind === "denied") {
+    return NextResponse.json(
+      { error: authorization.message },
+      { status: authorization.status },
+    );
+  }
+
   try {
-    const expectedSecret = process.env.ADMIN_WRITE_SECRET;
-    const suppliedSecret = req.headers.get("x-admin-secret");
-    if (!expectedSecret || suppliedSecret !== expectedSecret) {
-      const serverClient = await createClient();
-      const {
-        data: { user },
-      } = await serverClient.auth.getUser();
-      if (!user) {
-        return NextResponse.json(
-          { error: "관리자 로그인이 필요합니다." },
-          { status: 401 },
-        );
-      }
-    }
-
-    const payload = (await req.json()) as FoodPayload;
-    const brandName = payload.brand?.trim();
-    const productName = payload.product_name?.trim();
-
-    if (!brandName || !productName) {
+    const parsedPayload = foodPayloadSchema.safeParse(await req.json());
+    if (!parsedPayload.success) {
       return NextResponse.json(
-        { error: "브랜드와 제품명은 필수입니다." },
+        { error: "요청 형식이 올바르지 않습니다." },
         { status: 400 },
       );
     }
 
+    const payload = parsedPayload.data;
+    const cookingMethod = payload.cooking_method ?? null;
+    const suppliedAshSource = payload.nutrient_sources.ash_pct ?? null;
+    const resolvedAsh = resolveAsh(
+      payload.ash_pct,
+      suppliedAshSource,
+      cookingMethod,
+    );
     const nutrients = {
-      protein_pct: payload.protein_pct,
-      fat_pct: payload.fat_pct,
-      fiber_pct: payload.fiber_pct,
-      ash_pct: payload.ash_pct,
-      moisture_pct: payload.moisture_pct,
-      calcium_pct: payload.calcium_pct,
-      phosphorus_pct: payload.phosphorus_pct,
-      kcal_per_kg: payload.kcal_per_kg,
+      protein_pct: payload.protein_pct ?? null,
+      fat_pct: payload.fat_pct ?? null,
+      fiber_pct: payload.fiber_pct ?? null,
+      ash_pct: resolvedAsh.value,
+      moisture_pct: payload.moisture_pct ?? null,
+      calcium_pct: payload.calcium_pct ?? null,
+      phosphorus_pct: payload.phosphorus_pct ?? null,
+      kcal_per_kg: payload.kcal_per_kg ?? null,
     };
+    const missingSources = missingNutrientSources(
+      nutrients,
+      payload.nutrient_sources,
+    );
+    if (missingSources.length > 0) {
+      return NextResponse.json(
+        { error: `출처가 없는 성분값: ${missingSources.join(", ")}` },
+        { status: 400 },
+      );
+    }
+
     const derived = computeDerived(
       nutrients,
-      payload.cooking_method ?? null,
-      (payload.nutrient_sources?.ash_pct as Source | undefined) ?? null,
+      cookingMethod,
+      suppliedAshSource,
       payload.mfg_energy,
     );
     const errors = validate(nutrients, derived).filter(
@@ -82,39 +122,40 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const nutrientSources = derivedNutrientSources(
+      payload.nutrient_sources,
+      resolvedAsh.estimated,
+      derived,
+      payload.mfg_energy,
+    );
     const supabase = createAdminClient();
-    const brand = await findOrCreateBrand(supabase, brandName);
-    const flags = payload.flags ?? {};
+    const brand = await findOrCreateBrand(supabase, payload.brand);
+    const flags = payload.flags;
 
     const { data, error } = await supabase
       .from("foods")
       .insert({
         brand_id: brand.id,
-        product_name: productName,
-        cooking_method: payload.cooking_method ?? null,
+        product_name: payload.product_name,
+        cooking_method: cookingMethod,
         ...nutrients,
         carb_pct: derived.carb_pct,
         carb_is_estimated: derived.carb_is_estimated,
         energy_p_pct: derived.energy_p_pct,
         energy_f_pct: derived.energy_f_pct,
         energy_c_pct: derived.energy_c_pct,
-        nutrient_sources: {
-          ...(payload.nutrient_sources ?? {}),
-          ...(derived.carb_pct !== null
-            ? { carb_pct: derived.carb_is_estimated ? "estimated" : "derived" }
-            : {}),
-        },
-        ingredients: Array.isArray(payload.ingredients)
-          ? payload.ingredients
-          : [],
-        grain_free: !!flags.grain_free,
-        meal_free: !!flags.meal_free,
-        has_probiotics: !!flags.has_probiotics,
-        has_cranberry: !!flags.has_cranberry,
-        has_yucca: !!flags.has_yucca,
+        nutrient_sources: nutrientSources,
+        ingredients: payload.ingredients,
+        grain_free: flags.grain_free ?? false,
+        meal_free: flags.meal_free ?? false,
+        has_probiotics: flags.has_probiotics ?? false,
+        has_cranberry: flags.has_cranberry ?? false,
+        has_yucca: flags.has_yucca ?? false,
         manufacturer_url: payload.manufacturer_url ?? null,
         kr_label_source: payload.kr_label_source ?? null,
-        data_verified_at: new Date().toISOString(),
+        source_conflicts: payload.source_conflicts,
+        data_verified_at:
+          authorization.origin === "human" ? new Date().toISOString() : null,
       })
       .select("id, product_name, brand_id")
       .single();
@@ -124,10 +165,54 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ food: data });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+  } catch (error: unknown) {
+    if (error instanceof SyntaxError) {
+      return NextResponse.json(
+        { error: "요청 JSON 형식이 올바르지 않습니다." },
+        { status: 400 },
+      );
+    }
+    const message =
+      error instanceof Error ? error.message : "카탈로그 저장 실패";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+function missingNutrientSources(
+  nutrients: Record<string, number | null>,
+  nutrientSources: Record<string, Source>,
+): readonly string[] {
+  return NUTRIENT_FIELDS.flatMap(([key, label]) =>
+    nutrients[key] !== null && !nutrientSources[key] ? [label] : [],
+  );
+}
+
+function derivedNutrientSources(
+  suppliedSources: Record<string, Source>,
+  ashIsEstimated: boolean,
+  derived: ReturnType<typeof computeDerived>,
+  mfgEnergy: FoodPayload["mfg_energy"],
+): Record<string, Source> {
+  const nutrientSources = { ...suppliedSources };
+  if (ashIsEstimated) nutrientSources.ash_pct = "estimated";
+  if (derived.carb_pct !== null) {
+    nutrientSources.carb_pct = derived.carb_is_estimated
+      ? "estimated"
+      : "derived";
+  }
+
+  const hasManufacturerEnergy =
+    mfgEnergy !== undefined &&
+    mfgEnergy.p !== null &&
+    mfgEnergy.f !== null &&
+    mfgEnergy.c !== null;
+  if (derived.energy_p_pct !== null) {
+    const source = hasManufacturerEnergy ? "manufacturer" : "derived";
+    nutrientSources.energy_p_pct = source;
+    nutrientSources.energy_f_pct = source;
+    nutrientSources.energy_c_pct = source;
+  }
+  return nutrientSources;
 }
 
 async function findOrCreateBrand(

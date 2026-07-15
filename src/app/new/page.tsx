@@ -111,6 +111,9 @@ export default function NewFoodPage() {
     [nutrientValues, derived],
   );
   const hasError = flags.some((f) => f.level === "error");
+  const hasMissingSource = NUTRIENT_FIELDS.some(
+    ([key]) => nutrients[key].value && !nutrients[key].source,
+  );
   const energyFromMfg = !!(
     mfgEnergy &&
     mfgEnergy.p !== null &&
@@ -212,31 +215,28 @@ export default function NewFoodPage() {
           k === "ash_pct" ? resolvedAsh.value : num(nutrients[k].value),
         ]),
       ),
-      carb_pct: derived.carb_pct,
-      carb_is_estimated: derived.carb_is_estimated,
-      energy_p_pct: derived.energy_p_pct,
-      energy_f_pct: derived.energy_f_pct,
-      energy_c_pct: derived.energy_c_pct,
-      ca_p_ratio: derived.ca_p_ratio,
       mfg_energy: mfgEnergy,
       nutrient_sources: sources,
       ingredients,
       flags: featureFlags,
       source_conflicts: conflicts,
-      data_verified_at: new Date().toISOString(),
     };
 
-    const response = await fetch("/api/foods", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await response.json();
-    if (!response.ok) {
-      setErr(data.error ?? "저장 실패");
-      return;
+    try {
+      const response = await fetch("/api/foods", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setErr(data.error ?? "저장 실패");
+        return;
+      }
+      setSaved(data);
+    } catch {
+      setErr("저장 요청에 실패했습니다. 네트워크를 확인해 주세요.");
     }
-    setSaved(data);
   }
 
   return (
@@ -431,8 +431,14 @@ export default function NewFoodPage() {
             </div>
           )}
 
-          <button className="save" onClick={save} disabled={hasError}>
-            {hasError ? "오류 해결 후 저장" : "✓ 검증 완료 · 저장"}
+          <button
+            className="save"
+            onClick={save}
+            disabled={hasError || hasMissingSource}
+          >
+            {hasError || hasMissingSource
+              ? "오류 해결 후 저장"
+              : "✓ 검증 완료 · 저장"}
           </button>
         </section>
       )}

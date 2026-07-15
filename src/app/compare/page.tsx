@@ -3,8 +3,6 @@ import type { Route } from "next";
 import { getComparisonFoods, getFoods } from "@/lib/catalog";
 import { formatKcal, formatPct } from "@/lib/format";
 
-export const revalidate = 3600;
-
 export default async function ComparePage({
   searchParams,
 }: {

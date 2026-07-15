@@ -1,7 +1,20 @@
 // 도메인 로직 — 서버/클라이언트 공용. BLUEPRINT "핵심 도메인 규칙" 구현.
 
-export type Source = "manufacturer" | "kr_label" | "estimated" | "derived";
-export type CookingMethod = "extrusion" | "baked" | "freeze_dried" | "dried";
+export const SOURCE_VALUES = [
+  "manufacturer",
+  "kr_label",
+  "estimated",
+  "derived",
+] as const;
+export type Source = (typeof SOURCE_VALUES)[number];
+
+export const COOKING_METHOD_VALUES = [
+  "extrusion",
+  "baked",
+  "freeze_dried",
+  "dried",
+] as const;
+export type CookingMethod = (typeof COOKING_METHOD_VALUES)[number];
 
 export const NUTRIENT_FIELDS = [
   ["protein_pct", "조단백 Crude Protein"],
@@ -111,7 +124,7 @@ export function computeDerived(
   }
 
   let caP: number | null = null;
-  if (ca !== null && ca > 0 && ph !== null) caP = round(ph / ca, 3);
+  if (ca !== null && ph !== null && ph > 0) caP = round(ca / ph, 3);
 
   return {
     carb_pct: carb,
@@ -160,8 +173,8 @@ export function validate(n: NutrientInput, d: Derived): Flag[] {
       level: "warn",
       msg: `탄수화물 ${d.carb_pct}%${d.carb_is_estimated ? " (추정)" : ""} (35% 초과)`,
     });
-  if (d.ca_p_ratio !== null && d.ca_p_ratio > 1.0)
-    flags.push({ level: "warn", msg: `Ca:P 역전 (P/Ca=${d.ca_p_ratio})` });
+  if (d.ca_p_ratio !== null && d.ca_p_ratio < 1.0)
+    flags.push({ level: "warn", msg: `Ca:P 역전 (Ca:P=${d.ca_p_ratio})` });
   return flags;
 }
 
@@ -192,11 +205,11 @@ const CONFLICT_PATTERNS: Record<NutrientKey, RegExp[]> = {
   ],
   phosphorus_pct: [
     /phosphorus[^\d]{0,30}(\d+(?:\.\d+)?)/i,
-    /(?:인|phosphorus)[^\d]{0,30}(\d+(?:\.\d+)?)/i,
+    /(?:^|\s|[,:])인\s*[:：]?[\s]*(\d+(?:\.\d+)?)/i,
   ],
   kcal_per_kg: [
-    /(\d{3,4}(?:\.\d+)?)\s*kcal\s*\/\s*kg/i,
-    /(\d{3,4}(?:\.\d+)?)\s*kcal\s*\/?\s*kg/i,
+    /(\d{1,2}(?:,\d{3})+|\d{3,4})(?:\.\d+)?\s*kcal\s*\/\s*kg/i,
+    /(\d{1,2}(?:,\d{3})+|\d{3,4})(?:\.\d+)?\s*kcal\s*\/?\s*kg/i,
   ],
 };
 
@@ -211,7 +224,7 @@ export function extractNutrientHints(
     for (const pattern of patterns) {
       const match = text.match(pattern);
       if (!match?.[1]) continue;
-      hints[key] = parseFloat(match[1]);
+      hints[key] = parseFloat(match[1].replace(/,/g, ""));
       break;
     }
   }
@@ -249,10 +262,4 @@ export function parseManufacturerEnergy(
   const f = grab("fat");
   if (p === null && f === null && c === null) return null;
   return { p, f, c };
-}
-
-// 제조사 원문에서 kcal/kg 추출
-export function parseKcal(text: string): number | null {
-  const m = text.match(/(\d{3,4}(?:\.\d+)?)\s*kcal\s*\/\s*kg/i);
-  return m ? parseFloat(m[1]) : null;
 }

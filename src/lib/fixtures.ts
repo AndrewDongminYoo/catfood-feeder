@@ -46,7 +46,7 @@ export const SAMPLE_FOODS: FoodWithBrand[] = [
     energy_p_pct: 37,
     energy_f_pct: 40,
     energy_c_pct: 23,
-    ca_p_ratio: 0.684,
+    ca_p_ratio: 1.462,
     nutrient_sources: {
       protein_pct: "manufacturer",
       fat_pct: "manufacturer",
