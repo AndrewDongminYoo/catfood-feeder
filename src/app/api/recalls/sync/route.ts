@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type OpenFdaRecall = {
@@ -26,14 +27,20 @@ export async function POST(req: NextRequest) {
 async function syncRecalls(req: NextRequest) {
   const configuredSecret = process.env.CRON_SECRET;
   const auth = req.headers.get("authorization");
-  if (configuredSecret && auth !== `Bearer ${configuredSecret}`) {
+  if (!configuredSecret) {
+    return NextResponse.json(
+      { error: "CRON_SECRET is not configured." },
+      { status: 503 },
+    );
+  }
+  if (auth !== `Bearer ${configuredSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const response = await fetch(
       `${OPENFDA_ENDPOINT}?sort=report_date:desc&limit=100`,
-      { next: { revalidate: 60 * 60 * 24 * 7 } },
+      { cache: "no-store" },
     );
 
     if (!response.ok) {
@@ -52,14 +59,30 @@ async function syncRecalls(req: NextRequest) {
       .select("id, name");
     if (brandError) throw new Error(brandError.message);
 
-    const records = results.map((recall) => {
-      const externalId = recall.event_id ?? recall.recall_number ?? null;
-      return {
+    const recordsByExternalId = new Map<
+      string,
+      {
+        brand_id: number | null;
+        source: string;
+        source_url: string;
+        external_id: string;
+        recalling_firm: string | null;
+        reason: string | null;
+        classification: string | null;
+        affected_lots: string | null;
+        recall_date: string | null;
+        region: string;
+      }
+    >();
+    for (const recall of results) {
+      const externalId = recallExternalId(recall);
+      if (!externalId) continue;
+      recordsByExternalId.set(externalId, {
         brand_id: matchBrandId(brands ?? [], recall),
         source: "openFDA",
-        source_url: externalId
-          ? `${OPENFDA_ENDPOINT}?search=event_id:${encodeURIComponent(externalId)}`
-          : OPENFDA_ENDPOINT,
+        source_url: recall.event_id
+          ? `${OPENFDA_ENDPOINT}?search=event_id:${encodeURIComponent(recall.event_id)}`
+          : `${OPENFDA_ENDPOINT}?search=recall_number:${encodeURIComponent(recall.recall_number ?? "")}`,
         external_id: externalId,
         recalling_firm: recall.recalling_firm ?? null,
         reason: recall.reason_for_recall ?? null,
@@ -67,11 +90,13 @@ async function syncRecalls(req: NextRequest) {
         affected_lots: recall.code_info ?? null,
         recall_date: toDate(recall.report_date),
         region: "US",
-      };
-    });
+      });
+    }
+    const records = [...recordsByExternalId.values()];
+    const skipped = results.length - records.length;
 
     if (records.length === 0) {
-      return NextResponse.json({ inserted: 0, skipped: 0 });
+      return NextResponse.json({ inserted: 0, skipped });
     }
 
     const { error } = await supabase
@@ -80,11 +105,23 @@ async function syncRecalls(req: NextRequest) {
 
     if (error) throw new Error(error.message);
 
-    return NextResponse.json({ inserted: records.length, skipped: 0 });
+    return NextResponse.json({ inserted: records.length, skipped });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+function recallExternalId(recall: OpenFdaRecall): string | null {
+  if (recall.recall_number) return `recall:${recall.recall_number}`;
+  if (!recall.event_id) return null;
+
+  const productIdentity = [recall.product_description, recall.code_info]
+    .filter(Boolean)
+    .join("\u0000");
+  if (!productIdentity) return null;
+  const digest = createHash("sha256").update(productIdentity).digest("hex");
+  return `event:${recall.event_id}:${digest}`;
 }
 
 function isPetFoodRecall(recall: OpenFdaRecall) {
