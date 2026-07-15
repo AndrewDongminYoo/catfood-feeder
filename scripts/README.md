@@ -14,7 +14,8 @@ node --env-file=.env.local scripts/ingest-petfriends.mjs --dry   # preview, no w
 node --env-file=.env.local scripts/ingest-petfriends.mjs         # ingest
 ```
 
-Idempotent on `(source, external_id)` once migration `0003_foods_external_source.sql` is applied; until then it dedups by `(brand_id, product_name)`, which collapses same-name listings.
+Requires migration `0003_foods_external_source.sql` and is idempotent on `(source, external_id)`.
+Rows created by the pre-0003 fallback have NULL identifiers and are skipped rather than guessed into a new source identity.
 
 ## Phase B — `research-enrich.mjs` (research agent)
 
@@ -26,9 +27,11 @@ Derived values (NFE carb, P/F/C energy ratios) stay in `src/lib/domain.ts` and a
 node --env-file=.env.local scripts/research-enrich.mjs --name "오리젠"      # dry, 1 row
 node --env-file=.env.local scripts/research-enrich.mjs --limit 3            # dry, sample
 node --env-file=.env.local scripts/research-enrich.mjs --id 42 --write      # persist draft
+node --env-file=.env.local scripts/research-enrich.mjs --retry --write      # retry previously attempted drafts
 ```
 
 Default is dry-run; `--write` is required to persist.
+`--limit` and `--concurrency` require a positive integer.
 
 ## Reference data — `수입사료정리 - DB.csv`
 

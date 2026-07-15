@@ -24,10 +24,11 @@ const flag = (k) => {
   return i >= 0 ? (args[i + 1] ?? "") : null;
 };
 const WRITE = args.includes("--write");
+const RETRY = args.includes("--retry");
 const NAME = flag("--name");
 const ID = flag("--id");
-const LIMIT = parseInt(flag("--limit") ?? "1", 10);
-const CONCURRENCY = Math.max(1, parseInt(flag("--concurrency") ?? "5", 10));
+const LIMIT = positiveIntegerFlag("--limit", 1);
+const CONCURRENCY = positiveIntegerFlag("--concurrency", 5);
 const MODEL = "claude-sonnet-4-6"; // /api/extract와 동일 tier (고볼륨 추출에 적합)
 
 // 자기참조 방지: 기존 큐레이션 CSV(수입사료 DB)의 2020년 출처 블로그를 검색에서 제외한다.
@@ -55,6 +56,13 @@ const NUTRIENT_KEYS = [
   "calcium_pct",
   "phosphorus_pct",
   "kcal_per_kg",
+];
+const GUARANTEED_ANALYSIS_KEYS = [
+  "protein_pct",
+  "fat_pct",
+  "fiber_pct",
+  "ash_pct",
+  "moisture_pct",
 ];
 
 const SCHEMA = `{
@@ -149,10 +157,14 @@ async function research(brand, productName, weightKg) {
 // ── 대상 선택 ──────────────────────────────────────────────────
 let q = supabase
   .from("foods")
-  .select("id, product_name, weight_kg, brand_id, brands:brand_id (name)")
-  .is("protein_pct", null); // 스켈레톤(미입력)만
+  .select(
+    "id, product_name, weight_kg, brand_id, cooking_method, nutrient_sources, protein_pct, fat_pct, fiber_pct, ash_pct, moisture_pct, calcium_pct, phosphorus_pct, kcal_per_kg, brands:brand_id (name)",
+  )
+  .is("protein_pct", null)
+  .is("data_verified_at", null);
 if (ID) q = q.eq("id", Number(ID));
 else if (NAME) q = q.ilike("product_name", `%${NAME}%`);
+if (!RETRY && !ID) q = q.is("research_attempted_at", null);
 q = q.limit(LIMIT);
 
 const { data: targets, error } = await q;
@@ -175,7 +187,9 @@ async function processOne(f) {
   const lines = [`▶ [${f.id}] ${brand} — ${f.product_name}`];
   try {
     const r = await research(brand, f.product_name, f.weight_kg);
-    const found = NUTRIENT_KEYS.filter((k) => r.nutrients?.[k]?.value != null);
+    const found = NUTRIENT_KEYS.filter((k) =>
+      isEvidenceBacked(r.nutrients?.[k]),
+    );
     lines.push(
       `  추출: ${found.map((k) => `${k}=${r.nutrients[k].value}(${r.nutrients[k].source})`).join(", ") || "(근거 있는 값 없음)"}`,
     );
@@ -187,22 +201,47 @@ async function processOne(f) {
           .slice(0, 200)}`,
       );
 
-    if (WRITE && found.length) {
-      const patch = { nutrient_sources: {} };
-      for (const k of found) {
-        patch[k] = r.nutrients[k].value;
-        patch.nutrient_sources[k] = r.nutrients[k].source;
+    const writable = found.filter((k) => f[k] == null);
+    const nextNutrients = { ...f };
+    for (const k of writable) nextNutrients[k] = r.nutrients[k].value;
+    const invalidGuaranteedAnalysis =
+      exceedsGuaranteedAnalysisLimit(nextNutrients);
+    if (invalidGuaranteedAnalysis) {
+      lines.push("  ✗ 보장성분 합계가 100%를 초과해 DRAFT를 기록하지 않음");
+    }
+
+    if (WRITE) {
+      const patch = {
+        nutrient_sources: existingNutrientSources(f.nutrient_sources),
+        research_attempted_at: new Date().toISOString(),
+        research_last_result: invalidGuaranteedAnalysis
+          ? "invalid"
+          : writable.length
+            ? "written"
+            : "no_evidence",
+      };
+      if (!invalidGuaranteedAnalysis) {
+        for (const k of writable) {
+          patch[k] = r.nutrients[k].value;
+          patch.nutrient_sources[k] = r.nutrients[k].source;
+        }
+        if (r.cooking_method && !f.cooking_method)
+          patch.cooking_method = r.cooking_method;
       }
-      if (r.cooking_method) patch.cooking_method = r.cooking_method;
-      // data_verified_at은 일부러 건드리지 않는다(기계 추출 = 미검증 DRAFT).
       const { error: ue } = await supabase
         .from("foods")
         .update(patch)
         .eq("id", f.id);
       if (ue) throw ue;
-      lines.push(`  → DRAFT 기록 (data_verified_at은 null 유지)`);
+      lines.push(
+        invalidGuaranteedAnalysis
+          ? "  → 재시도 상태 기록 (invalid)"
+          : writable.length
+            ? "  → DRAFT 기록 (data_verified_at은 null 유지)"
+            : "  → 재시도 상태 기록 (no_evidence)",
+      );
       console.log(lines.join("\n"));
-      return "written";
+      return patch.research_last_result;
     }
     console.log(lines.join("\n"));
     return found.length ? "found" : "no-evidence";
@@ -220,6 +259,40 @@ async function processOne(f) {
     console.log(lines.join("\n"));
     return "error";
   }
+}
+
+function positiveIntegerFlag(name, fallback) {
+  const raw = flag(name);
+  if (raw === null) return fallback;
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < 1) {
+    console.error(`${name}에는 1 이상의 정수를 입력해야 합니다.`);
+    process.exit(1);
+  }
+  return value;
+}
+
+function isEvidenceBacked(cell) {
+  return (
+    Number.isFinite(cell?.value) &&
+    typeof cell.evidence === "string" &&
+    cell.evidence.trim().length > 0 &&
+    (cell.source === "manufacturer" || cell.source === "kr_label")
+  );
+}
+
+function existingNutrientSources(value) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? { ...value }
+    : {};
+}
+
+function exceedsGuaranteedAnalysisLimit(nutrients) {
+  const sum = GUARANTEED_ANALYSIS_KEYS.reduce((total, key) => {
+    const value = nutrients[key];
+    return Number.isFinite(value) ? total + value : total;
+  }, 0);
+  return sum > 100;
 }
 
 // 제한된 동시성 풀
