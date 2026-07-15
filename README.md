@@ -43,9 +43,9 @@ src/app/feeding/         급여 기록/교체 인사이트
 ## 배포 (Vercel)
 
 1. GitHub 푸시 → Vercel 임포트.
-2. 환경변수 설정(`ANTHROPIC_API_KEY`, Supabase 키 3종).
-3. Supabase에서 `supabase/0001_init.sql` 실행.
-4. `save()`의 주석대로 `/api/foods` 라우트를 추가해 service_role로 insert 연결.
+2. 환경변수 설정(`ANTHROPIC_API_KEY`, Supabase 키, `ADMIN_EMAILS`, `ADMIN_WRITE_SECRET`, `CRON_SECRET`).
+3. Supabase CLI로 `supabase/migrations/`의 모든 마이그레이션 적용.
+4. 스케줄러가 `/api/recalls/sync`를 호출할 때 `Authorization: Bearer $CRON_SECRET` 헤더를 설정.
 
 ## 보류 범위
 

@@ -50,7 +50,7 @@
 - [x] `brands` (수입사 nullable, 변경 잦음) / `foods` / `prices`(보류) / `recalls` 스키마 마이그레이션 SQL 작성
 - [x] `foods`: 핵심 필터 수치(protein/fat/fiber/ash/moisture/Ca/P/kcal)는 평탄 numeric 컬럼
 - [x] `carb_pct`는 generated stored 해제 → 일반 컬럼(회분 유무로 계산 가능 여부 갈림) + `carb_is_estimated boolean`
-- [x] `ca_p_ratio`만 generated stored 유지 (phosphorus/calcium, 단 calcium>0)
+- [x] `ca_p_ratio`만 generated stored 유지 (calcium/phosphorus, 단 phosphorus>0)
 - [x] `nutrient_sources jsonb` 컬럼: 항목별 출처 메타 {protein_pct:"manufacturer", ash_pct:"kr_label", ...}
 - [x] `ingredients jsonb`: [{name, pct, type:"meat"|"fish"|"plant"|"other"}]
 - [x] `cooking_method` enum(extrusion/baked/freeze_dried/dried) — 회분 추정 허용 여부 결정에 사용

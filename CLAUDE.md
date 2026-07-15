@@ -16,7 +16,7 @@ The app has two halves: an **admin input tool** (`/new`) that extracts label tex
 pnpm dev          # local dev — uses --webpack ON PURPOSE (see below), http://localhost:3000
 pnpm build        # next build (Turbopack — unaffected by the dev hang)
 pnpm start        # production server
-pnpm lint         # next lint
+pnpm lint         # eslint .
 pnpm typecheck    # tsc --noEmit
 pnpm exec knip    # find unused files/exports/deps
 trunk check       # markdownlint, prettier, yamllint, trufflehog, checkov (pre-push gate)
@@ -53,7 +53,10 @@ Three clients, picked by trust level — do not interchange them:
 - `client.ts` — browser client, same anon key.
 - `admin.ts` (`createAdminClient`) — **service-role key, bypasses RLS**. Only for privileged writes (`/api/foods` inserting catalog data, `/api/recalls/sync`). Never import into client components.
 
-**Auth is enforced per-API-route** via `supabase.auth.getUser()`, not by a root middleware. `src/lib/supabase/middleware.ts` (`updateSession`) exists but is **not wired to a `middleware.ts`** — pages are not gated. `/api/foods` accepts either an authenticated user OR an `x-admin-secret` header matching `ADMIN_WRITE_SECRET`.
+`src/proxy.ts` wires `updateSession` and redirects unauthenticated `/new` requests to login while preserving the original path.
+API routes enforce their own authorization as well.
+`/api/foods` accepts only a session email in `ADMIN_EMAILS` or an `x-admin-secret` matching `ADMIN_WRITE_SECRET`.
+`/api/extract` accepts only an allowlisted human session and consumes a database-backed quota before calling Claude.
 
 ### Data access & graceful degradation (`src/lib/catalog.ts`, `feeding.ts`)
 
@@ -72,7 +75,9 @@ Three clients, picked by trust level — do not interchange them:
 
 ### Recalls sync
 
-`/api/recalls/sync` pulls openFDA Food Enforcement, filters to pet-food entries, loosely matches `recalling_firm` to brands, and upserts on `(source, external_id)`. Scheduled weekly by `vercel.json` cron; protected by `CRON_SECRET` (Bearer header) when set. Korean recall data is intentionally not synced (no confirmed public API — see `docs/notes/`).
+`/api/recalls/sync` pulls openFDA Food Enforcement, filters to pet-food entries, loosely matches `recalling_firm` to brands, and upserts on `(source, external_id)`.
+Scheduled weekly by `vercel.json` cron and always protected by `CRON_SECRET` in the Bearer header.
+Korean recall data is intentionally not synced (no confirmed public API — see `docs/notes/`).
 
 ## Conventions
 
