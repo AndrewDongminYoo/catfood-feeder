@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { ExtractedEvidence } from "./source-extraction";
 import type {
   SourceCaptureMethod,
   SourceFetchStatus,
@@ -99,6 +100,53 @@ export async function replaceCurrentFoodSource(
     );
 
   return data.id;
+}
+
+export async function getCurrentFetchedFoodSources(
+  foodId: number,
+  sourceIds: readonly number[],
+) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("food_sources")
+    .select("id, kind, captured_text")
+    .eq("food_id", foodId)
+    .eq("is_current", true)
+    .eq("fetch_status", "fetched")
+    .in("id", sourceIds);
+
+  if (error)
+    throw new SourceRepositoryError("get_current_sources", error.message);
+  return (data ?? []).flatMap((source) =>
+    source.captured_text &&
+    (source.kind === "manufacturer" || source.kind === "kr_label")
+      ? [
+          {
+            capturedText: source.captured_text,
+            id: source.id,
+            kind: source.kind,
+          },
+        ]
+      : [],
+  );
+}
+
+export async function applyFoodEvidenceDraft(
+  foodId: number,
+  evidence: readonly ExtractedEvidence[],
+): Promise<void> {
+  const supabase = createAdminClient();
+  const { error } = await supabase.rpc("apply_food_evidence_draft", {
+    p_evidence: evidence.map((candidate) => ({
+      excerpt: candidate.excerpt,
+      nutrient_key: candidate.nutrientKey,
+      source_id: candidate.sourceId,
+      value: candidate.value,
+    })),
+    p_food_id: foodId,
+  });
+  if (error)
+    throw new SourceRepositoryError("apply_food_evidence", error.message);
 }
 
 function toSourceInsert(source: SourceWrite, isCurrent: boolean) {
