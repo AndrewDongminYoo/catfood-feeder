@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 export type CuratorAuthorization =
   | {
       readonly kind: "authorized";
+      readonly actorId: string | null;
       readonly origin: "human" | "automation";
       readonly rateLimitKey: string;
     }
@@ -19,6 +20,7 @@ export async function authorizeCurator(
   if (hasMatchingAdminSecret(request)) {
     return {
       kind: "authorized",
+      actorId: null,
       origin: "automation",
       rateLimitKey: "automation",
     };
@@ -55,6 +57,7 @@ export async function authorizeCurator(
 
   return {
     kind: "authorized",
+    actorId: user.id,
     origin: "human",
     rateLimitKey: user.id,
   };
