@@ -2,9 +2,23 @@ packages:
   - .
 
 overrides:
+  postcss: ">=8.5.10"
   tldts: 7.4.0
   tldts-core: 7.4.0
 
 allowBuilds:
   msw: true
   sharp: true
+
+minimumReleaseAgeExclude:
+  - "@ai-sdk/anthropic@3.0.97"
+  - "@ai-sdk/gateway@3.0.150"
+  - "@ai-sdk/provider-utils@4.0.39"
+  - "@supabase/auth-js@2.110.5"
+  - "@supabase/functions-js@2.110.5"
+  - "@supabase/postgrest-js@2.110.5"
+  - "@supabase/realtime-js@2.110.5"
+  - "@supabase/ssr@0.12.3"
+  - "@supabase/storage-js@2.110.5"
+  - "@supabase/supabase-js@2.110.5"
+  - ai@6.0.226
