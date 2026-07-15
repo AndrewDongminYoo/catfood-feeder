@@ -3,30 +3,39 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-export function AuthForm() {
+export function AuthForm({
+  next,
+  initialError,
+}: {
+  next?: string;
+  initialError?: string;
+}) {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError ?? null);
   const [loading, setLoading] = useState(false);
 
   async function signIn() {
     setLoading(true);
     setError(null);
     setMessage(null);
-    const supabase = createClient();
-    const origin = window.location.origin;
-    const { error: signInError } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${origin}/auth/callback`,
-      },
-    });
-    setLoading(false);
-    if (signInError) {
-      setError(signInError.message);
-      return;
+    try {
+      const callbackUrl = new URL("/auth/callback", window.location.origin);
+      if (next) callbackUrl.searchParams.set("next", next);
+      const { error: signInError } = await createClient().auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: callbackUrl.toString() },
+      });
+      if (signInError) {
+        setError(signInError.message);
+        return;
+      }
+      setMessage("로그인 링크를 이메일로 보냈습니다.");
+    } catch {
+      setError("로그인 링크를 보내지 못했습니다. 네트워크를 확인해 주세요.");
+    } finally {
+      setLoading(false);
     }
-    setMessage("로그인 링크를 이메일로 보냈습니다.");
   }
 
   return (
