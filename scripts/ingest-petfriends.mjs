@@ -1,7 +1,7 @@
 // Pet Friends 상품 목록(pet-fritends.json) → 건사료 카탈로그 골격 적재.
 //
 // 적재 대상: brands + foods 골격(brand, product_name, weight_kg). 성분(영양)은
-// 채우지 않는다 — 그것은 리서치 에이전트(research-enrich.mjs)가 출처 태깅과 함께
+// 채우지 않는다 — 그것은 사람 큐레이터가 출처 태깅과 함께
 // 별도로 채운다. 가격은 BLUEPRINT의 가격 보류 방침에 따라 적재하지 않는다.
 //
 // 이 파일은 "리서치 워크리스트"를 만든다: 사람이 검증할 성분 데이터의 입력 큐.
