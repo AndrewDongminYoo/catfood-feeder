@@ -244,6 +244,9 @@ export default function NewFoodPage() {
       <header className="hd">
         <h1>사료 성분 입력</h1>
         <p>제조사 + 국내 라벨 → 출처별 구조화 · 검증 후 저장</p>
+        <a className="ghost" href="/new/research">
+          출처 기반 조사
+        </a>
       </header>
 
       <section className="card">
