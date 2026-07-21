@@ -19,6 +19,7 @@
 | Evidence normalization              | `migrations/20260721074238_align_evidence_trim_after_nfkc.sql`             | Applies NFKC, whitespace collapse, and trim in the RPC.                         |
 | Source refresh outcomes             | `migrations/20260721121348_source_refresh_provenance.sql`                  | Returns applied, skipped, and conflict results.                                 |
 | Evidence precision                  | `migrations/20260721131159_compare_evidence_precision.sql`                 | Compares refresh values against exact evidence rather than rounded food fields. |
+| Evidence-only refresh               | `migrations/20260721133137_evidence_only_equal_refresh.sql`                | Keeps equal same-kind refreshes from touching the food row.                     |
 
 ## CONVENTIONS
 

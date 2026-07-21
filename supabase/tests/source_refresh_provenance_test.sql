@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(9);
+SELECT plan(11);
 
 INSERT INTO public.brands (id, name, manufacturer)
 OVERRIDING SYSTEM VALUE
@@ -12,7 +12,8 @@ INSERT INTO public.foods (
   brand_id,
   product_name,
   protein_pct,
-  nutrient_sources
+  nutrient_sources,
+  updated_at
 )
 OVERRIDING SYSTEM VALUE
 VALUES (
@@ -20,7 +21,8 @@ VALUES (
   -91001,
   'identical refresh',
   1.234,
-  '{"protein_pct":"manufacturer"}'::jsonb
+  '{}'::jsonb,
+  '2026-07-21 00:00:00+00'::timestamptz
 );
 
 INSERT INTO public.food_sources (
@@ -144,6 +146,26 @@ SELECT is(
   ),
   -91002::bigint,
   'an identical same-source refresh points current evidence at the new capture'
+);
+
+SELECT is(
+  (
+    SELECT nutrient_sources
+    FROM public.foods
+    WHERE id = -91001
+  ),
+  '{}'::jsonb,
+  'an identical same-source refresh preserves nutrient source tags'
+);
+
+SELECT is(
+  (
+    SELECT updated_at
+    FROM public.foods
+    WHERE id = -91001
+  ),
+  '2026-07-21 00:00:00+00'::timestamptz,
+  'an identical same-source refresh does not touch the food timestamp'
 );
 
 UPDATE public.food_sources
