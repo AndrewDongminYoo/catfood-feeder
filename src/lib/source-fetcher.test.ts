@@ -31,6 +31,7 @@ describe("captureSource", () => {
     ["NAT64", "64:ff9b::7f00:1"],
     ["Teredo", "2001:0:4136:e378:8000:63bf:3fff:fdd2"],
     ["IPv4-compatible", "::127.0.0.1"],
+    ["IPv4-translatable", "::ffff:0:127.0.0.1"],
     ["link-local", "fe80::1"],
     ["unique-local", "fd00::1"],
     ["loopback", "::1"],

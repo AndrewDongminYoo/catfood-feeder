@@ -178,6 +178,15 @@ function isUnsafeIpv6(address: string): boolean {
   if (startsWith(0x20, 0x02)) return isUnsafeIpv4(embeddedIpv4(2)); // 6to4 2002::/16
   if (startsWith(0x00, 0x64, 0xff, 0x9b)) return true; // NAT64 64:ff9b::/96
   if (startsWith(0x20, 0x01, 0x00, 0x00)) return true; // Teredo 2001::/32
+  // ::ffff:0:a.b.c.d (IPv4-translatable) — SIIT 환경에서는 마지막 32비트가 IPv4다.
+  if (
+    bytes.slice(0, 8).every((byte) => byte === 0) &&
+    bytes[8] === 0xff &&
+    bytes[9] === 0xff &&
+    bytes[10] === 0 &&
+    bytes[11] === 0
+  )
+    return isUnsafeIpv4(embeddedIpv4(12));
   // ::ffff:a.b.c.d (IPv4-mapped) 및 ::a.b.c.d (IPv4-compatible)
   if (bytes.slice(0, 10).every((byte) => byte === 0)) {
     if (bytes[10] === 0xff && bytes[11] === 0xff)
