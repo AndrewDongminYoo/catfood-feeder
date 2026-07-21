@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   NUTRIENT_FIELDS,
   computeDerived,
+  detectUnbackedSources,
   resolveAsh,
   validate,
   num,
@@ -81,8 +82,14 @@ export default function NewFoodPage() {
     [nutrientValues, cooking, ashSource, mfgEnergy],
   );
   const flags = useMemo(
-    () => validate(nutrientValues, derived),
-    [nutrientValues, derived],
+    () => [
+      ...validate(nutrientValues, derived),
+      ...detectUnbackedSources(nutrients, {
+        manufacturer: mfgText,
+        krLabel: krText,
+      }),
+    ],
+    [nutrientValues, derived, nutrients, mfgText, krText],
   );
   const hasError = flags.some((f) => f.level === "error");
   const hasMissingSource = NUTRIENT_FIELDS.some(

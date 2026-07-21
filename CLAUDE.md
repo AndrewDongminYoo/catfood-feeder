@@ -33,15 +33,16 @@ The "ACANA Grasslands" case in `src/lib/fixtures.ts` drives `src/lib/fixtures.te
 
 ### Source-tagged nutrient model (the central idea)
 
-A single label never fills a whole row: manufacturer text usually omits ash (회분) and energy; the Korean importer label has them. So **every nutrient value carries a source tag** — `manufacturer | kr_label | estimated | derived` — stored per-field in `foods.nutrient_sources` (JSONB). Measured and estimated values must never be silently mixed. This invariant drives the schema, the extraction prompt, and the UI.
+A single label never fills a whole row, and which half is missing depends on the origin regime. AAFCO labels (North American brands — ACANA) state kcal and the P/F/C energy split but omit ash (회분); EU labels (LEONARDO) state crude ash but usually omit both kcal and the energy split. The Korean importer label fills whichever gap is left, but few importers publish it as text — most put 등록성분량 in a 상세페이지 image, so it typically arrives as a curator transcription (`captureMethod: "manual"` in the source ledger, with the 상세페이지 URL as the reference). So **every nutrient value carries a source tag** — `manufacturer | kr_label | estimated | derived` — stored per-field in `foods.nutrient_sources` (JSONB). Measured and estimated values must never be silently mixed. This invariant drives the schema, the extraction prompt, and the UI.
 
 Three domain rules implemented in `src/lib/domain.ts` (shared server + client):
 
-- **Ash 3-tier fallback** (`resolveAsh`): KR-label measured → if `extrusion`, default `9.0%` (estimated) → otherwise leave null (cannot compute).
+- **Ash 3-tier fallback** (`resolveAsh`): measured (KR label, or an EU manufacturer label) → if `extrusion`, default `9.0%` (estimated) → otherwise leave null (cannot compute). The estimated tier is the common path for AAFCO-origin products whose importer publishes no text label.
 - **P/F/C energy ratio, 2 paths** (`computeDerived`): if the manufacturer states it directly ("X% from protein", parsed by regex in `parseManufacturerEnergy`), use it verbatim; otherwise back-calculate from NFE. NFE carb = `100 − (protein + fat + fiber + ash + moisture)`.
 - **Validation** (`validate`): blocking `error`s are guaranteed-analysis sum > 100 (with a float epsilon — a label summing to exactly 100.0 must pass), negative NFE carb, an impossible `kcal_per_kg`, and a manufacturer-stated P/F/C split that misses 100% by more than 2 points. Low protein / high fat / high carb / inverted Ca:P / unusual kcal are `warn`s. `/api/foods` rejects on any `error`-level flag.
 
 `detectSourceConflicts` flags when manufacturer vs KR-label values disagree beyond tolerance — handled by regex, independent of the LLM.
+`detectUnbackedSources` flags a nutrient tagged `manufacturer` or `kr_label` when that source text was never supplied; `/new` warns but still saves, since a curator transcribing from a 상세페이지 image legitimately has the numbers before the transcript.
 
 ### AI extraction (`src/lib/source-extraction.ts`)
 

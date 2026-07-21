@@ -212,6 +212,44 @@ export function validate(n: NutrientInput, d: Derived): Flag[] {
   return flags;
 }
 
+/**
+ * 원문이 제공되지 않은 출처로 태깅된 성분을 찾는다.
+ *
+ * 프로젝트의 핵심 자산은 "출처 태그가 붙은 검증 데이터"인데, `/new`는 원문 없이도
+ * 태그를 붙일 수 있다. 국내 라벨 원문을 비워둔 채 열량을 `kr_label`로 태깅하면
+ * 근거 없는 값이 실측으로 공개된다. 저장을 막지는 않고 큐레이터에게 보이게만 한다.
+ */
+export function detectUnbackedSources(
+  entries: Partial<
+    Record<NutrientKey, { value: unknown; source: Source | null }>
+  >,
+  texts: { manufacturer: string; krLabel: string },
+): Flag[] {
+  const available: Partial<Record<Source, boolean>> = {
+    manufacturer: texts.manufacturer.trim().length > 0,
+    kr_label: texts.krLabel.trim().length > 0,
+  };
+  const labels: Record<string, string> = {
+    manufacturer: "제조사 원문",
+    kr_label: "국내 라벨 원문",
+  };
+
+  return NUTRIENT_FIELDS.flatMap(([key, label]) => {
+    const entry = entries[key];
+    if (!entry || num(entry.value) === null) return [];
+    const source = entry.source;
+    // estimated·derived는 원문에서 오지 않으므로 대상이 아니다.
+    if (source !== "manufacturer" && source !== "kr_label") return [];
+    if (available[source]) return [];
+    return [
+      {
+        level: "warn" as const,
+        msg: `${label} — ${labels[source]}이 비어 있는데 해당 출처로 표시됨(근거 확인)`,
+      },
+    ];
+  });
+}
+
 const CONFLICT_PATTERNS: Record<NutrientKey, RegExp[]> = {
   protein_pct: [
     /crude\s+protein[^\d]{0,30}(\d+(?:\.\d+)?)/i,

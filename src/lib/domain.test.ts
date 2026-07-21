@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { num, validate, type Derived } from "./domain";
+import { detectUnbackedSources, num, validate, type Derived } from "./domain";
 
 // carb/에너지 경고와 무관하게 합계 분기만 보기 위한 중립값
 const NEUTRAL: Derived = {
@@ -101,5 +101,47 @@ describe("validate 열량·열량비", () => {
       energy_c_pct: 23,
     });
     expect(flags.filter((f) => f.msg.includes("열량비"))).toEqual([]);
+  });
+});
+
+describe("detectUnbackedSources", () => {
+  const texts = { manufacturer: "Crude protein 40%", krLabel: "" };
+
+  it("원문이 없는 출처로 태깅된 값을 경고한다", () => {
+    // 실제 사례: 국내 라벨 원문을 비운 채 열량을 국내라벨로 태깅해 저장됨
+    const flags = detectUnbackedSources(
+      { kcal_per_kg: { value: "4120", source: "kr_label" } },
+      texts,
+    );
+    expect(flags).toHaveLength(1);
+    expect(flags[0].level).toBe("warn");
+    expect(flags[0].msg).toContain("국내 라벨 원문");
+  });
+
+  it("원문이 있는 출처는 경고하지 않는다", () => {
+    expect(
+      detectUnbackedSources(
+        { protein_pct: { value: "40", source: "manufacturer" } },
+        texts,
+      ),
+    ).toEqual([]);
+  });
+
+  it("estimated·derived는 원문에서 오지 않으므로 대상이 아니다", () => {
+    expect(
+      detectUnbackedSources(
+        { ash_pct: { value: "9", source: "estimated" } },
+        texts,
+      ),
+    ).toEqual([]);
+  });
+
+  it("값이 없으면 태그가 있어도 경고하지 않는다", () => {
+    expect(
+      detectUnbackedSources(
+        { kcal_per_kg: { value: "", source: "kr_label" } },
+        texts,
+      ),
+    ).toEqual([]);
   });
 });
