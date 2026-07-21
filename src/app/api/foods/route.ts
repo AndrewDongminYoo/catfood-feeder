@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { authorizeCurator } from "@/lib/admin-auth";
 import {
-  COOKING_METHOD_VALUES,
   NUTRIENT_FIELDS,
-  SOURCE_VALUES,
   computeDerived,
   resolveAsh,
   validate,
@@ -15,54 +12,8 @@ import {
   TRANSCRIPT_JSON_BODY_BYTES,
   readJsonBody,
 } from "@/lib/request-body";
+import { foodPayloadSchema, type FoodPayload } from "@/lib/food-payload";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-const sourceSchema = z.enum(SOURCE_VALUES);
-const finiteNumberSchema = z.number().finite().nullable().optional();
-const sourceConflictSchema = z.object({
-  key: z.string(),
-  label: z.string(),
-  manufacturer: z.number().finite(),
-  kr_label: z.number().finite(),
-});
-const foodPayloadSchema = z
-  .object({
-    brand: z.string().trim().min(1),
-    product_name: z.string().trim().min(1),
-    cooking_method: z.enum(COOKING_METHOD_VALUES).nullable().optional(),
-    protein_pct: finiteNumberSchema,
-    fat_pct: finiteNumberSchema,
-    fiber_pct: finiteNumberSchema,
-    ash_pct: finiteNumberSchema,
-    moisture_pct: finiteNumberSchema,
-    calcium_pct: finiteNumberSchema,
-    phosphorus_pct: finiteNumberSchema,
-    kcal_per_kg: finiteNumberSchema,
-    mfg_energy: z
-      .object({
-        p: z.number().finite().nullable(),
-        f: z.number().finite().nullable(),
-        c: z.number().finite().nullable(),
-      })
-      .optional(),
-    nutrient_sources: z.record(z.string(), sourceSchema).default({}),
-    ingredients: z.array(z.json()).max(200).default([]),
-    flags: z
-      .object({
-        grain_free: z.boolean().optional(),
-        meal_free: z.boolean().optional(),
-        has_probiotics: z.boolean().optional(),
-        has_cranberry: z.boolean().optional(),
-        has_yucca: z.boolean().optional(),
-      })
-      .default({}),
-    manufacturer_url: z.string().url().nullable().optional(),
-    kr_label_source: z.string().url().nullable().optional(),
-    source_conflicts: z.array(sourceConflictSchema).default([]),
-  })
-  .strict();
-
-type FoodPayload = z.infer<typeof foodPayloadSchema>;
 
 export async function POST(req: NextRequest) {
   const authorization = await authorizeCurator(req);

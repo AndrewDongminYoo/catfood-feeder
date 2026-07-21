@@ -59,6 +59,24 @@ Everything below is on branch `fix/audit-2026-07-21`, verified by `pnpm typechec
 
 **Docs** — `CLAUDE.md`, `AGENTS.md`, the spec's two field tables, and the plan checkboxes now match the code.
 
+## Found during live testing (not in the original audit)
+
+**`/api/foods` rejected every product whose manufacturer text lacks an explicit energy split.**
+
+`parseManufacturerEnergy` returns `null` when the text has no "X% from protein" phrasing, `/new` serializes that `null` straight into the payload, and the schema declared `mfg_energy` as `.optional()` — which accepts `undefined`, not `null`. Confirmed by running the real schema:
+
+```log
+parseManufacturerEnergy(LEONARDO label) -> null
+JSON.stringify({ mfg_energy: null })    -> {"mfg_energy":null}
+schema.safeParse: undefined -> true, null -> false, object -> true
+```
+
+The curator saw only `요청 형식이 올바르지 않습니다` with no indication of which field was at fault. The ACANA fixture _does_ carry the phrasing, which is exactly why neither the fixture regression test nor the audit's static reading caught it — the one label the project tests with is the one label that avoids the bug.
+
+Fixed by accepting `null` and normalizing it to `undefined` at the schema boundary. The schema moved to `src/lib/food-payload.ts` so `src/lib/food-payload.test.ts` can pin the contract against the exact payload `/new` builds. `vitest.config.ts` also gained the `@/*` alias, without which any test touching a module that uses `@/` fails to resolve.
+
+This is a reminder that the audit was a static reading. Three parallel reviewers read `/api/foods` in full and none flagged it, because spotting it required knowing what the client actually sends at runtime.
+
 ## Still open
 
 | Item                                                                                     | Why it was not fixed                                                                                                                                                                                                                                                                                                                             |
