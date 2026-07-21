@@ -23,7 +23,7 @@ Everything below is on branch `fix/audit-2026-07-21`, verified by `pnpm typechec
 
 **Trust boundaries**
 
-- Every POST route streams its body through `src/lib/request-body.ts` with an explicit cap; oversize bodies get 413 before being buffered.
+- Every body-consuming POST route streams its body through `src/lib/request-body.ts` with an explicit cap; oversize bodies get 413 before being buffered.
 - `/api/cats` validates with zod like every other write route.
 - `CRON_SECRET` is compared with `timingSafeEqual` via the newly shared `secretsMatch`.
 - Raw Postgres messages are no longer returned to clients; they go to `console.error` instead.
@@ -38,7 +38,7 @@ Everything below is on branch `fix/audit-2026-07-21`, verified by `pnpm typechec
 
 **Verification layer**
 
-- `pnpm test` exists and collects only `src/**/*.test.ts`; the suite went from collecting 191 vendor failures to 8 passing files / 52 tests.
+- `pnpm test` exists and collects `src/**/*.test.{ts,tsx}`; the current suite went from collecting 191 vendor failures to 8 passing TypeScript files / 52 tests.
 - `src/lib/fixtures.test.ts` makes the ACANA case drive real domain math, so the "regression check" claim is now true.
 - `src/lib/source-first-boundary.test.ts` fails if the autonomous-enrichment script returns or a second Anthropic caller appears.
 - `knip.json` and `eslint.config.mjs` exclude `.trunk`/`.remember` correctly; knip reports clean without being told to ignore live code.
@@ -64,6 +64,7 @@ Everything below is on branch `fix/audit-2026-07-21`, verified by `pnpm typechec
 The manufacturer source was registered, extracted, and applied first with protein 35%, fat 9.5%, fiber 9%, moisture 10%, and 3,200 kcal/kg.
 The manually transcribed KR-label source was then registered and extracted together with the manufacturer source; the second apply succeeded, retained every manufacturer-backed overlap, and added only calcium 0.9% and phosphorus 0.8% from the KR label.
 Supabase verification showed current fetched sources `#3 manufacturer` and `#4 kr_label`, seven current evidence rows linked to the correct source IDs, `ash_pct = NULL`, and `data_verified_at = NULL`.
+This proves the current phase's register → extract → apply path and RPC skip semantics; it is not full acceptance of the deferred transcript-preview, source-status, failed-source, or retry/replace UI requirements.
 
 ## Found during live testing (not in the original audit)
 
@@ -101,6 +102,7 @@ Server-side search or pagination remains preferable when the catalog approaches 
 | Minimum excerpt length                                                                   | `isEvidenceExcerpt` still accepts a two-character excerpt like `"37"`. A safe minimum needs real-label data to calibrate.                                                                                                                                                                                                                        |
 | Ambiguous locale dot separators in `num()`                                               | Ranges and multi-dot values are rejected, but `3.850` remains indistinguishable from decimal 3.85 versus 3850 kcal/kg without field-aware parsing.                                                                                                                                                                                               |
 | `radix-ui` / `lucide-react` / `class-variance-authority` / `shadcn` installed but unused | Removing them presumes shadcn/ui will never be adopted — a product call. `CLAUDE.md` now describes the actual styling instead.                                                                                                                                                                                                                   |
+| Turbopack retest on Next.js 16.2.10                                                      | The webpack fallback was established on 16.2.6. The ADR now records the current version mismatch, but its reversal criteria still require a focused retest before changing the development command.                                                                                                                                              |
 
 ## Original findings (historical snapshot at `e317ecf`)
 
@@ -224,7 +226,7 @@ RLS is correct throughout: `food_sources`, `food_nutrient_evidence` and `extract
 
 ## 8. Documentation drift — historical findings corrected in this branch
 
-`AGENTS.md` still carries `Generated: 2026-07-15 / Commit: 968cf38`, which predates all seven source-first commits; most entries below follow from it never being regenerated.
+At `e317ecf`, `AGENTS.md` carried `Generated: 2026-07-15 / Commit: 968cf38`, which predated all seven source-first commits; most findings below followed from it never being regenerated.
 
 - `CLAUDE.md:28` and `AGENTS.md:91` state there is no test runner. There is: vitest, plus four suites.
 - `CLAUDE.md:46` places the Anthropic call in `api/extract/route.ts`; it moved to `src/lib/source-extraction.ts`. The raw-`fetch`-not-`@ai-sdk` detail is still accurate.
@@ -232,16 +234,10 @@ RLS is correct throughout: `food_sources`, `food_nutrient_evidence` and `extract
 - `CLAUDE.md:9` describes "two halves"; `/new/research` plus four `sources/*` routes are a third surface.
 - `CLAUDE.md:87` claims shadcn/ui with components under `@/components/ui`. No such directory exists and there are zero `radix-ui` / `lucide-react` imports — `DESIGN.md:23` documents the actual hand-rolled `globals.css` classes.
 - `AGENTS.md:36` says scripts default to dry runs; `ingest-petfriends.mjs:19` reads `--dry`, so writing is the default — inverted.
-- `BLUEPRINT.md:31,77` describe SSG; the catalog pages use ISR (`revalidate = 3600`) with no `generateStaticParams`.
-- `BLUEPRINT.md:89` marks the Korean recall API investigation done, but `docs/notes/2026-05-31-korean-recall-data-source.md` is `Status: Open` with four unresolved follow-ups.
-- The turbopack ADR and note pin evidence to Next 16.2.6; `package.json` is now 16.2.10, and the ADR's own reversal criteria require a recorded retest that has not happened.
+- `BLUEPRINT.md:31,77` described SSG; it now records the catalog's ISR behavior (`revalidate = 3600`).
+- `BLUEPRINT.md:89` marked the Korean recall API investigation done while its note said `Status: Open`; the note now distinguishes the completed investigation from the deferred synchronization.
+- The turbopack evidence remains anchored to Next 16.2.6 while `package.json` is 16.2.10. The ADR now states that the workaround remains active until its reversal criteria are rerun, and the retest is listed in **Still open**.
 - The plan now has 34 checked steps and 3 explicitly deferred component-test steps with reasons.
-
-## Unverified
-
-`.env.example` could not be read (permission denied), so `CLAUDE.md:88`'s claim about it is unchecked.
-Code references eight env vars: `ANTHROPIC_API_KEY`, `ADMIN_EMAILS`, `ADMIN_WRITE_SECRET`, `CRON_SECRET`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
-Note two different service-key names are accepted — worth confirming both are documented.
 
 ## Suggested next pass
 

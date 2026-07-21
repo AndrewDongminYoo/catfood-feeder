@@ -17,7 +17,7 @@ pnpm dev          # local dev — uses --webpack ON PURPOSE (see below), http://
 pnpm build        # next build (Turbopack — unaffected by the dev hang)
 pnpm start        # production server
 pnpm lint         # eslint .
-pnpm test         # vitest run (src/**/*.test.ts)
+pnpm test         # vitest run (src/**/*.test.{ts,tsx})
 pnpm typecheck    # tsc --noEmit
 pnpm exec knip    # find unused files/exports/deps
 trunk check       # markdownlint, prettier, yamllint, trufflehog, checkov (pre-push gate)
@@ -26,7 +26,7 @@ trunk fmt         # format
 
 **`pnpm dev` deliberately uses `next dev --webpack`.** Next 16 defaults to Turbopack, which reaches `Ready` but hangs on the first request on this project (build and `next start` are fine). See `docs/specs/dev-server-webpack-fallback-adr.md` for the reversal criteria — do not "fix" this back to plain `next dev` without meeting them.
 
-`pnpm test` runs Vitest over `src/**/*.test.ts`.
+`pnpm test` runs Vitest over `src/**/*.test.{ts,tsx}`.
 The "ACANA Grasslands" case in `src/lib/fixtures.ts` drives `src/lib/fixtures.test.ts` — the fixture's recorded values are asserted against live `computeDerived`/`validate` output, so a change to the domain math fails there.
 
 ## Architecture

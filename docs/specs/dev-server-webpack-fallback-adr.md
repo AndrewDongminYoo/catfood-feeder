@@ -5,7 +5,9 @@ Status: Accepted
 
 ## Context
 
-The project uses Next.js 16.2.6. In this version, `next dev` starts with Turbopack by default. On this project, Turbopack reached the `Ready` state but hung on the first `/` request while CPU usage increased quickly.
+The workaround was accepted after reproducing the issue on Next.js 16.2.6: `next dev` started with Turbopack, reached the `Ready` state, and then hung on the first `/` request while CPU usage increased quickly.
+
+The project now pins Next.js 16.2.10, but the reversal criteria below have not been rerun on that version. The workaround remains active pending that recorded retest.
 
 `pnpm build` is not affected by this issue, and `next dev --webpack` served the app successfully.
 

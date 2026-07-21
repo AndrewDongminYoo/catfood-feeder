@@ -4,6 +4,8 @@
 
 **Goal:** Let a human curator register exact product sources, capture their text safely, extract evidence-backed DRAFT nutrients from only that captured text, and retain source-level audit history.
 
+**Scope decision (2026-07-21):** This phase includes charset-aware capture and extraction retry. Transcript preview, per-source status/history, failed-source listing, retry/replace controls, and their component tests are deferred to a separate curator-workspace PR.
+
 **Architecture:** A new private source ledger stores versioned product-source captures and field-level evidence.
 Curator-only route handlers own URL fetching, LLM extraction, and draft application.
 The existing public `foods` read model remains unchanged and still requires `data_verified_at`.
@@ -492,7 +494,7 @@ Select the food ID, product name, brand name, current sources, and research stat
 
 Require a human curator and never return `captured_text` from this inventory endpoint.
 
-- [x] **Step 4: Implement the research page and client.**
+- [ ] **Step 4: Implement the complete research page and client.** — PARTIAL: source registration, extraction candidates, and explicit DRAFT apply are implemented; transcript preview, per-source status/history, and failed-source controls are deferred by the scope decision above.
 
 Add a visible link from `/new` to `/new/research`.
 
@@ -506,7 +508,7 @@ Do not expose source transcript or evidence on public catalog pages.
 
 Run: `pnpm exec vitest run src/components/source-research-client.test.tsx && pnpm lint && pnpm typecheck`
 
-Then use Playwright against a local authenticated curator session to prove this sequence: select draft, register manual source, review capture, extract candidates, apply DRAFT, and observe no public verification timestamp.
+Then use Playwright against a local authenticated curator session to prove this sequence: select draft, register manual source, review capture, extract candidates, apply DRAFT, and observe no public verification timestamp. The 2026-07-21 smoke test proved every step except the deferred in-UI capture review.
 
 Expected: PASS and the public catalog remains unchanged for the DRAFT food.
 

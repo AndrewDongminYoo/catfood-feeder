@@ -1,8 +1,6 @@
 # PROJECT KNOWLEDGE BASE
 
 **Generated:** 2026-07-21
-**Commit:** e317ecf
-**Branch:** main
 
 ## OVERVIEW
 
@@ -89,7 +87,7 @@ trunk fmt
 
 ## NOTES
 
-- `pnpm test` runs Vitest over `src/**/*.test.ts`; `src/lib/source-first-boundary.test.ts` guards the source-first boundary.
+- `pnpm test` runs Vitest over `src/**/*.test.{ts,tsx}`; `src/lib/source-first-boundary.test.ts` guards the source-first boundary.
 - Regenerate `src/types/supabase.d.ts` with the Supabase CLI after applying migrations; never hand-edit it.
 - Run Supabase migrations through the Supabase CLI against the linked project; do not hand-edit generated database state.
 - The build uses Turbopack, while development deliberately uses webpack.

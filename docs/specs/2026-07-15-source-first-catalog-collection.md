@@ -19,6 +19,12 @@ No LLM request may browse the web or choose a source URL during a catalog write.
 - Preserve the distinction between machine-collected drafts and human-verified catalog data.
 - Retain enough collection history to decide when a product needs refresh.
 
+## Current Phase Scope
+
+The current implementation phase covers source registration, charset-aware capture, extraction retry, evidence validation, and DRAFT apply.
+Transcript preview, per-source status/history, failed-source listing, and retry/replace controls are explicitly deferred to a separate curator-workspace PR.
+Requirements marked **DEFERRED** below remain product requirements, but are not acceptance gates for the current phase.
+
 ## Non-Goals
 
 - This does not automate price collection, Korean recall synchronization, or catalog publication.
@@ -116,7 +122,7 @@ Do not add a food-level `collected_at` field because one food can combine manufa
 2. The server authorizes the curator before fetching any URL.
 3. The fetcher validates the scheme, resolves and rejects private or loopback network destinations, follows only bounded redirects, applies a response-size limit, and uses a request timeout with one retry.
 4. The server stores a normalized transcript, canonical URL, hash, capture method, and capture timestamp in `food_sources`.
-5. The curator can inspect the transcript before requesting extraction.
+5. **DEFERRED:** The curator can inspect the transcript before requesting extraction.
 6. The extraction request sends only selected `food_sources.captured_text` values to the LLM.
 7. The LLM returns candidate values, source kind, source ID, and literal evidence excerpts.
 8. The server verifies that every excerpt appears in the cited captured transcript before inserting `food_nutrient_evidence` and updating missing DRAFT food fields.
@@ -129,7 +135,7 @@ Each source fetch is independent.
 
 A timeout, non-success response, unsupported content type, oversized response, or source mismatch records a failed source attempt and leaves food nutrients unchanged.
 
-The UI must show the failed source and allow a curator to replace its URL or retry it.
+**DEFERRED:** The UI must show the failed source and allow a curator to replace its URL or retry it.
 
 The LLM extraction request has its own timeout and one retry.
 
@@ -159,7 +165,7 @@ The ACANA regression fixture remains a domain-calculation test fixture and is no
 
 ## Acceptance Criteria
 
-- A curator can save an exact source URL and see its capture time and transcript before extraction.
+- **DEFERRED:** A curator can save an exact source URL and see its capture time and transcript before extraction.
 - A stalled source request fails within the configured timeout and does not prevent processing another food.
 - A DRAFT nutrient update has a matching evidence row whose excerpt appears in the retained source transcript.
 - A source URL can be refreshed without invoking web search or modifying unrelated food rows.

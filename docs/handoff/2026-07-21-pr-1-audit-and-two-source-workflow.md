@@ -34,6 +34,7 @@ This proves the updated `apply_food_evidence_draft` behavior on the real authent
 
 The authoritative open list is in [the audit note](../notes/2026-07-21-full-codebase-audit.md#still-open).
 The next product-facing PR should cover the transcript viewer, failed-source list, retry/replace UI, searchable DRAFT picker, and the deferred component test.
+The completed browser smoke test covers the current register → extract → apply phase only; the source-first spec now marks transcript review and per-source failure/retry controls as deferred rather than claiming full workspace acceptance.
 Database follow-ups remain the non-transactional `replaceCurrentFoodSource`, DNS rebinding TOCTOU, minimum excerpt length, and the `food_sources.kind` type mismatch.
 
 ## Verification contract
