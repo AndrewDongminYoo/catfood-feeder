@@ -112,4 +112,26 @@ describe("validateExtractedEvidence", () => {
 
     expect(result).toEqual([]);
   });
+
+  it("drops a negative nutrient before it reaches the evidence RPC", () => {
+    const result = validateExtractedEvidence(
+      [
+        {
+          excerpt: "Crude protein -1%",
+          nutrientKey: "protein_pct",
+          sourceId: 11,
+          value: -1,
+        },
+      ],
+      [
+        {
+          capturedText: "Crude protein -1%",
+          id: 11,
+          kind: "manufacturer",
+        },
+      ],
+    );
+
+    expect(result).toEqual([]);
+  });
 });

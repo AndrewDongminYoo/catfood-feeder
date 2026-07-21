@@ -255,6 +255,7 @@ export function validateExtractedEvidence(
   return candidates.filter((candidate) => {
     if (
       !Number.isFinite(candidate.value) ||
+      candidate.value < 0 ||
       seenNutrients.has(candidate.nutrientKey)
     ) {
       return false;
