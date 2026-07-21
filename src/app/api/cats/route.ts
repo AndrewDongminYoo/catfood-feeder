@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) {
+      console.error("cat insert failed", error);
       return NextResponse.json(
         { error: "고양이 등록에 실패했습니다." },
         { status: 500 },
@@ -70,6 +71,7 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+    console.error("cat insert failed", error);
     return NextResponse.json(
       { error: "고양이 등록에 실패했습니다." },
       { status: 500 },

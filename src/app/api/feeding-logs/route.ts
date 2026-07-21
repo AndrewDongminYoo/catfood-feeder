@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) {
+      console.error("feeding log insert failed", error);
       return NextResponse.json(
         { error: "급여 기록 저장에 실패했습니다." },
         { status: 500 },
@@ -79,6 +80,7 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+    console.error("feeding log insert failed", error);
     return NextResponse.json(
       { error: "급여 기록 저장에 실패했습니다." },
       { status: 500 },
