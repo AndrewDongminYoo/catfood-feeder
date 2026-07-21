@@ -101,12 +101,10 @@ export async function extractCapturedSources(
   if (!apiKey) return { kind: "failure", code: "configuration_error" };
 
   const attempt = await requestExtraction(apiKey, sources);
-  // 일시적 5xx(과부하)나 소켓 오류는 한 번 재시도한다. 큐레이터가 전사본을 다시
-  // 보내는 것보다 싸다. 타임아웃은 이미 30초를 기다렸으므로 재시도하지 않는다.
   const response =
-    attempt.kind === "retryable" || attempt.kind === "error"
-      ? await requestExtraction(apiKey, sources)
-      : attempt;
+    attempt.kind === "response"
+      ? attempt
+      : await requestExtraction(apiKey, sources);
   if (response.kind === "timeout") return { kind: "failure", code: "timeout" };
   if (response.kind !== "response" || !response.response.ok)
     return { kind: "failure", code: "api_error" };
