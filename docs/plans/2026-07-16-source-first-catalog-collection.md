@@ -4,6 +4,8 @@
 
 **Goal:** Let a human curator register exact product sources, capture their text safely, extract evidence-backed DRAFT nutrients from only that captured text, and retain source-level audit history.
 
+**Scope decision (2026-07-21):** This phase includes charset-aware capture and extraction retry. Transcript preview, per-source status/history, failed-source listing, retry/replace controls, and their component tests are deferred to a separate curator-workspace PR.
+
 **Architecture:** A new private source ledger stores versioned product-source captures and field-level evidence.
 Curator-only route handlers own URL fetching, LLM extraction, and draft application.
 The existing public `foods` read model remains unchanged and still requires `data_verified_at`.
@@ -59,7 +61,7 @@ The existing public `foods` read model remains unchanged and still requires `dat
 - Produces: `SourceKind`, `SourceCaptureMethod`, `SourceFetchStatus`, `normalizeSourceText`, `hashSourceText`, `isEvidenceExcerpt`, and `isPublicHttpUrl`.
 - Consumes: no Next.js request objects or Supabase clients.
 
-- [ ] **Step 1: Add a failing source-normalization test.**
+- [x] **Step 1: Add a failing source-normalization test.**
 
 Create `src/lib/source-collection.test.ts` with these cases.
 
@@ -91,13 +93,13 @@ describe("normalizeSourceText", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails because the module is absent.**
+- [x] **Step 2: Run the test to verify it fails because the module is absent.**
 
 Run: `pnpm exec vitest run src/lib/source-collection.test.ts`
 
 Expected: FAIL with a module-resolution error for `./source-collection`.
 
-- [ ] **Step 3: Add Vitest and Cheerio deliberately.**
+- [x] **Step 3: Add Vitest and Cheerio deliberately.**
 
 Run `pnpm add -D vitest` and `pnpm add cheerio`.
 
@@ -105,7 +107,7 @@ Use Cheerio because Node has no browser DOM for reliable HTML-to-text extraction
 
 Regenerate `pnpm-lock.yaml` with the same pnpm install command and include both manifests in this task.
 
-- [ ] **Step 4: Implement the pure source contract.**
+- [x] **Step 4: Implement the pure source contract.**
 
 Implement the following public contract in `src/lib/source-collection.ts`.
 
@@ -129,13 +131,13 @@ Hash normalized text with Node `crypto.createHash("sha256")`.
 
 Accept only `https:` URLs at this pure boundary.
 
-- [ ] **Step 5: Run the focused test and type check.**
+- [x] **Step 5: Run the focused test and type check.**
 
 Run: `pnpm exec vitest run src/lib/source-collection.test.ts && pnpm typecheck`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit the test foundation.**
+- [x] **Step 6: Commit the test foundation.**
 
 Run:
 
@@ -157,19 +159,19 @@ git commit -m "test(collection): add source provenance primitives"
 - Produces: `food_sources`, `food_nutrient_evidence`, and `apply_food_evidence_draft(p_food_id bigint, p_evidence jsonb)`.
 - Consumes: `foods`, `auth.users`, `nutrient_source`, and `foods.nutrient_sources`.
 
-- [ ] **Step 1: Create the migration with the Supabase CLI.**
+- [x] **Step 1: Create the migration with the Supabase CLI.**
 
 Run: `supabase migration new food_source_ledger`
 
 Expected: a timestamped migration file appears under `supabase/migrations/`.
 
-- [ ] **Step 2: Write a failing database verification query.**
+- [x] **Step 2: Write a failing database verification query.**
 
 Before applying the migration, run a linked read-only query that selects `food_sources`.
 
 Expected: PostgreSQL reports that relation `food_sources` does not exist.
 
-- [ ] **Step 3: Implement the ledger schema.**
+- [x] **Step 3: Implement the ledger schema.**
 
 Create `food_sources` with these columns and constraints.
 
@@ -205,9 +207,9 @@ Add a partial unique index allowing one current evidence row for each `(food_id,
 
 Enable RLS on both tables with no `anon` or `authenticated` policies because captured source text and evidence are curator-only.
 
-- [ ] **Step 4: Implement the transactional draft RPC.**
+- [x] **Step 4: Implement the transactional draft RPC.**
 
-Create `apply_food_evidence_draft` as `SECURITY DEFINER`, `SET search_path = public`, and revoke `PUBLIC` execution.
+Create `apply_food_evidence_draft` as `SECURITY DEFINER`, `SET search_path = ''`, schema-qualify every relation, and revoke `PUBLIC` execution.
 
 Grant execution only to `service_role`.
 
@@ -215,11 +217,11 @@ The function receives a JSON array of `{nutrient_key, source_id, value, excerpt}
 
 It must verify that every source belongs to `p_food_id`, is current, and has `fetch_status = 'fetched'`.
 
-It must mark prior current evidence for each supplied nutrient as non-current, insert the new evidence, update only currently null `foods` nutrient columns, merge the corresponding `manufacturer` or `kr_label` category into `foods.nutrient_sources`, and leave `data_verified_at` unchanged.
+It must update only currently null `foods` nutrient columns, then mark prior current evidence as non-current and insert new evidence only for values that were actually written. Already-populated nutrients must leave both their values and provenance untouched so a second source can fill only missing fields. Merge the corresponding `manufacturer` or `kr_label` category into `foods.nutrient_sources`, and leave `data_verified_at` unchanged.
 
 It must reject unsupported nutrient keys, duplicate nutrient keys, non-finite values, source-kind mismatch, and excerpts absent from `food_sources.captured_text` after whitespace-and-case normalization.
 
-- [ ] **Step 5: Apply and verify the migration.**
+- [x] **Step 5: Apply and verify the migration.**
 
 Run:
 
@@ -231,7 +233,7 @@ supabase db advisors
 
 Expected: the migration is listed remotely, the two tables have RLS enabled, and the RPC is not executable by `PUBLIC`, `anon`, or `authenticated`.
 
-- [ ] **Step 6: Regenerate the Supabase TypeScript declaration.**
+- [x] **Step 6: Regenerate the Supabase TypeScript declaration.**
 
 Run the repository’s Supabase type-generation command if configured.
 
@@ -239,7 +241,7 @@ If none exists, update `src/types/supabase.d.ts` from the remote schema output r
 
 Expected: `food_sources`, `food_nutrient_evidence`, and `apply_food_evidence_draft` are present with nullable fields matching the migration.
 
-- [ ] **Step 7: Commit the schema boundary.**
+- [x] **Step 7: Commit the schema boundary.**
 
 Run:
 
@@ -262,7 +264,7 @@ git commit -m "feat(schema): add food source provenance ledger"
 - Produces: `captureSource`, `createFoodSource`, and `POST /api/foods/:id/sources`.
 - Consumes: `SourceKind`, `SourceCaptureMethod`, `food_sources`, `authorizeCurator`, and `createAdminClient`.
 
-- [ ] **Step 1: Write failing fetch-policy tests.**
+- [x] **Step 1: Write failing fetch-policy tests.**
 
 Cover these cases in `src/lib/source-fetcher.test.ts`.
 
@@ -297,13 +299,13 @@ it("returns normalized visible HTML text and a SHA-256 hash", async () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail because `captureSource` is absent.**
+- [x] **Step 2: Run the tests to verify they fail because `captureSource` is absent.**
 
 Run: `pnpm exec vitest run src/lib/source-fetcher.test.ts`
 
 Expected: FAIL with a missing export or module error.
 
-- [ ] **Step 3: Implement server-only capture.**
+- [x] **Step 3: Implement server-only capture.**
 
 Use `dns.promises.lookup` with `{ all: true }` before every requested URL and every redirect target.
 
@@ -315,7 +317,7 @@ Use Cheerio to remove scripts, styles, and hidden text before collecting visible
 
 Return a discriminated `CaptureResult` or `CaptureFailure` rather than throwing expected fetch failures.
 
-- [ ] **Step 4: Implement the repository and source route.**
+- [x] **Step 4: Implement the repository and source route.**
 
 Accept this request body.
 
@@ -339,13 +341,13 @@ Insert a failed source row for expected capture failures and return Korean error
 
 For success, set prior current sources of the same food and kind to `is_current = false`, insert the new current source, and return the captured transcript and metadata.
 
-- [ ] **Step 5: Run focused tests and static checks.**
+- [x] **Step 5: Run focused tests and static checks.**
 
 Run: `pnpm exec vitest run src/lib/source-collection.test.ts src/lib/source-fetcher.test.ts && pnpm lint && pnpm typecheck`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit bounded source capture.**
+- [x] **Step 6: Commit bounded source capture.**
 
 Run:
 
@@ -369,7 +371,7 @@ git commit -m "feat(collection): capture curator-approved food sources"
 - Produces: `extractCapturedSources`, `POST /api/foods/:id/sources/extract`, and `POST /api/foods/:id/sources/apply`.
 - Consumes: current fetched `food_sources`, Anthropic API, `apply_food_evidence_draft`, and `NUTRIENT_FIELDS`.
 
-- [ ] **Step 1: Write failing extraction validation tests.**
+- [x] **Step 1: Write failing extraction validation tests.**
 
 Create tests that prove source IDs and excerpts cannot be fabricated.
 
@@ -415,13 +417,13 @@ it("drops a nutrient that cites a source from the wrong source set", () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests to verify the shared extractor is absent.**
+- [x] **Step 2: Run the tests to verify the shared extractor is absent.**
 
 Run: `pnpm exec vitest run src/lib/source-extraction.test.ts`
 
 Expected: FAIL with a missing module error.
 
-- [ ] **Step 3: Implement a shared, source-ID-aware extractor.**
+- [x] **Step 3: Implement a shared, source-ID-aware extractor.**
 
 Move the current Anthropic request, response schema, and evidence normalization from `src/app/api/extract/route.ts` into `src/lib/source-extraction.ts`.
 
@@ -433,7 +435,7 @@ Validate the returned source ID, nutrient key, numeric value, and excerpt before
 
 Keep the existing `/api/extract` request and response contract working by adapting its two manual text blocks into synthetic source records without database IDs.
 
-- [ ] **Step 4: Implement extraction and explicit apply routes.**
+- [x] **Step 4: Implement extraction and explicit apply routes.**
 
 The extraction route accepts `{ sourceIds: number[] }`, limits selection to one manufacturer and one Korean-label current fetched source for that food, and returns validated candidate evidence without writing food nutrients.
 
@@ -443,13 +445,13 @@ It re-reads the selected sources, revalidates every excerpt, invokes only `apply
 
 Both routes require a human curator and return HTTP 403 for automation credentials.
 
-- [ ] **Step 5: Run extraction tests and type checks.**
+- [x] **Step 5: Run extraction tests and type checks.**
 
 Run: `pnpm exec vitest run src/lib/source-extraction.test.ts && pnpm lint && pnpm typecheck`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit extraction and application.**
+- [x] **Step 6: Commit extraction and application.**
 
 Run:
 
@@ -472,19 +474,19 @@ git commit -m "feat(collection): extract evidence from captured sources"
 - Produces: `/new/research` and curator-only draft inventory, source capture, extraction, and apply interactions.
 - Consumes: the Task 3 and Task 4 endpoints.
 
-- [ ] **Step 1: Write a failing component test for the source-first action order.**
+- [ ] **Step 1: Write a failing component test for the source-first action order.** — NOT DONE: needs jsdom + a React testing library, deferred with the workspace UI work.
 
 Use a mocked HTTP boundary only for the component’s fetch calls.
 
 The test must show that the extract button is disabled until at least one source has `fetch_status = "fetched"`, and the apply button is disabled until validated candidates are displayed.
 
-- [ ] **Step 2: Run the component test to verify it fails before the workspace exists.**
+- [ ] **Step 2: Run the component test to verify it fails before the workspace exists.** — NOT DONE: needs jsdom + a React testing library, deferred with the workspace UI work.
 
 Run: `pnpm exec vitest run src/components/source-research-client.test.tsx`
 
 Expected: FAIL with a missing component error.
 
-- [ ] **Step 3: Implement the draft inventory endpoint.**
+- [x] **Step 3: Implement the draft inventory endpoint.**
 
 Return only foods with `data_verified_at IS NULL`.
 
@@ -492,7 +494,7 @@ Select the food ID, product name, brand name, current sources, and research stat
 
 Require a human curator and never return `captured_text` from this inventory endpoint.
 
-- [ ] **Step 4: Implement the research page and client.**
+- [ ] **Step 4: Implement the complete research page and client.** — PARTIAL: source registration, extraction candidates, and explicit DRAFT apply are implemented; transcript preview, per-source status/history, and failed-source controls are deferred by the scope decision above.
 
 Add a visible link from `/new` to `/new/research`.
 
@@ -502,20 +504,20 @@ Display `captured_at`, `observed_at`, URL, source kind, and failure reason for e
 
 Do not expose source transcript or evidence on public catalog pages.
 
-- [ ] **Step 5: Run the focused component test and browser scenario.**
+- [ ] **Step 5: Run the focused component test and browser scenario.** — NOT DONE: needs jsdom + a React testing library, deferred with the workspace UI work.
 
 Run: `pnpm exec vitest run src/components/source-research-client.test.tsx && pnpm lint && pnpm typecheck`
 
-Then use Playwright against a local authenticated curator session to prove this sequence: select draft, register manual source, review capture, extract candidates, apply DRAFT, and observe no public verification timestamp.
+Then use Playwright against a local authenticated curator session to prove this sequence: select draft, register manual source, review capture, extract candidates, apply DRAFT, and observe no public verification timestamp. The 2026-07-21 smoke test proved every step except the deferred in-UI capture review.
 
 Expected: PASS and the public catalog remains unchanged for the DRAFT food.
 
-- [ ] **Step 6: Commit the curator workflow.**
+- [x] **Step 6: Commit the curator workflow.**
 
 Run:
 
 ```bash
-git add 'src/app/api/foods/drafts/route.ts' src/app/new/research/page.tsx src/components/source-research-client.tsx src/components/source-research-client.test.tsx src/app/new/page.tsx
+git add 'src/app/api/foods/drafts/route.ts' src/app/new/research/page.tsx src/components/source-research-client.tsx src/app/new/page.tsx
 git commit -m "feat(collection): add curator source research workspace"
 ```
 
@@ -532,17 +534,17 @@ git commit -m "feat(collection): add curator source research workspace"
 - Produces: no executable path that gives an LLM web-search authority during catalog writes.
 - Consumes: the curator workspace as the supported replacement.
 
-- [ ] **Step 1: Add a failing repository guard test.**
+- [x] **Step 1: Add a failing repository guard test.**
 
 Create a small Node test that fails when `scripts/research-enrich.mjs` exists or when a catalog collection module contains the Anthropic `web_search` tool identifier.
 
-- [ ] **Step 2: Run the guard test to prove the old autonomous path still exists.**
+- [x] **Step 2: Run the guard test to prove the old autonomous path still exists.**
 
 Run: `pnpm exec vitest run src/lib/source-first-boundary.test.ts`
 
 Expected: FAIL because the legacy script contains `web_search_20260209`.
 
-- [ ] **Step 3: Remove the legacy script and update operator documentation.**
+- [x] **Step 3: Remove the legacy script and update operator documentation.**
 
 Delete `scripts/research-enrich.mjs`.
 
@@ -550,7 +552,7 @@ Replace its README section with the `/new/research` source-first procedure and e
 
 Update the design spec’s migration section with the completed `fetch_status`, `failure_code`, and `attempted_at` fields so the document matches the migration.
 
-- [ ] **Step 4: Run all verification gates.**
+- [x] **Step 4: Run all verification gates.**
 
 Run:
 
@@ -566,7 +568,7 @@ supabase db advisors
 
 Expected: all repository checks pass, the old `web_search` collection path is absent, and Supabase advisors report no new security issue.
 
-- [ ] **Step 5: Perform a remote data smoke test.**
+- [x] **Step 5: Perform a remote data smoke test.**
 
 Use one existing unverified ACANA or Orijen food row.
 
@@ -574,7 +576,7 @@ Capture a known product-specific source, run extraction, apply only source-backe
 
 Expected: the row remains DRAFT, each applied nutrient has one current evidence row, and public `getFoods()` still excludes it.
 
-- [ ] **Step 6: Commit the retirement and documentation.**
+- [x] **Step 6: Commit the retirement and documentation.**
 
 Run:
 

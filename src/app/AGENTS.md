@@ -6,14 +6,14 @@
 
 ## WHERE TO LOOK
 
-| Task                   | Location                                     | Notes                                           |
-| ---------------------- | -------------------------------------------- | ----------------------------------------------- |
-| Public catalog         | `foods/`, `compare/`, `recalls/`             | Data comes from `@/lib/catalog`.                |
-| Feeding experience     | `feeding/`, `api/cats/`, `api/feeding-logs/` | User-scoped Supabase data.                      |
-| Curator workflow       | `new/`, `api/extract/`, `api/foods/`         | Extraction precedes validated catalog creation. |
-| Recall synchronization | `api/recalls/sync/route.ts`                  | Protected cron endpoint.                        |
-| Login lifecycle        | `auth/`                                      | Callback, login page, and logout handler.       |
-| Session gating         | `../proxy.ts`                                | Refreshes sessions and gates `/new`.            |
+| Task                   | Location                                                                         | Notes                                                             |
+| ---------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Public catalog         | `foods/`, `compare/`, `recalls/`                                                 | Data comes from `@/lib/catalog`.                                  |
+| Feeding experience     | `feeding/`, `api/cats/`, `api/feeding-logs/`                                     | User-scoped Supabase data.                                        |
+| Curator workflow       | `new/`, `new/research/`, `api/extract/`, `api/foods/`, `api/foods/[id]/sources/` | Source capture and extraction precede validated catalog creation. |
+| Recall synchronization | `api/recalls/sync/route.ts`                                                      | Protected cron endpoint.                                          |
+| Login lifecycle        | `auth/`                                                                          | Callback, login page, and logout handler.                         |
+| Session gating         | `../proxy.ts`                                                                    | Refreshes sessions and gates `/new`.                              |
 
 ## CONVENTIONS
 

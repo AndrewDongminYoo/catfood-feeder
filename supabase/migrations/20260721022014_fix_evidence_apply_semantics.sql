@@ -1,0 +1,178 @@
+-- Two defects in apply_food_evidence_draft, both in the per-nutrient loop.
+--
+-- 1. Excerpt check diverged from the TypeScript gate. normalizeSourceText
+--    (src/lib/source-collection.ts) applies NFKC before collapsing whitespace and
+--    lowercasing; this function did not. A source page containing fullwidth text
+--    (Ｐｒｏｔｅｉｎ 37%) passed validateExtractedEvidence and was then rejected here,
+--    surfacing to the curator as an opaque 500. Both sides now normalize identically.
+--    (20260715153018_fix_food_evidence_excerpt_normalization.sql claimed this fix but
+--    shipped a byte-identical copy of the function body in the same commit.)
+--
+-- 2. An already-populated nutrient aborted the whole transaction. The spec scopes the
+--    write to "missing DRAFT food fields", so a populated column is a skip, not an
+--    error. Aborting made the two-source workflow impossible to complete: applying KR
+--    label evidence after manufacturer evidence re-sent the overlapping nutrient and
+--    rolled back the non-overlapping ones with it.
+--
+-- 3. Nothing checked the target was a DRAFT. Only the list endpoint filtered on
+--    data_verified_at IS NULL, so a POST carrying a verified food's id would fill a NULL
+--    nutrient on a public row and merge a machine source tag into nutrient_sources while
+--    data_verified_at stayed set — mixing verified and unverified provenance. The guard
+--    belongs on the row lock, where every caller routes through.
+
+CREATE OR REPLACE FUNCTION public.apply_food_evidence_draft(
+  p_food_id bigint,
+  p_evidence jsonb
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_item jsonb;
+  v_nutrient_key text;
+  v_source_id bigint;
+  v_value numeric;
+  v_excerpt text;
+  v_source_kind public.nutrient_source;
+  v_captured_at timestamptz;
+  v_captured_text text;
+  v_rows_updated integer;
+BEGIN
+  IF p_evidence IS NULL
+    OR jsonb_typeof(p_evidence) <> 'array'
+    OR jsonb_array_length(p_evidence) = 0 THEN
+    RAISE EXCEPTION 'Evidence must be a non-empty JSON array';
+  END IF;
+
+  PERFORM 1
+  FROM public.foods
+  WHERE id = p_food_id
+    AND data_verified_at IS NULL
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Food % does not exist or is already human-verified', p_food_id;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(p_evidence) AS evidence(item)
+    GROUP BY item ->> 'nutrient_key'
+    HAVING count(*) > 1
+  ) THEN
+    RAISE EXCEPTION 'Duplicate nutrient keys are not allowed';
+  END IF;
+
+  FOR v_item IN
+    SELECT item
+    FROM jsonb_array_elements(p_evidence) AS evidence(item)
+  LOOP
+    IF coalesce(jsonb_typeof(v_item), '') <> 'object'
+      OR NOT (v_item ? 'nutrient_key')
+      OR NOT (v_item ? 'source_id')
+      OR NOT (v_item ? 'value')
+      OR NOT (v_item ? 'excerpt') THEN
+      RAISE EXCEPTION 'Each evidence item requires nutrient_key, source_id, value, and excerpt';
+    END IF;
+
+    v_nutrient_key := v_item ->> 'nutrient_key';
+    v_excerpt := btrim(v_item ->> 'excerpt');
+
+    IF v_nutrient_key NOT IN (
+      'protein_pct',
+      'fat_pct',
+      'fiber_pct',
+      'ash_pct',
+      'moisture_pct',
+      'calcium_pct',
+      'phosphorus_pct',
+      'kcal_per_kg'
+    ) THEN
+      RAISE EXCEPTION 'Unsupported nutrient key: %', v_nutrient_key;
+    END IF;
+
+    IF jsonb_typeof(v_item -> 'source_id') <> 'number'
+      OR jsonb_typeof(v_item -> 'value') <> 'number'
+      OR v_excerpt = '' THEN
+      RAISE EXCEPTION 'Evidence values must use numeric source_id and value with a non-empty excerpt';
+    END IF;
+
+    v_source_id := (v_item ->> 'source_id')::bigint;
+    v_value := (v_item ->> 'value')::numeric;
+
+    IF v_source_id::numeric <> (v_item ->> 'source_id')::numeric THEN
+      RAISE EXCEPTION 'Evidence source_id must be an integer';
+    END IF;
+
+    IF v_value < 0 OR v_value IN ('NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric) THEN
+      RAISE EXCEPTION 'Evidence value must be finite and non-negative';
+    END IF;
+
+    SELECT kind, captured_at, captured_text
+      INTO v_source_kind, v_captured_at, v_captured_text
+    FROM public.food_sources
+    WHERE id = v_source_id
+      AND food_id = p_food_id
+      AND is_current
+      AND fetch_status = 'fetched'
+    FOR SHARE;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Source % is not a current fetched source for food %', v_source_id, p_food_id;
+    END IF;
+
+    -- Mirrors normalizeSourceText in src/lib/source-collection.ts: NFKC, collapse
+    -- whitespace, lowercase. Keep the two in sync — a divergence rejects valid evidence.
+    IF position(
+      lower(regexp_replace(normalize(v_excerpt, NFKC), E'\\s+', ' ', 'g'))
+      IN lower(regexp_replace(normalize(v_captured_text, NFKC), E'\\s+', ' ', 'g'))
+    ) = 0 THEN
+      RAISE EXCEPTION 'Evidence excerpt is absent from source %', v_source_id;
+    END IF;
+
+    EXECUTE format(
+      'UPDATE public.foods
+       SET %1$I = $1,
+           nutrient_sources = coalesce(nutrient_sources, ''{}''::jsonb) || jsonb_build_object($2, $3),
+           updated_at = statement_timestamp()
+       WHERE id = $4
+         AND %1$I IS NULL',
+      v_nutrient_key
+    )
+    USING v_value, v_nutrient_key, v_source_kind::text, p_food_id;
+
+    GET DIAGNOSTICS v_rows_updated = ROW_COUNT;
+
+    -- Already populated: leave the existing value and its provenance untouched and move
+    -- on. Writes stay append-only for empty fields, so a second source can still fill the
+    -- nutrients the first one missed.
+    IF v_rows_updated = 0 THEN
+      CONTINUE;
+    END IF;
+
+    UPDATE public.food_nutrient_evidence
+    SET is_current = false
+    WHERE food_id = p_food_id
+      AND nutrient_key = v_nutrient_key
+      AND is_current;
+
+    INSERT INTO public.food_nutrient_evidence (
+      food_id,
+      nutrient_key,
+      source_id,
+      value,
+      excerpt,
+      captured_at
+    ) VALUES (
+      p_food_id,
+      v_nutrient_key,
+      v_source_id,
+      v_value,
+      v_excerpt,
+      v_captured_at
+    );
+  END LOOP;
+END;
+$$;

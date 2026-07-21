@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { SAMPLE_FOODS } from "@/lib/fixtures";
-import type { CookingMethod, Source } from "@/lib/domain";
+import type { CookingMethod, NutrientKey, Source } from "@/lib/domain";
 
 export interface BrandSummary {
   id: number;
@@ -32,6 +32,11 @@ export interface RecallSummary {
   region: string | null;
 }
 
+/** `foods.nutrient_sources`에 출처 태그가 붙는 필드. 보장성분 + 파생 열량비. */
+export type NutrientSourceKey =
+  NutrientKey | "carb_pct" | "energy_p_pct" | "energy_f_pct" | "energy_c_pct";
+
+/** Phase 5(가격/알림) 전까지 채워지지 않는다. 스키마는 BLUEPRINT에 따라 유지. */
 export interface PriceSummary {
   id: number;
   retailer: string;
@@ -60,7 +65,9 @@ export interface FoodWithBrand {
   energy_f_pct: number | null;
   energy_c_pct: number | null;
   ca_p_ratio: number | null;
-  nutrient_sources: Partial<Record<string, Source>>;
+  // string 키였을 때는 오타나 이름 변경이 타입체크를 통과한 뒤 조용히 "미기록"으로
+  // 렌더링됐다. 실제로 기록되는 키만 허용한다.
+  nutrient_sources: Partial<Record<NutrientSourceKey, Source>>;
   ingredients: Ingredient[];
   grain_free: boolean;
   meal_free: boolean;
@@ -92,8 +99,7 @@ export const getFoods = cache(async (): Promise<FoodWithBrand[]> => {
       `
       *,
       brands:brand_id (id, name, manufacturer, importer, country),
-      recalls (id, brand_id, food_id, source, source_url, external_id, recalling_firm, reason, classification, affected_lots, recall_date, region),
-      prices (id, retailer, price, price_per_100g, url, captured_at)
+      recalls (id, brand_id, food_id, source, source_url, external_id, recalling_firm, reason, classification, affected_lots, recall_date, region)
     `,
     )
     .not("data_verified_at", "is", null)

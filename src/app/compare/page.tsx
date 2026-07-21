@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { getComparisonFoods, getFoods } from "@/lib/catalog";
+import { getComparisonFoods } from "@/lib/catalog";
 import { formatKcal, formatPct } from "@/lib/format";
 
 export default async function ComparePage({
@@ -14,11 +14,10 @@ export default async function ComparePage({
     .map((id) => Number(id))
     .filter(Boolean)
     .slice(0, 2);
-  const foods =
-    parsedIds.length > 0
-      ? await getComparisonFoods(parsedIds)
-      : await getFoods();
-  const selected = foods.slice(0, 2);
+  // ids가 없으면 아무것도 고르지 않는다. 예전에는 카탈로그 상위 2개로 폴백해서
+  // 사용자가 선택하지 않은 제품을 비교 결과처럼 보여줬다.
+  const selected =
+    parsedIds.length > 0 ? await getComparisonFoods(parsedIds) : [];
 
   return (
     <main className="wide">
@@ -49,7 +48,10 @@ export default async function ComparePage({
         ))}
       </section>
       {selected.length < 2 && (
-        <p className="empty">카탈로그에서 비교할 제품 두 개를 선택하세요.</p>
+        <p className="empty">
+          카탈로그에서 비교할 제품 두 개를 선택하세요.{" "}
+          <Link href={"/foods" as Route}>카탈로그로 이동</Link>
+        </p>
       )}
     </main>
   );

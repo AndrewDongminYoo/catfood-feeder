@@ -24,6 +24,41 @@ describe("captureSource", () => {
     expect(result).toEqual({ kind: "failure", code: "unsafe_destination" });
   });
 
+  // IPv4를 품는 IPv6 형식들. 환원 검사를 빠뜨리면 전부 공인 주소로 통과한다.
+  it.each([
+    ["6to4", "2002:7f00:0001::"],
+    ["6to4 사설 대역", "2002:c0a8:0001::"],
+    ["NAT64", "64:ff9b::7f00:1"],
+    ["Teredo", "2001:0:4136:e378:8000:63bf:3fff:fdd2"],
+    ["IPv4-compatible", "::127.0.0.1"],
+    ["IPv4-translatable", "::ffff:0:127.0.0.1"],
+    ["link-local", "fe80::1"],
+    ["unique-local", "fd00::1"],
+    ["loopback", "::1"],
+  ])("%s 주소를 unsafe로 거부한다: %s", async (_label, address) => {
+    const result = await captureSource(
+      { url: "https://example.test", kind: "manufacturer" },
+      { resolveHostname: async () => [address] },
+    );
+
+    expect(result).toEqual({ kind: "failure", code: "unsafe_destination" });
+  });
+
+  it("공인 IPv6 주소는 통과시킨다", async () => {
+    const result = await captureSource(
+      { url: "https://example.test", kind: "manufacturer" },
+      {
+        resolveHostname: async () => ["2606:2800:220:1:248:1893:25c8:1946"],
+        fetch: async () =>
+          new Response("Crude protein 37%", {
+            headers: { "content-type": "text/plain" },
+          }),
+      },
+    );
+
+    expect(result).toMatchObject({ kind: "success" });
+  });
+
   it("returns a response size failure when the response exceeds the byte limit", async () => {
     const result = await captureSource(
       { url: "https://example.test", kind: "manufacturer" },
@@ -38,6 +73,31 @@ describe("captureSource", () => {
 
     expect(result).toEqual({ kind: "failure", code: "response_too_large" });
   });
+
+  it.each(["euc-kr", "cp949", "windows-949"])(
+    "선언된 %s charset으로 디코딩한다",
+    async (charset) => {
+      // "조단백질 30%"를 euc-kr로 인코딩한 바이트. utf-8로 읽으면 깨진 문자가 나온다.
+      const eucKr = new Uint8Array(
+        Buffer.from("c1b6b4dcb9e9c1fa20333025", "hex"),
+      );
+      const result = await captureSource(
+        { url: "https://example.test", kind: "kr_label" },
+        {
+          resolveHostname: publicResolver,
+          fetch: async () =>
+            new Response(eucKr, {
+              headers: { "content-type": `text/plain; charset=${charset}` },
+            }),
+        },
+      );
+
+      expect(result).toMatchObject({
+        kind: "success",
+        capturedText: "조단백질 30%",
+      });
+    },
+  );
 
   it("returns visible HTML text and its SHA-256 hash", async () => {
     const result = await captureSource(

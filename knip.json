@@ -2,15 +2,10 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "ignoreExportsUsedInFile": true,
   "tags": ["-lintignore"],
-  "project": ["**/*.{js,ts,tsx}", "!.trunk"],
+  "project": ["**/*.{js,ts,tsx}", "!.trunk/**", "!.remember/**"],
   "ignoreFiles": ["src/lib/utils.ts"],
-  "ignoreIssues": {
-    "src/lib/fixtures.ts": ["exports"]
-  },
   "ignoreDependencies": [
-    "@ai-sdk/anthropic",
     "@vercel/analytics",
-    "ai",
     "class-variance-authority",
     "clsx",
     "lucide-react",

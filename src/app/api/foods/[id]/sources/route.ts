@@ -3,6 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { authorizeCurator } from "@/lib/admin-auth";
 import {
+  RequestBodyTooLargeError,
+  TRANSCRIPT_JSON_BODY_BYTES,
+  formatBodyLimit,
+  readJsonBody,
+} from "@/lib/request-body";
+import {
   SOURCE_CAPTURE_METHOD_VALUES,
   SOURCE_KIND_VALUES,
   hashSourceText,
@@ -65,7 +71,9 @@ export async function POST(
   }
 
   try {
-    const payload = sourcePayloadSchema.safeParse(await req.json());
+    const payload = sourcePayloadSchema.safeParse(
+      await readJsonBody(req, TRANSCRIPT_JSON_BODY_BYTES),
+    );
     if (!payload.success) {
       return NextResponse.json(
         { error: "출처 등록 요청 형식이 올바르지 않습니다." },
@@ -177,6 +185,14 @@ export async function POST(
       },
     });
   } catch (error: unknown) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return NextResponse.json(
+        {
+          error: `요청 본문은 ${formatBodyLimit(TRANSCRIPT_JSON_BODY_BYTES)} 이하여야 합니다.`,
+        },
+        { status: 413 },
+      );
+    }
     if (error instanceof SyntaxError) {
       return NextResponse.json(
         { error: "요청 JSON 형식이 올바르지 않습니다." },

@@ -19,6 +19,12 @@ No LLM request may browse the web or choose a source URL during a catalog write.
 - Preserve the distinction between machine-collected drafts and human-verified catalog data.
 - Retain enough collection history to decide when a product needs refresh.
 
+## Current Phase Scope
+
+The current implementation phase covers source registration, charset-aware capture, extraction retry, evidence validation, and DRAFT apply.
+Transcript preview, per-source status/history, failed-source listing, and retry/replace controls are explicitly deferred to a separate curator-workspace PR.
+Requirements marked **DEFERRED** below remain product requirements, but are not acceptance gates for the current phase.
+
 ## Non-Goals
 
 - This does not automate price collection, Korean recall synchronization, or catalog publication.
@@ -33,13 +39,13 @@ No LLM request may browse the web or choose a source URL during a catalog write.
 
 `foods.data_verified_at` records the last human verification time.
 
-`foods.research_attempted_at` records the latest automated research attempt.
+`food_sources.captured_at` records when a fetched or manually transcribed source was captured.
 
-`foods.research_last_result` records whether the latest attempt found no evidence, produced an invalid result, or wrote a draft.
+`food_sources.observed_at` records the source page or label observation time when known.
 
-The current model has no source-level collection timestamp, source-content fingerprint, captured evidence record, or separate manual-input timestamp.
+`food_sources.content_hash` identifies repeated source content, and `food_nutrient_evidence.created_at` records when field-level evidence was applied.
 
-`manufacturer_url` and `kr_label_source` keep only one URL each and cannot associate a nutrient with its exact evidence.
+The retired food-level `research_attempted_at` and `research_last_result` columns were removed after the source ledger replaced autonomous research state.
 
 ## Approaches Considered
 
@@ -82,6 +88,10 @@ Add a `food_sources` table with one row per captured product source.
 | `content_hash`   | SHA-256 hash of normalized captured text for change detection. |
 | `captured_text`  | The bounded source transcript used for extraction and review.  |
 | `capture_method` | `manual` or `fetch`.                                           |
+| `fetch_status`   | `fetched` or `failed`; failed attempts stay in the ledger.     |
+| `failure_code`   | Why a fetch attempt failed, when `fetch_status` is `failed`.   |
+| `attempted_at`   | When the capture was attempted, including failed attempts.     |
+| `is_current`     | Whether this is the live source for its `(food_id, kind)`.     |
 | `created_by`     | Nullable authenticated curator identity for manual entries.    |
 | `created_at`     | Row creation time.                                             |
 
@@ -95,6 +105,7 @@ Add a `food_nutrient_evidence` table with one row for each current nutrient valu
 | `value`        | The source-backed numeric value before server-side derivation.     |
 | `excerpt`      | Literal evidence excerpt from `captured_text`.                     |
 | `captured_at`  | Copied source capture time for efficient audit reads.              |
+| `is_current`   | Whether this row is the live evidence for its nutrient.            |
 | `created_at`   | Evidence-row creation time.                                        |
 
 Enforce one current evidence row for each `(food_id, nutrient_key)` pair.
@@ -111,7 +122,7 @@ Do not add a food-level `collected_at` field because one food can combine manufa
 2. The server authorizes the curator before fetching any URL.
 3. The fetcher validates the scheme, resolves and rejects private or loopback network destinations, follows only bounded redirects, applies a response-size limit, and uses a request timeout with one retry.
 4. The server stores a normalized transcript, canonical URL, hash, capture method, and capture timestamp in `food_sources`.
-5. The curator can inspect the transcript before requesting extraction.
+5. **DEFERRED:** The curator can inspect the transcript before requesting extraction.
 6. The extraction request sends only selected `food_sources.captured_text` values to the LLM.
 7. The LLM returns candidate values, source kind, source ID, and literal evidence excerpts.
 8. The server verifies that every excerpt appears in the cited captured transcript before inserting `food_nutrient_evidence` and updating missing DRAFT food fields.
@@ -124,7 +135,7 @@ Each source fetch is independent.
 
 A timeout, non-success response, unsupported content type, oversized response, or source mismatch records a failed source attempt and leaves food nutrients unchanged.
 
-The UI must show the failed source and allow a curator to replace its URL or retry it.
+**DEFERRED:** The UI must show the failed source and allow a curator to replace its URL or retry it.
 
 The LLM extraction request has its own timeout and one retry.
 
@@ -154,7 +165,7 @@ The ACANA regression fixture remains a domain-calculation test fixture and is no
 
 ## Acceptance Criteria
 
-- A curator can save an exact source URL and see its capture time and transcript before extraction.
+- **DEFERRED:** A curator can save an exact source URL and see its capture time and transcript before extraction.
 - A stalled source request fails within the configured timeout and does not prevent processing another food.
 - A DRAFT nutrient update has a matching evidence row whose excerpt appears in the retained source transcript.
 - A source URL can be refreshed without invoking web search or modifying unrelated food rows.

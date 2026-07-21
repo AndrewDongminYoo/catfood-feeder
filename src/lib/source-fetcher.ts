@@ -69,6 +69,10 @@ export async function captureSource(
       return { kind: "failure", code: "unsafe_destination" };
     }
 
+    // ponytail: 검증과 실제 연결이 각각 DNS를 조회하므로 rebinding(TOCTOU) 창이 남는다.
+    // 짧은 TTL로 검증 때는 공인 IP를, 연결 때는 169.254.169.254를 주는 도메인은 통과한다.
+    // 닫으려면 검증된 주소를 고정한 lookup을 undici Agent에 주입해야 한다(새 의존성).
+    // 호출부가 큐레이터 세션으로 제한돼 있어 현재는 내부자 위협 범위로 남겨둔다.
     const response = await fetchWithRetry(fetchSource, currentUrl);
     if (response === null) {
       return { kind: "failure", code: "network_error" };
@@ -99,14 +103,17 @@ export async function captureSource(
     const body = await readResponseBody(response);
     if (body === null) return { kind: "failure", code: "response_too_large" };
 
-    const capturedText = extractVisibleText(body, contentType);
+    const capturedText = extractVisibleText(
+      decodeBody(body, contentType.charset),
+      contentType.type,
+    );
     if (!capturedText) return { kind: "failure", code: "empty_content" };
 
     return {
       kind: "success",
       capturedText,
       contentHash: hashSourceText(capturedText),
-      contentType,
+      contentType: contentType.type,
       url: currentUrl,
     };
   }
@@ -157,24 +164,87 @@ function isUnsafeIpv4(address: string): boolean {
 }
 
 function isUnsafeIpv6(address: string): boolean {
-  const normalized = address.toLowerCase();
-  const mappedIpv4 = normalized.match(
-    /^(?:::ffff:|::)(\d+\.\d+\.\d+\.\d+)$/,
-  )?.[1];
-  if (mappedIpv4) return isUnsafeIpv4(mappedIpv4);
+  const bytes = ipv6ToBytes(address);
+  // 파싱 실패는 거부한다 — 해석할 수 없는 주소를 허용하는 것보다 안전하다.
+  if (bytes === null) return true;
 
-  return (
-    normalized === "::" ||
-    normalized === "::1" ||
-    normalized.startsWith("::") ||
-    normalized.startsWith("fc") ||
-    normalized.startsWith("fd") ||
-    normalized.startsWith("fe8") ||
-    normalized.startsWith("fe9") ||
-    normalized.startsWith("fea") ||
-    normalized.startsWith("feb") ||
-    normalized.startsWith("ff")
-  );
+  const startsWith = (...prefix: number[]) =>
+    prefix.every((byte, index) => bytes[index] === byte);
+  const embeddedIpv4 = (offset: number) =>
+    bytes.slice(offset, offset + 4).join(".");
+
+  // IPv4를 품는 형식은 전부 IPv4 규칙으로 되돌려 검사한다. 이 환원을 빠뜨리면
+  // 2002:7f00:0001::(6to4 → 127.0.0.1) 같은 주소가 공인 IP로 통과한다.
+  if (startsWith(0x20, 0x02)) return isUnsafeIpv4(embeddedIpv4(2)); // 6to4 2002::/16
+  if (startsWith(0x00, 0x64, 0xff, 0x9b)) return true; // NAT64 64:ff9b::/96
+  if (startsWith(0x20, 0x01, 0x00, 0x00)) return true; // Teredo 2001::/32
+  // ::ffff:0:a.b.c.d (IPv4-translatable) — SIIT 환경에서는 마지막 32비트가 IPv4다.
+  if (
+    bytes.slice(0, 8).every((byte) => byte === 0) &&
+    bytes[8] === 0xff &&
+    bytes[9] === 0xff &&
+    bytes[10] === 0 &&
+    bytes[11] === 0
+  )
+    return isUnsafeIpv4(embeddedIpv4(12));
+  // ::ffff:a.b.c.d (IPv4-mapped) 및 ::a.b.c.d (IPv4-compatible)
+  if (bytes.slice(0, 10).every((byte) => byte === 0)) {
+    if (bytes[10] === 0xff && bytes[11] === 0xff)
+      return isUnsafeIpv4(embeddedIpv4(12));
+    if (bytes[10] === 0 && bytes[11] === 0)
+      return bytes.slice(12).some((byte) => byte !== 0)
+        ? isUnsafeIpv4(embeddedIpv4(12))
+        : true; // :: 자체(미지정 주소)
+  }
+
+  if (bytes.every((byte) => byte === 0)) return true; // ::
+  if (bytes.slice(0, 15).every((byte) => byte === 0) && bytes[15] === 1)
+    return true; // ::1
+  if ((bytes[0] & 0xfe) === 0xfc) return true; // fc00::/7 unique-local
+  if (bytes[0] === 0xfe && (bytes[1] & 0xc0) === 0x80) return true; // fe80::/10 link-local
+  if (bytes[0] === 0xff) return true; // ff00::/8 multicast
+  return false;
+}
+
+/** IPv6 문자열을 16바이트로 편다. `::` 압축과 끝자리 dotted-quad를 처리한다. */
+function ipv6ToBytes(address: string): number[] | null {
+  let text = address.toLowerCase().split("%", 1)[0] ?? "";
+  const dotted = text.match(/(\d{1,3}(?:\.\d{1,3}){3})$/)?.[1];
+  if (dotted) {
+    const octets = dotted.split(".").map(Number);
+    if (octets.some((octet) => !Number.isInteger(octet) || octet > 255))
+      return null;
+    const hex = [
+      ((octets[0] << 8) | octets[1]).toString(16),
+      ((octets[2] << 8) | octets[3]).toString(16),
+    ];
+    text = text.slice(0, -dotted.length) + hex.join(":");
+  }
+
+  const [head, tail, ...rest] = text.split("::");
+  if (rest.length > 0) return null;
+  const parse = (part: string) =>
+    part === ""
+      ? []
+      : part.split(":").map((group) => Number.parseInt(group, 16));
+  const headGroups = parse(head ?? "");
+  const tailGroups = tail === undefined ? [] : parse(tail);
+  const groups =
+    tail === undefined
+      ? headGroups
+      : [
+          ...headGroups,
+          ...Array<number>(8 - headGroups.length - tailGroups.length).fill(0),
+          ...tailGroups,
+        ];
+  if (groups.length !== 8) return null;
+  if (
+    groups.some(
+      (group) => !Number.isInteger(group) || group < 0 || group > 0xffff,
+    )
+  )
+    return null;
+  return groups.flatMap((group) => [group >> 8, group & 0xff]);
 }
 
 async function fetchWithRetry(
@@ -202,17 +272,33 @@ function isRedirect(status: number): boolean {
 
 function parseContentType(
   value: string | null,
-): "text/html" | "text/plain" | null {
-  const contentType = value?.split(";", 1)[0]?.trim().toLowerCase();
-  return contentType === "text/html" || contentType === "text/plain"
-    ? contentType
-    : null;
+): { type: "text/html" | "text/plain"; charset: string } | null {
+  const type = value?.split(";", 1)[0]?.trim().toLowerCase();
+  if (type !== "text/html" && type !== "text/plain") return null;
+  const charset = value?.match(/charset\s*=\s*"?([\w-]+)"?/i)?.[1];
+  return { type, charset: charset?.toLowerCase() ?? "utf-8" };
 }
 
-async function readResponseBody(response: Response): Promise<string | null> {
+/**
+ * 선언된 charset으로 디코딩한다. 국내 수입사 페이지가 euc-kr/cp949로 제공되는 경우가 있어
+ * utf-8 고정 디코딩은 조용히 깨진 텍스트를 수집한다.
+ * ponytail: TextDecoder의 레거시 인코딩 지원은 Node의 full-ICU 빌드에 달려 있다.
+ * 알 수 없는 라벨은 utf-8로 되돌린다.
+ */
+function decodeBody(bytes: Uint8Array, charset: string): string {
+  try {
+    return new TextDecoder(charset.replace(/^cp949$/, "euc-kr")).decode(bytes);
+  } catch {
+    return new TextDecoder("utf-8").decode(bytes);
+  }
+}
+
+async function readResponseBody(
+  response: Response,
+): Promise<Uint8Array | null> {
   const contentLength = response.headers.get("content-length");
   if (contentLength && Number(contentLength) > MAX_RESPONSE_BYTES) return null;
-  if (!response.body) return "";
+  if (!response.body) return new Uint8Array();
 
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -229,7 +315,7 @@ async function readResponseBody(response: Response): Promise<string | null> {
     chunks.push(value);
   }
 
-  return Buffer.concat(chunks).toString("utf8");
+  return Buffer.concat(chunks);
 }
 
 function extractVisibleText(

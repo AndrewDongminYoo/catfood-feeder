@@ -6,14 +6,17 @@
 
 ## WHERE TO LOOK
 
-| Task                                | Location                                       | Notes                                                                   |
-| ----------------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------- |
-| Base schema and RLS                 | `migrations/0001_init.sql`                     | Catalog tables are public-read; cats and feeding logs are owner-scoped. |
-| Remote reconciliation and hardening | `migrations/0002_reconcile_remote.sql`         | Aligns remote policy/index state with the intended baseline.            |
-| External catalog identity           | `migrations/0003_foods_external_source.sql`    | Stable `(source, external_id)` ingest identity.                         |
-| Catalog integrity                   | `migrations/0004_catalog_integrity.sql`        | Constraints and generated Ca:P ratio.                                   |
-| Research-attempt state              | `migrations/0005_research_attempt_invalid.sql` | Tracks unusable enrichment attempts.                                    |
-| Extraction quota                    | `migrations/0006_extraction_rate_limit.sql`    | Service-role-only RPC and rate-limit table.                             |
+| Task                                | Location                                                                   | Notes                                                                   |
+| ----------------------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Base schema and RLS                 | `migrations/0001_init.sql`                                                 | Catalog tables are public-read; cats and feeding logs are owner-scoped. |
+| Remote reconciliation and hardening | `migrations/0002_reconcile_remote.sql`                                     | Aligns remote policy/index state with the intended baseline.            |
+| External catalog identity           | `migrations/0003_foods_external_source.sql`                                | Stable `(source, external_id)` ingest identity.                         |
+| Catalog integrity                   | `migrations/0004_catalog_integrity.sql`                                    | Constraints and generated Ca:P ratio.                                   |
+| Extraction quota                    | `migrations/0006_extraction_rate_limit.sql`                                | Service-role-only RPC and rate-limit table.                             |
+| Source and evidence ledger          | `migrations/20260715151932_food_source_ledger.sql`                         | Curator-only source captures, field evidence, and DRAFT apply RPC.      |
+| Evidence apply semantics            | `migrations/20260721022014_fix_evidence_apply_semantics.sql`               | Skips populated nutrients and aligns evidence normalization.            |
+| Retired research state and indexes  | `migrations/20260721022500_retire_research_columns_and_add_fk_indexes.sql` | Drops obsolete food-level research columns and adds FK indexes.         |
+| Current normalization contract      | `migrations/20260721074238_align_evidence_trim_after_nfkc.sql`             | Applies NFKC, whitespace collapse, and trim in the current RPC.         |
 
 ## CONVENTIONS
 

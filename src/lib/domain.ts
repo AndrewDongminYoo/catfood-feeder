@@ -33,7 +33,21 @@ export const EXTRUSION_ASH_DEFAULT = 9.0; // 익스트루전 사료 회분 폴�
 
 export function num(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null;
-  const x = parseFloat(String(v).replace(/[^0-9.\-]/g, ""));
+  const text = String(v).normalize("NFKC").replace(/−/g, "-");
+  // 붙여넣기와 OCR에서 범위 구분자는 ASCII 하이픈 외에도 en/em dash와 물결표가 흔하다.
+  // 숫자 사이의 구분자를 먼저 거부하지 않으면 뒤의 정리 단계에서 "36–40"이 3640이 된다.
+  if (/\d\s*[-–—~〜]\s*\d/.test(text)) return null;
+  const cleaned = text
+    // 약어의 마침표는 소수점이 아니다. 이걸 남기면 AAFCO 라벨을 그대로 붙여넣은
+    // "Crude ash (max.) 7 %"가 ".7" → 0.7로 읽혀 10배 틀린 값이 들어간다.
+    .replace(/([a-zA-Z])\./g, "$1")
+    .replace(/\.(?=\s*$)/, "")
+    .replace(/[^0-9.\-]/g, "");
+  // parseFloat은 앞부분만 읽고 멈춘다. 범위("1.9-2.1" → 1.9)나 소수점이 둘 이상인
+  // 값("10.5.2" → 10.5)을 조용히 절단하느니 미기록으로 두고 큐레이터가 확정하게 한다.
+  if (/\d-/.test(cleaned)) return null;
+  if ((cleaned.match(/\./g)?.length ?? 0) > 1) return null;
+  const x = parseFloat(cleaned);
   return isNaN(x) ? null : x;
 }
 function round(v: number, dp: number) {
@@ -152,19 +166,54 @@ export function validate(n: NutrientInput, d: Derived): Flag[] {
   const flags: Flag[] = [];
   const p = num(n.protein_pct),
     f = num(n.fat_pct);
+  for (const [key, label] of NUTRIENT_FIELDS) {
+    const value = num(n[key]);
+    if (value !== null && value < 0) {
+      flags.push({ level: "error", msg: `${label} ${value} — 음수 입력 불가` });
+    }
+  }
   const sum = ["protein_pct", "fat_pct", "fiber_pct", "ash_pct", "moisture_pct"]
     .map((k) => num((n as Record<string, unknown>)[k]))
     .filter((v): v is number => v !== null)
     .reduce((a, b) => a + b, 0);
 
-  if (sum > 100)
+  // 부동소수점 누적 오차 허용. 십진 합이 정확히 100.0인 라벨이 100.00000000000001로 계산돼
+  // "합계 100% — 100% 초과"라는 자기모순 오류로 차단되던 문제를 막는다.
+  if (sum > 100 + 1e-9)
     flags.push({
       level: "error",
       msg: `보장성분 합계 ${round(sum, 1)}% — 100% 초과(입력 오류 가능)`,
     });
   if (d.carb_pct !== null && d.carb_pct < 0)
     flags.push({ level: "error", msg: "탄수화물(NFE) 음수 — 수치 재확인" });
-  if (p !== null && p < 30)
+
+  // 열량 자릿수 사고 방지. "3.850 kcal/kg"(유럽식 천단위 구분)이 3.85로 파싱되면
+  // 여기서만 잡힌다 — num()은 문법만 보고 자릿수 의도를 알 수 없다.
+  const kcal = num(n.kcal_per_kg);
+  if (kcal !== null && kcal >= 0 && (kcal < 500 || kcal > 8000))
+    flags.push({
+      level: "error",
+      msg: `열량 ${kcal} kcal/kg — 사료로 불가능한 값(자릿수 확인)`,
+    });
+  else if (kcal !== null && (kcal < 2000 || kcal > 6000))
+    flags.push({
+      level: "warn",
+      msg: `열량 ${kcal} kcal/kg — 건사료 통상 범위(2,000–6,000) 밖`,
+    });
+
+  // 제조사가 P/F/C를 직접 표기한 경우 그 값은 그대로 저장되므로(BLUEPRINT 41행)
+  // 합계 검증이 여기 없으면 OCR 자릿수 누락이 "실측"으로 공개된다.
+  // NFE 역산 경로는 구성상 항상 100이 되므로 이 검사에 걸리지 않는다.
+  const energy = [d.energy_p_pct, d.energy_f_pct, d.energy_c_pct];
+  if (energy.every((v): v is number => v !== null)) {
+    const total = energy.reduce((a, b) => a + b, 0);
+    if (Math.abs(total - 100) > 2)
+      flags.push({
+        level: "error",
+        msg: `열량비 합계 ${round(total, 1)}% — 100%에서 벗어남(원문 확인)`,
+      });
+  }
+  if (p !== null && p >= 0 && p < 30)
     flags.push({ level: "warn", msg: `단백질 ${p}% (30% 미만)` });
   if (f !== null && f > 30)
     flags.push({ level: "warn", msg: `지방 ${f}% (30% 초과)` });
@@ -176,6 +225,44 @@ export function validate(n: NutrientInput, d: Derived): Flag[] {
   if (d.ca_p_ratio !== null && d.ca_p_ratio < 1.0)
     flags.push({ level: "warn", msg: `Ca:P 역전 (Ca:P=${d.ca_p_ratio})` });
   return flags;
+}
+
+/**
+ * 원문이 제공되지 않은 출처로 태깅된 성분을 찾는다.
+ *
+ * 프로젝트의 핵심 자산은 "출처 태그가 붙은 검증 데이터"인데, `/new`는 원문 없이도
+ * 태그를 붙일 수 있다. 국내 라벨 원문을 비워둔 채 열량을 `kr_label`로 태깅하면
+ * 근거 없는 값이 실측으로 공개된다. 저장을 막지는 않고 큐레이터에게 보이게만 한다.
+ */
+export function detectUnbackedSources(
+  entries: Partial<
+    Record<NutrientKey, { value: unknown; source: Source | null }>
+  >,
+  texts: { manufacturer: string; krLabel: string },
+): Flag[] {
+  const available: Partial<Record<Source, boolean>> = {
+    manufacturer: texts.manufacturer.trim().length > 0,
+    kr_label: texts.krLabel.trim().length > 0,
+  };
+  const labels: Record<string, string> = {
+    manufacturer: "제조사 원문",
+    kr_label: "국내 라벨 원문",
+  };
+
+  return NUTRIENT_FIELDS.flatMap(([key, label]) => {
+    const entry = entries[key];
+    if (!entry || num(entry.value) === null) return [];
+    const source = entry.source;
+    // estimated·derived는 원문에서 오지 않으므로 대상이 아니다.
+    if (source !== "manufacturer" && source !== "kr_label") return [];
+    if (available[source]) return [];
+    return [
+      {
+        level: "warn" as const,
+        msg: `${label} — ${labels[source]}이 비어 있는데 해당 출처로 표시됨(근거 확인)`,
+      },
+    ];
+  });
 }
 
 const CONFLICT_PATTERNS: Record<NutrientKey, RegExp[]> = {
@@ -207,10 +294,8 @@ const CONFLICT_PATTERNS: Record<NutrientKey, RegExp[]> = {
     /phosphorus[^\d]{0,30}(\d+(?:\.\d+)?)/i,
     /(?:^|\s|[,:])인\s*[:：]?[\s]*(\d+(?:\.\d+)?)/i,
   ],
-  kcal_per_kg: [
-    /(\d{1,2}(?:,\d{3})+|\d{3,4})(?:\.\d+)?\s*kcal\s*\/\s*kg/i,
-    /(\d{1,2}(?:,\d{3})+|\d{3,4})(?:\.\d+)?\s*kcal\s*\/?\s*kg/i,
-  ],
+  // `\/?`가 `\/`를 포함하므로 패턴 하나로 충분하다.
+  kcal_per_kg: [/(\d{1,2}(?:,\d{3})+|\d{3,4})(?:\.\d+)?\s*kcal\s*\/?\s*kg/i],
 };
 
 export function extractNutrientHints(

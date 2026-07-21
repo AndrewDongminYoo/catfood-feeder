@@ -7,15 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.97",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.5",
     "@tailwindcss/postcss": "^4.3.2",
     "@vercel/analytics": "2.0.1",
-    "ai": "^6.0.226",
     "cheerio": "^1.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

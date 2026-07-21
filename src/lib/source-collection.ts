@@ -6,8 +6,7 @@ export type SourceKind = (typeof SOURCE_KIND_VALUES)[number];
 export const SOURCE_CAPTURE_METHOD_VALUES = ["fetch", "manual"] as const;
 export type SourceCaptureMethod = (typeof SOURCE_CAPTURE_METHOD_VALUES)[number];
 
-export const SOURCE_FETCH_STATUS_VALUES = ["fetched", "failed"] as const;
-export type SourceFetchStatus = (typeof SOURCE_FETCH_STATUS_VALUES)[number];
+export type SourceFetchStatus = "fetched" | "failed";
 
 export function normalizeSourceText(value: string): string {
   return value.normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase();

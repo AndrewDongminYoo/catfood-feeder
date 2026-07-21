@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { authorizeCurator } from "@/lib/admin-auth";
 import { detectSourceConflicts, parseManufacturerEnergy } from "@/lib/domain";
+import { RequestBodyTooLargeError, readJsonBody } from "@/lib/request-body";
 import { consumeRateLimit } from "@/lib/request-rate-limit";
 import {
   extractCapturedSources,
@@ -33,21 +34,25 @@ export async function POST(req: NextRequest) {
       { status: 403 },
     );
   }
-  const rateLimit = await consumeRateLimit(
-    `extract:${authorization.rateLimitKey}`,
-  );
-  if (!rateLimit.allowed) {
-    return NextResponse.json(
-      { error: "추출 요청 한도를 초과했습니다." },
-      {
-        status: 429,
-        headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
-      },
-    );
-  }
-
   try {
-    const request = extractionRequestSchema.safeParse(await readJsonBody(req));
+    // consumeRateLimit은 Supabase 설정 누락/RPC 실패 시 throw한다. try 안에서 호출해야
+    // 다른 모든 경로와 같은 JSON 오류 계약을 유지한다.
+    const rateLimit = await consumeRateLimit(
+      `extract:${authorization.rateLimitKey}`,
+    );
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "추출 요청 한도를 초과했습니다." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+        },
+      );
+    }
+
+    const request = extractionRequestSchema.safeParse(
+      await readJsonBody(req, MAX_BODY_BYTES),
+    );
     if (!request.success)
       return NextResponse.json(
         { error: "요청 형식이 올바르지 않습니다." },
@@ -133,30 +138,4 @@ function extractionFailure(
         { status: 504 },
       );
   }
-}
-
-class RequestBodyTooLargeError extends Error {
-  readonly name = "RequestBodyTooLargeError";
-}
-
-async function readJsonBody(request: Request): Promise<unknown> {
-  const contentLength = Number(request.headers.get("content-length"));
-  if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES)
-    throw new RequestBodyTooLargeError();
-  if (!request.body) throw new SyntaxError("Request body is missing.");
-  const reader = request.body.getReader();
-  const decoder = new TextDecoder();
-  let size = 0;
-  let text = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > MAX_BODY_BYTES) {
-      await reader.cancel();
-      throw new RequestBodyTooLargeError();
-    }
-    text += decoder.decode(value, { stream: true });
-  }
-  return JSON.parse(text + decoder.decode());
 }
