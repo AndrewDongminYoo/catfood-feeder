@@ -441,7 +441,7 @@ The extraction route accepts `{ sourceIds: number[] }`, limits selection to one 
 
 The apply route accepts `{ evidence: Array<{ nutrientKey: string; sourceId: number; value: number; excerpt: string }> }`.
 
-It re-reads the selected sources, revalidates every excerpt, invokes only `apply_food_evidence_draft`, and returns the changed draft fields.
+It re-reads the selected sources, revalidates every excerpt, invokes only `apply_food_evidence_draft`, and returns each candidate's `applied`, `skipped`, or `conflict` result.
 
 Both routes require a human curator and return HTTP 403 for automation credentials.
 

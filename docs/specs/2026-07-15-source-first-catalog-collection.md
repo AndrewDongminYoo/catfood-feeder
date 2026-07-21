@@ -129,6 +129,11 @@ Do not add a food-level `collected_at` field because one food can combine manufa
 9. The server updates `nutrient_sources` from the evidence source kind and leaves `data_verified_at` null.
 10. A human curator reviews the evidence and uses the existing validated catalog-write path to compute derived values and set `data_verified_at`.
 
+When a newer capture of the same source kind repeats a stored nutrient value, the server keeps the food value and replaces its current evidence with the new capture.
+When that newer same-kind capture proposes a different value, the server returns `conflict`, leaves the food value and current evidence unchanged, and keeps the candidate visible for curator review.
+When a different source kind overlaps a populated nutrient, the server returns `skipped` and preserves the existing value and provenance regardless of capture order.
+Missing nutrients remain append-only and return `applied` when stored.
+
 ## Failure Policy
 
 Each source fetch is independent.

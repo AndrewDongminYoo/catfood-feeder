@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { z } from "zod";
+import {
+  conflictCandidates,
+  evidenceApplyResponseSchema,
+  evidenceCandidateSchema,
+} from "@/lib/source-apply";
 
 const sourceSchema = z.object({
   captured_at: z.string().nullable(),
@@ -18,15 +23,8 @@ const foodSchema = z.object({
   product_name: z.string(),
 });
 const draftsSchema = z.object({ foods: z.array(foodSchema) });
-const candidateSchema = z.object({
-  excerpt: z.string(),
-  nutrientKey: z.string(),
-  sourceId: z.number(),
-  value: z.number(),
-});
-
 type DraftFood = z.infer<typeof foodSchema>;
-type Candidate = z.infer<typeof candidateSchema>;
+type Candidate = z.infer<typeof evidenceCandidateSchema>;
 
 export function SourceResearchClient() {
   const [foods, setFoods] = useState<readonly DraftFood[]>([]);
@@ -87,7 +85,7 @@ export function SourceResearchClient() {
       sourceIds: fetchedSources.map((source) => source.id),
     });
     const parsed = z
-      .object({ candidates: z.array(candidateSchema) })
+      .object({ candidates: z.array(evidenceCandidateSchema) })
       .safeParse(result);
     if (parsed.success) setCandidates(parsed.data.candidates);
   }
@@ -99,7 +97,15 @@ export function SourceResearchClient() {
     });
     // 실패 시 후보를 버리면 유료 추출을 다시 돌려야 한다.
     if (result === null) return;
-    setCandidates([]);
+    const parsed = evidenceApplyResponseSchema.safeParse(result);
+    if (!parsed.success) {
+      setMessage("Draft 적용 결과를 확인하지 못했습니다.");
+      return;
+    }
+    const conflicts = conflictCandidates(parsed.data.results);
+    setCandidates(conflicts);
+    if (conflicts.length > 0)
+      setMessage(`저장값과 다른 후보 ${conflicts.length}건을 남겼습니다.`);
     await loadDrafts();
   }
 

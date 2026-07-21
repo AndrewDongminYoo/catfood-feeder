@@ -6,6 +6,7 @@ import {
   SMALL_JSON_BODY_BYTES,
   readJsonBody,
 } from "@/lib/request-body";
+import { evidenceCandidateSchema } from "@/lib/source-apply";
 import { validateExtractedEvidence } from "@/lib/source-extraction";
 import {
   applyFoodEvidenceDraft,
@@ -13,29 +14,9 @@ import {
   getCurrentFetchedFoodSources,
 } from "@/lib/source-repository";
 
-const nutrientKeySchema = z.enum([
-  "protein_pct",
-  "fat_pct",
-  "fiber_pct",
-  "ash_pct",
-  "moisture_pct",
-  "calcium_pct",
-  "phosphorus_pct",
-  "kcal_per_kg",
-]);
 const requestSchema = z
   .object({
-    evidence: z
-      .array(
-        z.object({
-          excerpt: z.string().min(1).max(500),
-          nutrientKey: nutrientKeySchema,
-          sourceId: z.number().int().positive(),
-          value: z.number().finite(),
-        }),
-      )
-      .min(1)
-      .max(8),
+    evidence: z.array(evidenceCandidateSchema).min(1).max(8),
   })
   .strict();
 
@@ -87,8 +68,8 @@ export async function POST(
         { error: "근거 문구 또는 출처가 현재 수집본과 일치하지 않습니다." },
         { status: 400 },
       );
-    await applyFoodEvidenceDraft(foodId.data, evidence);
-    return NextResponse.json({ evidence });
+    const results = await applyFoodEvidenceDraft(foodId.data, evidence);
+    return NextResponse.json({ results });
   } catch (error: unknown) {
     if (error instanceof RequestBodyTooLargeError)
       return NextResponse.json(
