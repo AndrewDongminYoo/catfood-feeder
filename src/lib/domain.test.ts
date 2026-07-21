@@ -52,6 +52,11 @@ describe("num 절단 방지", () => {
   it("범위 표기와 소수점 중복은 미기록으로 둔다", () => {
     expect(num("1.9-2.1")).toBeNull();
     expect(num("36-40")).toBeNull();
+    expect(num("36–40")).toBeNull();
+    expect(num("36—40")).toBeNull();
+    expect(num("36~40")).toBeNull();
+    expect(num("36〜40")).toBeNull();
+    expect(num("36～40")).toBeNull();
     expect(num("10.5.2")).toBeNull();
   });
 
@@ -78,6 +83,28 @@ describe("num 절단 방지", () => {
   it("문장 끝 마침표는 소수점 중복으로 보지 않는다", () => {
     expect(num("조단백질 36.0% 이상.")).toBe(36);
     expect(num("Crude ash (max.) 7.0%.")).toBe(7);
+  });
+});
+
+describe("validate 음수 영양소", () => {
+  it.each([
+    "protein_pct",
+    "fat_pct",
+    "fiber_pct",
+    "ash_pct",
+    "moisture_pct",
+    "calcium_pct",
+    "phosphorus_pct",
+    "kcal_per_kg",
+  ] as const)("%s 음수는 저장 오류로 차단한다", (key) => {
+    const flags = validate({ [key]: -1 }, NEUTRAL);
+
+    expect(flags).toContainEqual(
+      expect.objectContaining({
+        level: "error",
+        msg: expect.stringContaining("음수"),
+      }),
+    );
   });
 });
 

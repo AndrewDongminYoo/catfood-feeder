@@ -33,7 +33,11 @@ export const EXTRUSION_ASH_DEFAULT = 9.0; // 익스트루전 사료 회분 폴�
 
 export function num(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null;
-  const cleaned = String(v)
+  const text = String(v).normalize("NFKC").replace(/−/g, "-");
+  // 붙여넣기와 OCR에서 범위 구분자는 ASCII 하이픈 외에도 en/em dash와 물결표가 흔하다.
+  // 숫자 사이의 구분자를 먼저 거부하지 않으면 뒤의 정리 단계에서 "36–40"이 3640이 된다.
+  if (/\d\s*[-–—~〜]\s*\d/.test(text)) return null;
+  const cleaned = text
     // 약어의 마침표는 소수점이 아니다. 이걸 남기면 AAFCO 라벨을 그대로 붙여넣은
     // "Crude ash (max.) 7 %"가 ".7" → 0.7로 읽혀 10배 틀린 값이 들어간다.
     .replace(/([a-zA-Z])\./g, "$1")
@@ -162,6 +166,12 @@ export function validate(n: NutrientInput, d: Derived): Flag[] {
   const flags: Flag[] = [];
   const p = num(n.protein_pct),
     f = num(n.fat_pct);
+  for (const [key, label] of NUTRIENT_FIELDS) {
+    const value = num(n[key]);
+    if (value !== null && value < 0) {
+      flags.push({ level: "error", msg: `${label} ${value} — 음수 입력 불가` });
+    }
+  }
   const sum = ["protein_pct", "fat_pct", "fiber_pct", "ash_pct", "moisture_pct"]
     .map((k) => num((n as Record<string, unknown>)[k]))
     .filter((v): v is number => v !== null)
@@ -180,7 +190,7 @@ export function validate(n: NutrientInput, d: Derived): Flag[] {
   // 열량 자릿수 사고 방지. "3.850 kcal/kg"(유럽식 천단위 구분)이 3.85로 파싱되면
   // 여기서만 잡힌다 — num()은 문법만 보고 자릿수 의도를 알 수 없다.
   const kcal = num(n.kcal_per_kg);
-  if (kcal !== null && (kcal < 500 || kcal > 8000))
+  if (kcal !== null && kcal >= 0 && (kcal < 500 || kcal > 8000))
     flags.push({
       level: "error",
       msg: `열량 ${kcal} kcal/kg — 사료로 불가능한 값(자릿수 확인)`,
@@ -203,7 +213,7 @@ export function validate(n: NutrientInput, d: Derived): Flag[] {
         msg: `열량비 합계 ${round(total, 1)}% — 100%에서 벗어남(원문 확인)`,
       });
   }
-  if (p !== null && p < 30)
+  if (p !== null && p >= 0 && p < 30)
     flags.push({ level: "warn", msg: `단백질 ${p}% (30% 미만)` });
   if (f !== null && f > 30)
     flags.push({ level: "warn", msg: `지방 ${f}% (30% 초과)` });
