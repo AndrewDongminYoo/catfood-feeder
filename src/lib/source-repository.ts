@@ -1,4 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { parseEvidenceApplyResults } from "./source-apply";
+import type { EvidenceApplyResult } from "./source-apply";
 import type { ExtractedEvidence } from "./source-extraction";
 import type {
   SourceCaptureMethod,
@@ -134,9 +136,9 @@ export async function getCurrentFetchedFoodSources(
 export async function applyFoodEvidenceDraft(
   foodId: number,
   evidence: readonly ExtractedEvidence[],
-): Promise<void> {
+): Promise<readonly EvidenceApplyResult[]> {
   const supabase = createAdminClient();
-  const { error } = await supabase.rpc("apply_food_evidence_draft", {
+  const { data, error } = await supabase.rpc("apply_food_evidence_draft", {
     p_evidence: evidence.map((candidate) => ({
       excerpt: candidate.excerpt,
       nutrient_key: candidate.nutrientKey,
@@ -147,6 +149,13 @@ export async function applyFoodEvidenceDraft(
   });
   if (error)
     throw new SourceRepositoryError("apply_food_evidence", error.message);
+  const results = parseEvidenceApplyResults(data);
+  if (results.length !== evidence.length)
+    throw new SourceRepositoryError(
+      "apply_food_evidence",
+      "Evidence RPC returned an incomplete result",
+    );
+  return results;
 }
 
 function toSourceInsert(source: SourceWrite, isCurrent: boolean) {
