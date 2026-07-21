@@ -149,11 +149,10 @@ export async function POST(
         observedAt: payload.data.observedAt ?? null,
         url: payload.data.url,
       });
-      // 실패도 원장에 남는다. 성공 응답의 `source`와 헷갈리지 않도록 키를 구분한다.
       return NextResponse.json(
         {
           error: "출처 페이지를 안전하게 수집하지 못했습니다.",
-          failedSourceId: sourceId,
+          sourceId,
         },
         { status: 422 },
       );
