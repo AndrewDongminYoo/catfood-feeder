@@ -134,6 +134,50 @@ When that newer same-kind capture proposes a different value, the server returns
 When a different source kind overlaps a populated nutrient, the server returns `skipped` and preserves the existing value and provenance regardless of capture order.
 Missing nutrients remain append-only and return `applied` when stored.
 
+```mermaid
+sequenceDiagram
+  participant Client as SourceResearchClient
+  participant Route as POST /api/foods/[id]/sources/apply
+  participant Repository as source-repository
+  participant RPC as apply_food_evidence_draft
+  participant Foods as foods
+  participant Sources as food_sources
+  participant Evidence as food_nutrient_evidence
+
+  Client->>Route: Submit evidence candidates
+  Route->>Repository: Load cited current fetched sources
+  Repository->>Sources: Select sources by food and source ID
+  Sources-->>Repository: Current source captures
+  Repository-->>Route: Source captures
+  Route->>Route: Validate source IDs, values, and literal excerpts
+  Route->>Repository: Apply validated evidence
+  Repository->>RPC: Call with food ID and evidence array
+  RPC->>Foods: Lock the DRAFT food row
+
+  loop Each evidence candidate
+    RPC->>Sources: Revalidate current fetched source
+    RPC->>Evidence: Read exact current evidence value and source kind
+    alt Nutrient is missing
+      RPC->>Foods: Write value, source tag, and updated_at
+      RPC->>Evidence: Insert current evidence
+      Note right of RPC: applied
+    else Same kind and exact evidence value
+      RPC->>Evidence: Retire prior current evidence and insert refreshed evidence
+      Note right of RPC: applied; foods remains unchanged
+    else Same kind and changed evidence value
+      Note right of RPC: conflict; value and evidence remain unchanged
+    else Different source kind overlap
+      Note right of RPC: skipped; value and provenance remain unchanged
+    end
+  end
+
+  RPC-->>Repository: Per-candidate result array
+  Repository->>Repository: Parse results and verify cardinality
+  Repository-->>Route: applied, skipped, or conflict results
+  Route-->>Client: Return results
+  Client->>Client: Clear applied and skipped candidates; retain conflicts
+```
+
 ## Failure Policy
 
 Each source fetch is independent.
