@@ -33,7 +33,12 @@ export const EXTRUSION_ASH_DEFAULT = 9.0; // 익스트루전 사료 회분 폴�
 
 export function num(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null;
-  const x = parseFloat(String(v).replace(/[^0-9.\-]/g, ""));
+  const cleaned = String(v).replace(/[^0-9.\-]/g, "");
+  // parseFloat은 앞부분만 읽고 멈춘다. 범위("1.9-2.1" → 1.9)나 소수점이 둘 이상인
+  // 값("10.5.2" → 10.5)을 조용히 절단하느니 미기록으로 두고 큐레이터가 확정하게 한다.
+  if (/\d-/.test(cleaned)) return null;
+  if ((cleaned.match(/\./g)?.length ?? 0) > 1) return null;
+  const x = parseFloat(cleaned);
   return isNaN(x) ? null : x;
 }
 function round(v: number, dp: number) {
@@ -157,13 +162,42 @@ export function validate(n: NutrientInput, d: Derived): Flag[] {
     .filter((v): v is number => v !== null)
     .reduce((a, b) => a + b, 0);
 
-  if (sum > 100)
+  // 부동소수점 누적 오차 허용. 십진 합이 정확히 100.0인 라벨이 100.00000000000001로 계산돼
+  // "합계 100% — 100% 초과"라는 자기모순 오류로 차단되던 문제를 막는다.
+  if (sum > 100 + 1e-9)
     flags.push({
       level: "error",
       msg: `보장성분 합계 ${round(sum, 1)}% — 100% 초과(입력 오류 가능)`,
     });
   if (d.carb_pct !== null && d.carb_pct < 0)
     flags.push({ level: "error", msg: "탄수화물(NFE) 음수 — 수치 재확인" });
+
+  // 열량 자릿수 사고 방지. "3.850 kcal/kg"(유럽식 천단위 구분)이 3.85로 파싱되면
+  // 여기서만 잡힌다 — num()은 문법만 보고 자릿수 의도를 알 수 없다.
+  const kcal = num(n.kcal_per_kg);
+  if (kcal !== null && (kcal < 500 || kcal > 8000))
+    flags.push({
+      level: "error",
+      msg: `열량 ${kcal} kcal/kg — 사료로 불가능한 값(자릿수 확인)`,
+    });
+  else if (kcal !== null && (kcal < 2000 || kcal > 6000))
+    flags.push({
+      level: "warn",
+      msg: `열량 ${kcal} kcal/kg — 건사료 통상 범위(2,000–6,000) 밖`,
+    });
+
+  // 제조사가 P/F/C를 직접 표기한 경우 그 값은 그대로 저장되므로(BLUEPRINT 41행)
+  // 합계 검증이 여기 없으면 OCR 자릿수 누락이 "실측"으로 공개된다.
+  // NFE 역산 경로는 구성상 항상 100이 되므로 이 검사에 걸리지 않는다.
+  const energy = [d.energy_p_pct, d.energy_f_pct, d.energy_c_pct];
+  if (energy.every((v): v is number => v !== null)) {
+    const total = energy.reduce((a, b) => a + b, 0);
+    if (Math.abs(total - 100) > 2)
+      flags.push({
+        level: "error",
+        msg: `열량비 합계 ${round(total, 1)}% — 100%에서 벗어남(원문 확인)`,
+      });
+  }
   if (p !== null && p < 30)
     flags.push({ level: "warn", msg: `단백질 ${p}% (30% 미만)` });
   if (f !== null && f > 30)
@@ -207,10 +241,8 @@ const CONFLICT_PATTERNS: Record<NutrientKey, RegExp[]> = {
     /phosphorus[^\d]{0,30}(\d+(?:\.\d+)?)/i,
     /(?:^|\s|[,:])인\s*[:：]?[\s]*(\d+(?:\.\d+)?)/i,
   ],
-  kcal_per_kg: [
-    /(\d{1,2}(?:,\d{3})+|\d{3,4})(?:\.\d+)?\s*kcal\s*\/\s*kg/i,
-    /(\d{1,2}(?:,\d{3})+|\d{3,4})(?:\.\d+)?\s*kcal\s*\/?\s*kg/i,
-  ],
+  // `\/?`가 `\/`를 포함하므로 패턴 하나로 충분하다.
+  kcal_per_kg: [/(\d{1,2}(?:,\d{3})+|\d{3,4})(?:\.\d+)?\s*kcal\s*\/?\s*kg/i],
 };
 
 export function extractNutrientHints(
