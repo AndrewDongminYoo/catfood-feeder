@@ -1,6 +1,6 @@
 # Full codebase audit — 2026-07-21
 
-Status: Code findings resolved except the items in **Still open**; authenticated two-source UI smoke test pending
+Status: Code findings resolved except the items in **Still open**; authenticated two-source UI smoke test passed
 
 Most findings below are fixed; each remaining one is marked OPEN with the reason.
 `src/types/supabase.d.ts` was regenerated from the linked project after the migrations were applied; it was never hand-edited.
@@ -18,7 +18,7 @@ Everything below is on branch `fix/audit-2026-07-21`, verified by `pnpm typechec
 
 - `apply_food_evidence_draft` no longer aborts the batch on an already-populated nutrient, refuses foods where `data_verified_at` is set, and matches the TypeScript order of NFKC, whitespace collapse, trim, and lowercase (`supabase/migrations/20260721022014_fix_evidence_apply_semantics.sql`, followed by `20260721074238_align_evidence_trim_after_nfkc.sql`).
 - `validate` accepts labels whose decimal sum is exactly 100%, and now blocks impossible `kcal_per_kg` and a manufacturer P/F/C split missing 100% by more than 2 points (`src/lib/domain.ts`).
-- `num()` returns null for ranges and multi-dot values instead of silently truncating to the leading run.
+- `num()` returns null for ranges and multi-dot values instead of silently truncating to the leading run, while ignoring sentence-ending periods after a valid decimal label value.
 - `/compare` with no `ids` renders nothing rather than presenting two arbitrary products as a comparison.
 
 **Trust boundaries**
@@ -28,7 +28,7 @@ Everything below is on branch `fix/audit-2026-07-21`, verified by `pnpm typechec
 - `CRON_SECRET` is compared with `timingSafeEqual` via the newly shared `secretsMatch`.
 - Raw Postgres messages are no longer returned to clients; they go to `console.error` instead.
 - `/api/foods/[id]/sources/extract` charges the quota before its DB lookups, closing the unmetered existence oracle.
-- The IPv6 deny-list now parses addresses into bytes and reduces every IPv4-bearing form (6to4, NAT64, Teredo, mapped, compatible) back through the IPv4 rules.
+- The IPv6 deny-list now parses addresses into bytes and reduces every IPv4-bearing form (6to4, NAT64, Teredo, mapped, compatible, translatable) back through the IPv4 rules.
 
 **Collection pipeline**
 
@@ -38,7 +38,7 @@ Everything below is on branch `fix/audit-2026-07-21`, verified by `pnpm typechec
 
 **Verification layer**
 
-- `pnpm test` exists and collects only `src/**/*.test.ts`; the suite went from collecting 191 vendor failures to 8 passing files / 50 tests.
+- `pnpm test` exists and collects only `src/**/*.test.ts`; the suite went from collecting 191 vendor failures to 8 passing files / 52 tests.
 - `src/lib/fixtures.test.ts` makes the ACANA case drive real domain math, so the "regression check" claim is now true.
 - `src/lib/source-first-boundary.test.ts` fails if the autonomous-enrichment script returns or a second Anthropic caller appears.
 - `knip.json` and `eslint.config.mjs` exclude `.trunk`/`.remember` correctly; knip reports clean without being told to ignore live code.
@@ -60,6 +60,11 @@ Everything below is on branch `fix/audit-2026-07-21`, verified by `pnpm typechec
 
 **Docs** — `CLAUDE.md`, `AGENTS.md`, the spec's two field tables, and the plan checkboxes now match the code.
 
+**Authenticated two-source smoke test** — DRAFT `#197 내추럴발란스 캣 팻캣 닭&연어 저칼로리 고양이 6.8kg` completed the real `/new/research` workflow in Chrome.
+The manufacturer source was registered, extracted, and applied first with protein 35%, fat 9.5%, fiber 9%, moisture 10%, and 3,200 kcal/kg.
+The manually transcribed KR-label source was then registered and extracted together with the manufacturer source; the second apply succeeded, retained every manufacturer-backed overlap, and added only calcium 0.9% and phosphorus 0.8% from the KR label.
+Supabase verification showed current fetched sources `#3 manufacturer` and `#4 kr_label`, seven current evidence rows linked to the correct source IDs, `ash_pct = NULL`, and `data_verified_at = NULL`.
+
 ## Found during live testing (not in the original audit)
 
 **`/api/foods` rejected every product whose manufacturer text lacks an explicit energy split.**
@@ -78,13 +83,19 @@ Fixed by accepting `null` and normalizing it to `undefined` at the schema bounda
 
 This is a reminder that the audit was a static reading. Three parallel reviewers read `/api/foods` in full and none flagged it, because spotting it required knowing what the client actually sends at runtime.
 
+**`/new/research` exposed only the first 100 DRAFT foods.**
+
+The authenticated smoke-test product existed as DRAFT `#197` but could not be selected because `/api/foods/drafts` explicitly called `.limit(100)`.
+The limit is now 1000, which covers the current catalog and allowed the real workflow to proceed.
+Server-side search or pagination remains preferable when the catalog approaches that ceiling.
+
 ## Still open
 
 | Item                                                                                     | Why it was not fixed                                                                                                                                                                                                                                                                                                                             |
 | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | SSRF DNS rebinding (TOCTOU) in `source-fetcher.ts`                                       | Closing it needs a pinned-lookup undici `Agent` — a new dependency. Fetching the validated IP directly would break HTTPS certificate validation. Marked with a `ponytail:` comment naming the upgrade path. Reachable only with a curator session.                                                                                               |
 | `food_sources.kind` typed wider than its CHECK constraint                                | Not drift after all, and not fixable by regeneration: the column's Postgres type genuinely is `nutrient_source`, and the two-value restriction lives in a CHECK the generator cannot see. `insert({ kind: "estimated" })` still typechecks and fails at runtime. Narrowing needs a dedicated enum for the column or a hand-written wrapper type. |
-| Curator workspace UI: transcript viewer, failed-source list and retry                    | Deferred by decision — needs a screen design pass. The data is already in the ledger and partly on the wire.                                                                                                                                                                                                                                     |
+| Curator workspace UI: transcript viewer, failed-source list, retry, and DRAFT search     | Deferred by decision — needs a screen design pass. The data is already in the ledger and partly on the wire. The current DRAFT selector now loads up to 1000 rows, but search or pagination is still needed before the catalog reaches that ceiling.                                                                                             |
 | `source-research-client.test.tsx` (action-order invariant)                               | Needs jsdom and a React testing library. Deferred with the UI work above; the three plan steps are left unchecked and annotated.                                                                                                                                                                                                                 |
 | `replaceCurrentFoodSource` is not transactional                                          | Folding its three writes into an RPC is a new migration and a design decision beyond this pass.                                                                                                                                                                                                                                                  |
 | Minimum excerpt length                                                                   | `isEvidenceExcerpt` still accepts a two-character excerpt like `"37"`. A safe minimum needs real-label data to calibrate.                                                                                                                                                                                                                        |
@@ -169,7 +180,7 @@ Verified correct, for the record: `feeding_logs` has no IDOR (the RLS policy at 
 - **The suite was unrunnable** (fixed). `docs/plans/…:558` names `pnpm exec vitest run` as a release gate; run as written it reported 191 failed / 3 passed. There was no `test` script, so the suite only passed when someone remembered `--dir src`.
 - **The documented regression check executed nothing** (fixed by `src/lib/fixtures.test.ts`). CLAUDE.md had called the ACANA literal in `src/lib/fixtures.ts` a regression check even though no domain function ran.
 - **The dead-code gate was configured not to look** (fixed). The branch removed obsolete suppressions and corrected the `.trunk` exclusions.
-- **The RPC has zero coverage.** No pgTAP, no seeded integration test. Defects A, C and the open DRAFT gap all live inside this untested surface.
+- **The RPC has zero automated coverage.** No pgTAP or seeded integration test exists. The authenticated Natural Balance smoke test now covers the real manufacturer-first then KR-label apply sequence, but it does not replace a repeatable database test.
 - **Two guard tests from the plan were never written**: `source-first-boundary.test.ts` is now present, while `source-research-client.test.tsx` remains deferred with the workspace UI work.
 
 ## 4. Dead code — historical findings; remaining items are listed above
@@ -234,8 +245,7 @@ Note two different service-key names are accepted — worth confirming both are 
 
 ## Suggested next pass
 
-1. Run the authenticated two-source workflow end to end on a DRAFT product and record that manufacturer overlaps stay unchanged while KR-label-only nutrients persist.
-2. Design the transcript viewer, failed-source list, retry/replace UI, and its deferred component test as a separate PR.
-3. Make `replaceCurrentFoodSource` transactional.
-4. Close DNS rebinding with a pinned lookup once the undici dependency is approved.
-5. Calibrate a minimum excerpt length and decide whether `food_sources.kind` needs a dedicated database enum.
+1. Design the transcript viewer, failed-source list, retry/replace UI, searchable DRAFT picker, and its deferred component test as a separate PR.
+2. Make `replaceCurrentFoodSource` transactional.
+3. Close DNS rebinding with a pinned lookup once the undici dependency is approved.
+4. Calibrate a minimum excerpt length and decide whether `food_sources.kind` needs a dedicated database enum.
