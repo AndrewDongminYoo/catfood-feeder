@@ -1,9 +1,10 @@
 # Full codebase audit — 2026-07-21
 
-Status: Mostly resolved on branch `fix/audit-2026-07-21`
+Status: Code findings resolved except the items in **Still open**; authenticated two-source UI smoke test pending
 
 Most findings below are fixed; each remaining one is marked OPEN with the reason.
-`src/types/supabase.d.ts` was regenerated from the linked project after the migrations were applied; it was never hand-edited. The curator workspace UI is untouched.
+`src/types/supabase.d.ts` was regenerated from the linked project after the migrations were applied; it was never hand-edited.
+The curator transcript viewer and failed-source list remain deferred.
 
 Read-only audit of the whole repository at commit `e317ecf`, covering 5,189 LOC across 46 source files and 8 migrations.
 Five parallel reviewers each read their scope in full; numeric claims in the domain section were confirmed by executing the real functions rather than by inspection.
@@ -11,11 +12,11 @@ Findings are ordered by severity, not by area.
 
 ## What was fixed
 
-Everything below is on branch `fix/audit-2026-07-21`, verified by `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm exec knip`, and `trunk check`.
+Everything below is on branch `fix/audit-2026-07-21`, verified by `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm exec knip`, `trunk check`, and `pnpm build`.
 
 **Correctness**
 
-- `apply_food_evidence_draft` no longer aborts the batch on an already-populated nutrient, normalizes excerpts with NFKC on both sides, and refuses foods where `data_verified_at` is set (`supabase/migrations/20260721022014_fix_evidence_apply_semantics.sql`).
+- `apply_food_evidence_draft` no longer aborts the batch on an already-populated nutrient, refuses foods where `data_verified_at` is set, and matches the TypeScript order of NFKC, whitespace collapse, trim, and lowercase (`supabase/migrations/20260721022014_fix_evidence_apply_semantics.sql`, followed by `20260721074238_align_evidence_trim_after_nfkc.sql`).
 - `validate` accepts labels whose decimal sum is exactly 100%, and now blocks impossible `kcal_per_kg` and a manufacturer P/F/C split missing 100% by more than 2 points (`src/lib/domain.ts`).
 - `num()` returns null for ranges and multi-dot values instead of silently truncating to the leading run.
 - `/compare` with no `ids` renders nothing rather than presenting two arbitrary products as a comparison.
@@ -31,13 +32,13 @@ Everything below is on branch `fix/audit-2026-07-21`, verified by `pnpm typechec
 
 **Collection pipeline**
 
-- Responses are decoded with the declared charset, so euc-kr importer pages no longer capture as mojibake.
-- Extraction retries once on 5xx or socket errors, and `max_tokens` is raised so long ingredient lists stop truncating the JSON.
+- Responses are decoded with the declared charset, including the `euc-kr`, `cp949`, and `windows-949` labels used by Korean importer pages.
+- Extraction retries once on 5xx, socket errors, or timeouts, and `max_tokens` is raised so long ingredient lists stop truncating the JSON.
 - A failed request no longer wipes the curator's pasted transcript or extraction candidates.
 
 **Verification layer**
 
-- `pnpm test` exists and collects only `src/**/*.test.ts`; the suite went from 191 failing files to 6 passing files / 36 tests.
+- `pnpm test` exists and collects only `src/**/*.test.ts`; the suite went from collecting 191 vendor failures to 8 passing files / 50 tests.
 - `src/lib/fixtures.test.ts` makes the ACANA case drive real domain math, so the "regression check" claim is now true.
 - `src/lib/source-first-boundary.test.ts` fails if the autonomous-enrichment script returns or a second Anthropic caller appears.
 - `knip.json` and `eslint.config.mjs` exclude `.trunk`/`.remember` correctly; knip reports clean without being told to ignore live code.
@@ -87,9 +88,13 @@ This is a reminder that the audit was a static reading. Three parallel reviewers
 | `source-research-client.test.tsx` (action-order invariant)                               | Needs jsdom and a React testing library. Deferred with the UI work above; the three plan steps are left unchecked and annotated.                                                                                                                                                                                                                 |
 | `replaceCurrentFoodSource` is not transactional                                          | Folding its three writes into an RPC is a new migration and a design decision beyond this pass.                                                                                                                                                                                                                                                  |
 | Minimum excerpt length                                                                   | `isEvidenceExcerpt` still accepts a two-character excerpt like `"37"`. A safe minimum needs real-label data to calibrate.                                                                                                                                                                                                                        |
+| Ambiguous locale dot separators in `num()`                                               | Ranges and multi-dot values are rejected, but `3.850` remains indistinguishable from decimal 3.85 versus 3850 kcal/kg without field-aware parsing.                                                                                                                                                                                               |
 | `radix-ui` / `lucide-react` / `class-variance-authority` / `shadcn` installed but unused | Removing them presumes shadcn/ui will never be adopted — a product call. `CLAUDE.md` now describes the actual styling instead.                                                                                                                                                                                                                   |
 
-## Original findings
+## Original findings (historical snapshot at `e317ecf`)
+
+The sections below preserve the evidence and failure mechanisms observed before the fixes.
+They do not describe current branch status; use **What was fixed** and **Still open** above for the current classification.
 
 ## 1. Shipped behavior that is broken
 
@@ -126,7 +131,7 @@ A page containing fullwidth text (`Ｐｒｏｔｅｉｎ 37%`) passed `validateE
 Note `20260715153018_fix_food_evidence_excerpt_normalization.sql` claims this fix in its filename but shipped a byte-identical copy of the function body — added in the _same_ commit (`caf2fed`) as the original, with no subsequent edit under `git log --follow`.
 The only delta is a trailing `REVOKE`/`GRANT` block outside the function body.
 
-### D. `num()` silently truncates values — OPEN
+### D. `num()` silently truncates values — PARTIALLY FIXED
 
 `src/lib/domain.ts:36` strips everything except `[0-9.\-]` then takes the leading `parseFloat` run:
 
@@ -136,15 +141,16 @@ num("3.850")   → 3.85     // EU thousands separator → 3850 kcal/kg becomes 3
 num("10.5.2")  → 10.5
 ```
 
-`validate` applies no bound to `kcal_per_kg`, so the `3.850` case saves cleanly and renders as "4 kcal/kg".
+Ranges and values with multiple dots now return null, and abbreviation periods such as `max.` are removed before parsing.
+The locale-dependent `3.850` ambiguity remains open because resolving it safely requires field-aware input rules.
 
-### E. Manufacturer-stated P/F/C is accepted unvalidated — OPEN
+### E. Manufacturer-stated P/F/C is accepted unvalidated — fixed
 
 `domain.ts:252` returns whatever three regexes capture; `validate` never checks that the three sum to ~100.
 An OCR typo dropping a digit (`37% protein, 23% carbs, 4% fat` = 64%) is stored verbatim and tagged `manufacturer`, i.e. presented as measured.
 The NFE path is never consulted as a cross-check even when every input for it is present.
 
-## 2. Trust boundaries — all OPEN
+## 2. Trust boundaries — historical findings; DNS rebinding remains open
 
 | Location                   | Issue                                                                                                                                                                                                                                  |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -158,15 +164,15 @@ The NFE path is never consulted as a cross-check even when every input for it is
 
 Verified correct, for the record: `feeding_logs` has no IDOR (the RLS policy at `0002_reconcile_remote.sql:48` joins through `cats.owner_id = auth.uid()`), `createAdminClient` never reaches a client component (6 call sites, all server-side), `safeNextUrl` correctly allowlists redirect targets, and both privileged RPCs are `REVOKE`d from `anon`/`authenticated`.
 
-## 3. Why these survived — the verification layer
+## 3. Why these survived — historical verification gaps
 
 - **The suite was unrunnable** (fixed). `docs/plans/…:558` names `pnpm exec vitest run` as a release gate; run as written it reported 191 failed / 3 passed. There was no `test` script, so the suite only passed when someone remembered `--dir src`.
-- **The documented regression check executes nothing.** CLAUDE.md calls the ACANA case in `src/lib/fixtures.ts` "the manual regression check for domain math", but `SAMPLE_FOODS` is a literal with `carb_pct: 23` etc. already filled in; no domain function is ever called on it. Breaking the NFE formula leaves build, lint and typecheck green. (The values _are_ what the current code produces — verified — they simply cannot fail.)
-- **The dead-code gate is configured not to look.** `knip.json` sets `ignoreIssues: {"src/lib/fixtures.ts": ["exports"]}`, which hides the two dead fixture exports below, and `ignoreExportsUsedInFile: true`, which hides four more. Its `.trunk` exclusion `"!.trunk"` is also malformed — should be `"!.trunk/**"`.
+- **The documented regression check executed nothing** (fixed by `src/lib/fixtures.test.ts`). CLAUDE.md had called the ACANA literal in `src/lib/fixtures.ts` a regression check even though no domain function ran.
+- **The dead-code gate was configured not to look** (fixed). The branch removed obsolete suppressions and corrected the `.trunk` exclusions.
 - **The RPC has zero coverage.** No pgTAP, no seeded integration test. Defects A, C and the open DRAFT gap all live inside this untested surface.
-- **Two guard tests from the plan were never written**: `source-research-client.test.tsx` (the action-order invariant that stops a curator applying unvalidated candidates) and `source-first-boundary.test.ts` (a regression guard against the autonomous-search path returning). The autonomous path is currently removed but unguarded.
+- **Two guard tests from the plan were never written**: `source-first-boundary.test.ts` is now present, while `source-research-client.test.tsx` remains deferred with the workspace UI work.
 
-## 4. Dead code — all OPEN
+## 4. Dead code — historical findings; remaining items are listed above
 
 - `20260715153018_fix_food_evidence_excerpt_normalization.sql` — no-op duplicate; superseded by this pass's migration but still in the chain.
 - `prices` is selected on every catalog read (`catalog.ts:96`) and rendered nowhere.
@@ -178,18 +184,18 @@ Verified correct, for the record: `feeding_logs` has no IDOR (the RLS policy at 
 - `source-collection.ts:9` — `SOURCE_FETCH_STATUS_VALUES` exported but only used to derive its own type.
 - `@ai-sdk/anthropic` and `ai` — declared dependencies with zero imports, knip-silenced rather than removed.
 
-## 5. Spec gaps in the collection subsystem — all OPEN
+## 5. Spec gaps in the collection subsystem — historical findings; deferred items are listed above
 
 - **The curator cannot see the transcript.** Spec 113 requires inspection before extraction; `captured_text` is not in `sourceSchema` and not selected by `drafts/route.ts:25`, so it never reaches the wire. A cookie-consent interstitial captured as HTTP 200 is indistinguishable from a real label page, and the curator burns an LLM call to find out.
 - **Failed sources are invisible.** Spec 127 requires showing and retrying them; `createFailedFoodSource` inserts with `is_current: false`, so they are unreachable even without the `fetch_status` filter.
-- **Extraction has no retry.** Spec 130 mandates a timeout _and_ one retry; only `AbortSignal.timeout(30_000)` exists. `source-fetcher.ts:180` does implement the retry for the fetch path.
+- **Extraction had no timeout retry** (fixed). The extractor now retries every non-response attempt once.
 - **`content_hash` is written but never compared.** Spec 82 gives it the purpose "change detection"; nothing reads it against a prior row, so refresh-needed detection is unimplemented.
-- **Charset is ignored.** `source-fetcher.ts:232` hardcodes UTF-8 while `parseContentType` discards the `; charset=` segment. A legacy Korean importer page served as `euc-kr` — exactly the `kr_label` case this subsystem exists for — decodes to mojibake and "succeeds".
+- **Charset was ignored** (fixed). The fetcher now decodes declared `euc-kr`, `cp949`, and `windows-949` responses before extracting visible text.
 - **No minimum excerpt length.** `isEvidenceExcerpt` is a bare substring test; a model returning `excerpt: "37"` passes both the zod `.min(1)` and the SQL non-empty check whenever `37` appears anywhere, including inside an unrelated SKU.
-- **Failed requests clear curator input.** `source-research-client.tsx:70,96` do not check `request()`'s return value, so a 422 wipes a hand-pasted transcript and a failed apply discards the extraction result.
+- **Failed requests cleared curator input** (fixed). State is cleared only after the corresponding request succeeds.
 - **`replaceCurrentFoodSource` is not transactional** (`source-repository.ts:61`). Three un-wrapped statements; if the insert fails after the retire commits, the food is left with no current source of that kind. Spec 143 requires transactional draft writes — the evidence path honors it via the RPC, this path does not.
 
-## 6. Schema and type drift — all OPEN
+## 6. Schema and type drift — historical findings; `food_sources.kind` remains open
 
 - `extraction_rate_limits` (migration 0006) was absent from `src/types/supabase.d.ts` — 9 tables in migrations, 8 in types. Nothing broke only because `request-rate-limit.ts:19` calls the RPC over raw REST. RESOLVED by regeneration.
 - `food_sources.kind` is typed as the 4-value `nutrient_source` enum while the CHECK constraint allows 2. `insert({kind: "estimated"})` typechecks and fails at runtime.
@@ -199,13 +205,13 @@ Verified correct, for the record: `feeding_logs` has no IDOR (the RLS policy at 
 
 RLS is correct throughout: `food_sources`, `food_nutrient_evidence` and `extraction_rate_limits` all enable RLS with zero policies plus `REVOKE ALL`, i.e. service-role only.
 
-## 7. Accessibility — all OPEN
+## 7. Accessibility — fixed
 
 - `layout.tsx:12` sets `maximumScale: 1`, blocking pinch-zoom on a mobile-first app (WCAG 1.4.4).
 - `new/page.tsx:254,265,341` — three `<label>` elements with no `htmlFor` and no wrapping. `feeding-form.tsx` and `auth-form.tsx` wrap correctly, so `/new` diverges from the established convention.
 - `catalog-client.tsx:149` — the comparison toggle conveys state only through its Korean text, with no `aria-pressed`.
 
-## 8. Documentation drift — all OPEN
+## 8. Documentation drift — historical findings corrected in this branch
 
 `AGENTS.md` still carries `Generated: 2026-07-15 / Commit: 968cf38`, which predates all seven source-first commits; most entries below follow from it never being regenerated.
 
@@ -218,7 +224,7 @@ RLS is correct throughout: `food_sources`, `food_nutrient_evidence` and `extract
 - `BLUEPRINT.md:31,77` describe SSG; the catalog pages use ISR (`revalidate = 3600`) with no `generateStaticParams`.
 - `BLUEPRINT.md:89` marks the Korean recall API investigation done, but `docs/notes/2026-05-31-korean-recall-data-source.md` is `Status: Open` with four unresolved follow-ups.
 - The turbopack ADR and note pin evidence to Next 16.2.6; `package.json` is now 16.2.10, and the ADR's own reversal criteria require a recorded retest that has not happened.
-- All 36 plan checkboxes in `docs/plans/2026-07-16-…` are unchecked. Checked against the code: 33 shipped (checkbox drift), 3 genuinely unfinished — the two guard tests above, plus the spec's `food_sources` table definition still omitting `fetch_status`, `failure_code`, `attempted_at` and `is_current`.
+- The plan now has 34 checked steps and 3 explicitly deferred component-test steps with reasons.
 
 ## Unverified
 
@@ -228,8 +234,8 @@ Note two different service-key names are accepted — worth confirming both are 
 
 ## Suggested next pass
 
-1. Apply the new migration against the linked project and re-run the two-source workflow end to end (the fix is untested against a live database).
-2. Close the DRAFT check (§2, one predicate in the same RPC) and the body-size gaps (§2).
-3. Make `fixtures.ts` drive real domain math, or delete the CLAUDE.md claim that it does (§3).
-4. Write the two guard tests the plan specified (§3).
-5. Regenerate `AGENTS.md` and correct the CLAUDE.md drift in §8 — cheap, and it is the root of most stale guidance.
+1. Run the authenticated two-source workflow end to end on a DRAFT product and record that manufacturer overlaps stay unchanged while KR-label-only nutrients persist.
+2. Design the transcript viewer, failed-source list, retry/replace UI, and its deferred component test as a separate PR.
+3. Make `replaceCurrentFoodSource` transactional.
+4. Close DNS rebinding with a pinned lookup once the undici dependency is approved.
+5. Calibrate a minimum excerpt length and decide whether `food_sources.kind` needs a dedicated database enum.
