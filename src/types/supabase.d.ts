@@ -7,6 +7,36 @@ export type Json =
   | Json[];
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5";
+  };
+  graphql_public: {
+    Tables: {
+      [_ in never]: never;
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json;
+          operationName?: string;
+          query?: string;
+          variables?: Json;
+        };
+        Returns: Json;
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
   public: {
     Tables: {
       brands: {
@@ -63,6 +93,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      extraction_rate_limits: {
+        Row: {
+          request_count: number;
+          subject: string;
+          window_started_at: string;
+        };
+        Insert: {
+          request_count?: number;
+          subject: string;
+          window_started_at: string;
+        };
+        Update: {
+          request_count?: number;
+          subject?: string;
+          window_started_at?: string;
+        };
+        Relationships: [];
+      };
       feeding_logs: {
         Row: {
           cat_id: number;
@@ -95,12 +143,14 @@ export type Database = {
           {
             foreignKeyName: "feeding_logs_cat_id_fkey";
             columns: ["cat_id"];
+            isOneToOne: false;
             referencedRelation: "cats";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "feeding_logs_food_id_fkey";
             columns: ["food_id"];
+            isOneToOne: false;
             referencedRelation: "foods";
             referencedColumns: ["id"];
           },
@@ -144,12 +194,14 @@ export type Database = {
           {
             foreignKeyName: "food_nutrient_evidence_food_id_fkey";
             columns: ["food_id"];
+            isOneToOne: false;
             referencedRelation: "foods";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "food_nutrient_evidence_source_id_fkey";
             columns: ["source_id"];
+            isOneToOne: false;
             referencedRelation: "food_sources";
             referencedColumns: ["id"];
           },
@@ -211,6 +263,7 @@ export type Database = {
           {
             foreignKeyName: "food_sources_food_id_fkey";
             columns: ["food_id"];
+            isOneToOne: false;
             referencedRelation: "foods";
             referencedColumns: ["id"];
           },
@@ -249,8 +302,6 @@ export type Database = {
           phosphorus_pct: number | null;
           product_name: string;
           protein_pct: number | null;
-          research_attempted_at: string | null;
-          research_last_result: string | null;
           source: string | null;
           source_conflicts: Json;
           updated_at: string;
@@ -288,8 +339,6 @@ export type Database = {
           phosphorus_pct?: number | null;
           product_name: string;
           protein_pct?: number | null;
-          research_attempted_at?: string | null;
-          research_last_result?: string | null;
           source?: string | null;
           source_conflicts?: Json;
           updated_at?: string;
@@ -327,8 +376,6 @@ export type Database = {
           phosphorus_pct?: number | null;
           product_name?: string;
           protein_pct?: number | null;
-          research_attempted_at?: string | null;
-          research_last_result?: string | null;
           source?: string | null;
           source_conflicts?: Json;
           updated_at?: string;
@@ -338,6 +385,7 @@ export type Database = {
           {
             foreignKeyName: "foods_brand_id_fkey";
             columns: ["brand_id"];
+            isOneToOne: false;
             referencedRelation: "brands";
             referencedColumns: ["id"];
           },
@@ -375,6 +423,7 @@ export type Database = {
           {
             foreignKeyName: "prices_food_id_fkey";
             columns: ["food_id"];
+            isOneToOne: false;
             referencedRelation: "foods";
             referencedColumns: ["id"];
           },
@@ -430,12 +479,14 @@ export type Database = {
           {
             foreignKeyName: "recalls_brand_id_fkey";
             columns: ["brand_id"];
+            isOneToOne: false;
             referencedRelation: "brands";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "recalls_food_id_fkey";
             columns: ["food_id"];
+            isOneToOne: false;
             referencedRelation: "foods";
             referencedColumns: ["id"];
           },
@@ -583,6 +634,9 @@ export type CompositeTypes<
     : never;
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       cooking_method: ["extrusion", "baked", "freeze_dried", "dried"],
