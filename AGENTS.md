@@ -40,10 +40,10 @@ catfood-feeder/
 | --------------------- | --------------------- | -------------------------------- | ------------ | -------------------------------------------------------- |
 | `computeDerived`      | function              | `src/lib/domain.ts`              | [UNMEASURED] | Computes NFE, energy ratios, and Ca:P.                   |
 | `validate`            | function              | `src/lib/domain.ts`              | [UNMEASURED] | Produces blocking errors and warnings for nutrient data. |
-| `getFoods`            | cached async function | `src/lib/catalog.ts`             | 9 imports    | Catalog read model and fixture fallback.                 |
-| `getFeedingDashboard` | async function        | `src/lib/feeding.ts`             | 2 imports    | User-scoped feeding data and insights.                   |
-| `authorizeCurator`    | async function        | `src/lib/admin-auth.ts`          | 2 imports    | Human curator or automation authorization boundary.      |
-| `updateSession`       | async function        | `src/lib/supabase/middleware.ts` | 1 import     | Cookie refresh and `/new` route gate.                    |
+| `getFoods`            | cached async function | `src/lib/catalog.ts`             | [UNMEASURED] | Catalog read model and fixture fallback.                 |
+| `getFeedingDashboard` | async function        | `src/lib/feeding.ts`             | [UNMEASURED] | User-scoped feeding data and insights.                   |
+| `authorizeCurator`    | async function        | `src/lib/admin-auth.ts`          | [UNMEASURED] | Human curator or automation authorization boundary.      |
+| `updateSession`       | async function        | `src/lib/supabase/middleware.ts` | [UNMEASURED] | Cookie refresh and `/new` route gate.                    |
 
 Reference centrality is not measured because this session has no LSP or codegraph surface.
 

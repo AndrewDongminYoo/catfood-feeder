@@ -209,7 +209,7 @@ Enable RLS on both tables with no `anon` or `authenticated` policies because cap
 
 - [x] **Step 4: Implement the transactional draft RPC.**
 
-Create `apply_food_evidence_draft` as `SECURITY DEFINER`, `SET search_path = public`, and revoke `PUBLIC` execution.
+Create `apply_food_evidence_draft` as `SECURITY DEFINER`, `SET search_path = ''`, schema-qualify every relation, and revoke `PUBLIC` execution.
 
 Grant execution only to `service_role`.
 
@@ -217,7 +217,7 @@ The function receives a JSON array of `{nutrient_key, source_id, value, excerpt}
 
 It must verify that every source belongs to `p_food_id`, is current, and has `fetch_status = 'fetched'`.
 
-It must mark prior current evidence for each supplied nutrient as non-current, insert the new evidence, update only currently null `foods` nutrient columns, merge the corresponding `manufacturer` or `kr_label` category into `foods.nutrient_sources`, and leave `data_verified_at` unchanged.
+It must update only currently null `foods` nutrient columns, then mark prior current evidence as non-current and insert new evidence only for values that were actually written. Already-populated nutrients must leave both their values and provenance untouched so a second source can fill only missing fields. Merge the corresponding `manufacturer` or `kr_label` category into `foods.nutrient_sources`, and leave `data_verified_at` unchanged.
 
 It must reject unsupported nutrient keys, duplicate nutrient keys, non-finite values, source-kind mismatch, and excerpts absent from `food_sources.captured_text` after whitespace-and-case normalization.
 
