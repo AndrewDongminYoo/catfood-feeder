@@ -146,7 +146,11 @@ export function CatalogClient({ foods }: { foods: FoodWithBrand[] }) {
               {food.cooking_method && <span>{food.cooking_method}</span>}
               {(food.recalls?.length ?? 0) > 0 && <span>recall history</span>}
             </div>
-            <button className="ghost" onClick={() => toggleSelected(food.id)}>
+            <button
+              className="ghost"
+              aria-pressed={selected.includes(food.id)}
+              onClick={() => toggleSelected(food.id)}
+            >
               {selected.includes(food.id) ? "비교 해제" : "비교 선택"}
             </button>
           </article>
