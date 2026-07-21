@@ -74,6 +74,11 @@ describe("num 절단 방지", () => {
     expect(num("조회분 7% 이하")).toBe(7);
     expect(num("조단백질 36.0% 이상")).toBe(36);
   });
+
+  it("문장 끝 마침표는 소수점 중복으로 보지 않는다", () => {
+    expect(num("조단백질 36.0% 이상.")).toBe(36);
+    expect(num("Crude ash (max.) 7.0%.")).toBe(7);
+  });
 });
 
 describe("validate 열량·열량비", () => {
