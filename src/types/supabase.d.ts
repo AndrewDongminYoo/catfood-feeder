@@ -499,7 +499,7 @@ export type Database = {
     Functions: {
       apply_food_evidence_draft: {
         Args: { p_evidence: Json; p_food_id: number };
-        Returns: undefined;
+        Returns: Json;
       };
       consume_extract_quota: {
         Args: { p_limit: number; p_subject: string; p_window_seconds: number };
