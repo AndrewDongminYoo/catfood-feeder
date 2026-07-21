@@ -19,7 +19,7 @@ VALUES (
   -91001,
   -91001,
   'identical refresh',
-  10,
+  1.234,
   '{"protein_pct":"manufacturer"}'::jsonb
 );
 
@@ -45,7 +45,7 @@ VALUES (
   'fetched',
   now() - interval '1 day',
   'identical-old',
-  'Protein 10%',
+  'Protein 1.234%',
   false
 );
 
@@ -61,8 +61,8 @@ VALUES (
   -91001,
   'protein_pct',
   -91001,
-  10,
-  'Protein 10%',
+  1.234,
+  'Protein 1.234%',
   now() - interval '1 day'
 );
 
@@ -87,7 +87,7 @@ VALUES (
   'fetched',
   now(),
   'identical-new',
-  'Protein 10%'
+  'Protein 1.234%'
 );
 
 CREATE TEMP TABLE apply_results (
@@ -103,8 +103,8 @@ SELECT
     jsonb_build_array(jsonb_build_object(
       'nutrient_key', 'protein_pct',
       'source_id', -91002,
-      'value', 10,
-      'excerpt', 'Protein 10%'
+      'value', 1.234,
+      'excerpt', 'Protein 1.234%'
     ))
   )) AS result;
 
@@ -117,8 +117,8 @@ SELECT is(
   jsonb_build_array(jsonb_build_object(
     'nutrient_key', 'protein_pct',
     'source_id', -91002,
-    'value', 10,
-    'excerpt', 'Protein 10%',
+    'value', 1.234,
+    'excerpt', 'Protein 1.234%',
     'status', 'applied'
   )),
   'an identical same-source refresh reports applied'
@@ -130,7 +130,7 @@ SELECT is(
     FROM public.foods
     WHERE id = -91001
   ),
-  10::numeric,
+  1.23::numeric,
   'an identical same-source refresh preserves the nutrient value'
 );
 
@@ -171,7 +171,7 @@ VALUES (
   'fetched',
   now(),
   'conflict-new',
-  'Protein 12%'
+  'Protein 1.235%'
 );
 
 INSERT INTO apply_results (scenario, result)
@@ -182,8 +182,8 @@ SELECT
     jsonb_build_array(jsonb_build_object(
       'nutrient_key', 'protein_pct',
       'source_id', -91003,
-      'value', 12,
-      'excerpt', 'Protein 12%'
+      'value', 1.235,
+      'excerpt', 'Protein 1.235%'
     ))
   )) AS result;
 
@@ -196,8 +196,8 @@ SELECT is(
   jsonb_build_array(jsonb_build_object(
     'nutrient_key', 'protein_pct',
     'source_id', -91003,
-    'value', 12,
-    'excerpt', 'Protein 12%',
+    'value', 1.235,
+    'excerpt', 'Protein 1.235%',
     'status', 'conflict'
   )),
   'a changed same-source refresh reports conflict'
@@ -209,7 +209,7 @@ SELECT is(
     FROM public.foods
     WHERE id = -91001
   ),
-  10::numeric,
+  1.23::numeric,
   'a changed same-source refresh preserves the stored value'
 );
 
@@ -246,7 +246,7 @@ VALUES (
   'fetched',
   now(),
   'overlap-kr-label',
-  '조단백질 11% 이상'
+  '조단백질 1.24% 이상'
 );
 
 INSERT INTO apply_results (scenario, result)
@@ -257,8 +257,8 @@ SELECT
     jsonb_build_array(jsonb_build_object(
       'nutrient_key', 'protein_pct',
       'source_id', -91004,
-      'value', 11,
-      'excerpt', '조단백질 11% 이상'
+      'value', 1.24,
+      'excerpt', '조단백질 1.24% 이상'
     ))
   )) AS result;
 
@@ -271,8 +271,8 @@ SELECT is(
   jsonb_build_array(jsonb_build_object(
     'nutrient_key', 'protein_pct',
     'source_id', -91004,
-    'value', 11,
-    'excerpt', '조단백질 11% 이상',
+    'value', 1.24,
+    'excerpt', '조단백질 1.24% 이상',
     'status', 'skipped'
   )),
   'a different-source overlap reports skipped'
@@ -284,7 +284,7 @@ SELECT is(
     FROM public.foods
     WHERE id = -91001
   ),
-  10::numeric,
+  1.23::numeric,
   'a different-source overlap preserves the stored value'
 );
 
