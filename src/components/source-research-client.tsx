@@ -67,12 +67,14 @@ export function SourceResearchClient() {
 
   async function registerSource() {
     if (!selected || !url) return;
-    await request(`/api/foods/${selected.id}/sources`, {
+    const result = await request(`/api/foods/${selected.id}/sources`, {
       captureMethod: manualText ? "manual" : "fetch",
       capturedText: manualText || undefined,
       kind,
       url,
     });
+    // 실패 시 입력을 지우지 않는다. 손으로 붙여넣은 전사본을 다시 받아낼 방법이 없다.
+    if (result === null) return;
     setUrl("");
     setManualText("");
     setCandidates([]);
@@ -92,9 +94,11 @@ export function SourceResearchClient() {
 
   async function apply() {
     if (!selected || candidates.length === 0) return;
-    await request(`/api/foods/${selected.id}/sources/apply`, {
+    const result = await request(`/api/foods/${selected.id}/sources/apply`, {
       evidence: candidates,
     });
+    // 실패 시 후보를 버리면 유료 추출을 다시 돌려야 한다.
+    if (result === null) return;
     setCandidates([]);
     await loadDrafts();
   }

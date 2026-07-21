@@ -100,33 +100,19 @@ export async function extractCapturedSources(
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return { kind: "failure", code: "configuration_error" };
 
-  let response: Response;
-  try {
-    response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "anthropic-version": "2023-06-01",
-        "x-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        max_tokens: 2000,
-        messages: [{ role: "user", content: buildExtractionPrompt(sources) }],
-        model: "claude-sonnet-4-6",
-      }),
-      signal: AbortSignal.timeout(30_000),
-    });
-  } catch (error: unknown) {
-    if (error instanceof DOMException && error.name === "TimeoutError") {
-      return { kind: "failure", code: "timeout" };
-    }
+  const attempt = await requestExtraction(apiKey, sources);
+  // 일시적 5xx(과부하)나 소켓 오류는 한 번 재시도한다. 큐레이터가 전사본을 다시
+  // 보내는 것보다 싸다. 타임아웃은 이미 30초를 기다렸으므로 재시도하지 않는다.
+  const response =
+    attempt.kind === "retryable" || attempt.kind === "error"
+      ? await requestExtraction(apiKey, sources)
+      : attempt;
+  if (response.kind === "timeout") return { kind: "failure", code: "timeout" };
+  if (response.kind !== "response" || !response.response.ok)
     return { kind: "failure", code: "api_error" };
-  }
-
-  if (!response.ok) return { kind: "failure", code: "api_error" };
 
   const anthropicResponse = anthropicResponseSchema.safeParse(
-    await response.json(),
+    await response.response.json(),
   );
   if (!anthropicResponse.success) {
     return { kind: "failure", code: "invalid_response" };
@@ -171,6 +157,42 @@ export async function extractCapturedSources(
       productName: modelOutput.product_name,
     },
   };
+}
+
+type ExtractionAttempt =
+  | { readonly kind: "response"; readonly response: Response }
+  | { readonly kind: "retryable" }
+  | { readonly kind: "timeout" }
+  | { readonly kind: "error" };
+
+async function requestExtraction(
+  apiKey: string,
+  sources: readonly CapturedExtractionSource[],
+): Promise<ExtractionAttempt> {
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "anthropic-version": "2023-06-01",
+        "x-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        // 원료 배열이 긴 제품에서 2000으로는 JSON이 중간에 잘려 추출 전체가 버려진다.
+        max_tokens: 4096,
+        messages: [{ role: "user", content: buildExtractionPrompt(sources) }],
+        model: "claude-sonnet-4-6",
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    return response.status >= 500
+      ? { kind: "retryable" }
+      : { kind: "response", response };
+  } catch (error: unknown) {
+    if (error instanceof DOMException && error.name === "TimeoutError")
+      return { kind: "timeout" };
+    return { kind: "error" };
+  }
 }
 
 export function toManualExtraction(
@@ -260,8 +282,7 @@ function parseModelOutput(
     const clean = text.replace(/```json|```/g, "").trim();
     const parsed = modelOutputSchema.safeParse(JSON.parse(clean));
     return parsed.success ? parsed.data : null;
-  } catch (error: unknown) {
-    if (error instanceof SyntaxError) return null;
+  } catch {
     return null;
   }
 }
