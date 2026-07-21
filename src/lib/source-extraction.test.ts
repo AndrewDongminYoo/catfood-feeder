@@ -35,6 +35,37 @@ describe("extractCapturedSources", () => {
     expect(result.kind).toBe("success");
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it("retries once when the first Anthropic response body times out", async () => {
+    const timedOutBody = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.error(new DOMException("timed out", "TimeoutError"));
+      },
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(timedOutBody, { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            content: [
+              {
+                text: JSON.stringify({ nutrients: {} }),
+                type: "text",
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      );
+    vi.stubEnv("ANTHROPIC_API_KEY", "test-api-key");
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await extractCapturedSources([]);
+
+    expect(result.kind).toBe("success");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("validateExtractedEvidence", () => {

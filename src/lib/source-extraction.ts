@@ -102,16 +102,18 @@ export async function extractCapturedSources(
 
   const attempt = await requestExtraction(apiKey, sources);
   const response =
-    attempt.kind === "response"
-      ? attempt
-      : await requestExtraction(apiKey, sources);
+    attempt.kind === "retryable" ||
+    attempt.kind === "timeout" ||
+    attempt.kind === "error"
+      ? await requestExtraction(apiKey, sources)
+      : attempt;
   if (response.kind === "timeout") return { kind: "failure", code: "timeout" };
-  if (response.kind !== "response" || !response.response.ok)
+  if (response.kind === "invalid")
+    return { kind: "failure", code: "invalid_response" };
+  if (response.kind !== "response" || !response.ok)
     return { kind: "failure", code: "api_error" };
 
-  const anthropicResponse = anthropicResponseSchema.safeParse(
-    await response.response.json(),
-  );
+  const anthropicResponse = anthropicResponseSchema.safeParse(response.body);
   if (!anthropicResponse.success) {
     return { kind: "failure", code: "invalid_response" };
   }
@@ -158,7 +160,8 @@ export async function extractCapturedSources(
 }
 
 type ExtractionAttempt =
-  | { readonly kind: "response"; readonly response: Response }
+  | { readonly body: unknown; readonly kind: "response"; readonly ok: boolean }
+  | { readonly kind: "invalid" }
   | { readonly kind: "retryable" }
   | { readonly kind: "timeout" }
   | { readonly kind: "error" };
@@ -183,9 +186,16 @@ async function requestExtraction(
       }),
       signal: AbortSignal.timeout(30_000),
     });
-    return response.status >= 500
-      ? { kind: "retryable" }
-      : { kind: "response", response };
+    if (response.status >= 500) return { kind: "retryable" };
+    if (!response.ok) return { body: null, kind: "response", ok: false };
+    try {
+      return { body: await response.json(), kind: "response", ok: true };
+    } catch (error: unknown) {
+      if (error instanceof DOMException && error.name === "TimeoutError")
+        return { kind: "timeout" };
+      if (error instanceof SyntaxError) return { kind: "invalid" };
+      return { kind: "error" };
+    }
   } catch (error: unknown) {
     if (error instanceof DOMException && error.name === "TimeoutError")
       return { kind: "timeout" };
