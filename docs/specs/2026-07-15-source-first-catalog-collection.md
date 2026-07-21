@@ -82,6 +82,10 @@ Add a `food_sources` table with one row per captured product source.
 | `content_hash`   | SHA-256 hash of normalized captured text for change detection. |
 | `captured_text`  | The bounded source transcript used for extraction and review.  |
 | `capture_method` | `manual` or `fetch`.                                           |
+| `fetch_status`   | `fetched` or `failed`; failed attempts stay in the ledger.     |
+| `failure_code`   | Why a fetch attempt failed, when `fetch_status` is `failed`.   |
+| `attempted_at`   | When the capture was attempted, including failed attempts.     |
+| `is_current`     | Whether this is the live source for its `(food_id, kind)`.     |
 | `created_by`     | Nullable authenticated curator identity for manual entries.    |
 | `created_at`     | Row creation time.                                             |
 
@@ -95,6 +99,7 @@ Add a `food_nutrient_evidence` table with one row for each current nutrient valu
 | `value`        | The source-backed numeric value before server-side derivation.     |
 | `excerpt`      | Literal evidence excerpt from `captured_text`.                     |
 | `captured_at`  | Copied source capture time for efficient audit reads.              |
+| `is_current`   | Whether this row is the live evidence for its nutrient.            |
 | `created_at`   | Evidence-row creation time.                                        |
 
 Enforce one current evidence row for each `(food_id, nutrient_key)` pair.
