@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { authorizeCurator } from "@/lib/admin-auth";
+import {
+  RequestBodyTooLargeError,
+  SMALL_JSON_BODY_BYTES,
+  readJsonBody,
+} from "@/lib/request-body";
 import { consumeRateLimit } from "@/lib/request-rate-limit";
 import { extractCapturedSources } from "@/lib/source-extraction";
 import {
@@ -41,7 +46,9 @@ export async function POST(
     );
 
   try {
-    const parsed = requestSchema.safeParse(await req.json());
+    const parsed = requestSchema.safeParse(
+      await readJsonBody(req, SMALL_JSON_BODY_BYTES),
+    );
     if (
       !parsed.success ||
       new Set(parsed.data.sourceIds).size !== parsed.data.sourceIds.length
@@ -51,6 +58,19 @@ export async function POST(
         { status: 400 },
       );
     }
+    // 할당량은 DB 조회보다 먼저 차감한다. 뒤에 두면 foodExists/getCurrentFetchedFoodSources가
+    // 무제한 존재 여부 오라클이 된다.
+    const rateLimit = await consumeRateLimit(
+      `extract:${authorization.rateLimitKey}`,
+    );
+    if (!rateLimit.allowed)
+      return NextResponse.json(
+        { error: "추출 요청 한도를 초과했습니다." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+        },
+      );
     if (!(await foodExists(foodId.data)))
       return NextResponse.json(
         { error: "대상 사료를 찾을 수 없습니다." },
@@ -72,18 +92,6 @@ export async function POST(
         { status: 400 },
       );
     }
-    const rateLimit = await consumeRateLimit(
-      `extract:${authorization.rateLimitKey}`,
-    );
-    if (!rateLimit.allowed)
-      return NextResponse.json(
-        { error: "추출 요청 한도를 초과했습니다." },
-        {
-          status: 429,
-          headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
-        },
-      );
-
     const result = await extractCapturedSources(sources);
     if (result.kind === "success")
       return NextResponse.json({ candidates: result.candidates });
@@ -98,6 +106,11 @@ export async function POST(
       { status: result.code === "timeout" ? 504 : 502 },
     );
   } catch (error: unknown) {
+    if (error instanceof RequestBodyTooLargeError)
+      return NextResponse.json(
+        { error: "요청 본문이 너무 큽니다." },
+        { status: 413 },
+      );
     if (error instanceof SyntaxError)
       return NextResponse.json(
         { error: "요청 JSON 형식이 올바르지 않습니다." },

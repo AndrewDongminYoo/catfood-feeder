@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "node:crypto";
+import { secretsMatch } from "@/lib/admin-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+
+export const runtime = "nodejs";
 
 type OpenFdaRecall = {
   event_id?: string;
@@ -33,7 +36,10 @@ async function syncRecalls(req: NextRequest) {
       { status: 503 },
     );
   }
-  if (auth !== `Bearer ${configuredSecret}`) {
+  const bearer = auth?.startsWith("Bearer ")
+    ? auth.slice("Bearer ".length)
+    : null;
+  if (!secretsMatch(configuredSecret, bearer)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -107,8 +113,11 @@ async function syncRecalls(req: NextRequest) {
 
     return NextResponse.json({ inserted: records.length, skipped });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("recalls sync failed", error);
+    return NextResponse.json(
+      { error: "리콜 동기화에 실패했습니다." },
+      { status: 500 },
+    );
   }
 }
 

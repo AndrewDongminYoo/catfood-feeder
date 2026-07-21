@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { calendarDateSchema } from "@/lib/api-validation";
+import {
+  RequestBodyTooLargeError,
+  SMALL_JSON_BODY_BYTES,
+  readJsonBody,
+} from "@/lib/request-body";
 import { createClient } from "@/lib/supabase/server";
 
-const calendarDateSchema = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
-  .refine(isCalendarDate);
 const feedingLogSchema = z.object({
   cat_id: z.number().int().positive(),
   food_id: z.number().int().positive(),
@@ -16,7 +18,9 @@ const feedingLogSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const parsedPayload = feedingLogSchema.safeParse(await req.json());
+    const parsedPayload = feedingLogSchema.safeParse(
+      await readJsonBody(req, SMALL_JSON_BODY_BYTES),
+    );
     if (!parsedPayload.success) {
       return NextResponse.json(
         { error: "고양이, 제품, 시작일은 필수입니다." },
@@ -55,25 +59,29 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json(
+        { error: "급여 기록 저장에 실패했습니다." },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({ feeding_log: data });
   } catch (error: unknown) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return NextResponse.json(
+        { error: "요청 본문이 너무 큽니다." },
+        { status: 413 },
+      );
+    }
     if (error instanceof SyntaxError) {
       return NextResponse.json(
         { error: "요청 JSON 형식이 올바르지 않습니다." },
         { status: 400 },
       );
     }
-    const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: "급여 기록 저장에 실패했습니다." },
+      { status: 500 },
+    );
   }
-}
-
-function isCalendarDate(value: string): boolean {
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return (
-    Number.isFinite(date.getTime()) && date.toISOString().startsWith(value)
-  );
 }

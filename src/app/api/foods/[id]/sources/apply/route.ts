@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { authorizeCurator } from "@/lib/admin-auth";
+import {
+  RequestBodyTooLargeError,
+  SMALL_JSON_BODY_BYTES,
+  readJsonBody,
+} from "@/lib/request-body";
 import { validateExtractedEvidence } from "@/lib/source-extraction";
 import {
   applyFoodEvidenceDraft,
@@ -23,7 +28,7 @@ const requestSchema = z
     evidence: z
       .array(
         z.object({
-          excerpt: z.string().min(1),
+          excerpt: z.string().min(1).max(500),
           nutrientKey: nutrientKeySchema,
           sourceId: z.number().int().positive(),
           value: z.number().finite(),
@@ -60,7 +65,9 @@ export async function POST(
       { status: 400 },
     );
   try {
-    const parsed = requestSchema.safeParse(await req.json());
+    const parsed = requestSchema.safeParse(
+      await readJsonBody(req, SMALL_JSON_BODY_BYTES),
+    );
     if (!parsed.success)
       return NextResponse.json(
         { error: "Draft 적용 요청 형식이 올바르지 않습니다." },
@@ -82,7 +89,20 @@ export async function POST(
       );
     await applyFoodEvidenceDraft(foodId.data, evidence);
     return NextResponse.json({ evidence });
-  } catch {
+  } catch (error: unknown) {
+    if (error instanceof RequestBodyTooLargeError)
+      return NextResponse.json(
+        { error: "요청 본문이 너무 큽니다." },
+        { status: 413 },
+      );
+    if (error instanceof SyntaxError)
+      return NextResponse.json(
+        { error: "요청 JSON 형식이 올바르지 않습니다." },
+        { status: 400 },
+      );
+    // RPC의 구체적 거부 사유(근거 문구 불일치, 출처 불일치)는 클라이언트에 노출하지
+    // 않되 서버 로그에는 남긴다. 스키마 드리프트와 일시적 장애를 구분하려면 필요하다.
+    console.error("applyFoodEvidenceDraft failed", error);
     return NextResponse.json(
       { error: "Draft 적용에 실패했습니다." },
       { status: 500 },

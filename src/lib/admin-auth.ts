@@ -71,10 +71,18 @@ function configuredAdminEmails(): readonly string[] {
 }
 
 function hasMatchingAdminSecret(request: Request): boolean {
-  const expected = process.env.ADMIN_WRITE_SECRET;
-  const supplied = request.headers.get("x-admin-secret");
-  if (!expected || !supplied) return false;
+  return secretsMatch(
+    process.env.ADMIN_WRITE_SECRET,
+    request.headers.get("x-admin-secret"),
+  );
+}
 
+/** 공유 비밀 비교. 길이가 같을 때만 상수 시간 비교하므로 내용은 유출되지 않는다. */
+export function secretsMatch(
+  expected: string | undefined,
+  supplied: string | null,
+): boolean {
+  if (!expected || !supplied) return false;
   const expectedBytes = Buffer.from(expected);
   const suppliedBytes = Buffer.from(supplied);
   return (

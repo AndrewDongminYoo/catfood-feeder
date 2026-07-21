@@ -10,6 +10,11 @@ import {
   validate,
 } from "@/lib/domain";
 import type { Source } from "@/lib/domain";
+import {
+  RequestBodyTooLargeError,
+  TRANSCRIPT_JSON_BODY_BYTES,
+  readJsonBody,
+} from "@/lib/request-body";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const sourceSchema = z.enum(SOURCE_VALUES);
@@ -41,7 +46,7 @@ const foodPayloadSchema = z
       })
       .optional(),
     nutrient_sources: z.record(z.string(), sourceSchema).default({}),
-    ingredients: z.array(z.json()).default([]),
+    ingredients: z.array(z.json()).max(200).default([]),
     flags: z
       .object({
         grain_free: z.boolean().optional(),
@@ -69,7 +74,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const parsedPayload = foodPayloadSchema.safeParse(await req.json());
+    const parsedPayload = foodPayloadSchema.safeParse(
+      await readJsonBody(req, TRANSCRIPT_JSON_BODY_BYTES),
+    );
     if (!parsedPayload.success) {
       return NextResponse.json(
         { error: "요청 형식이 올바르지 않습니다." },
@@ -161,20 +168,32 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("food insert failed", error);
+      return NextResponse.json(
+        { error: "카탈로그 저장에 실패했습니다." },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({ food: data });
   } catch (error: unknown) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return NextResponse.json(
+        { error: "요청 본문은 256 KiB 이하여야 합니다." },
+        { status: 413 },
+      );
+    }
     if (error instanceof SyntaxError) {
       return NextResponse.json(
         { error: "요청 JSON 형식이 올바르지 않습니다." },
         { status: 400 },
       );
     }
-    const message =
-      error instanceof Error ? error.message : "카탈로그 저장 실패";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("food insert failed", error);
+    return NextResponse.json(
+      { error: "카탈로그 저장에 실패했습니다." },
+      { status: 500 },
+    );
   }
 }
 
