@@ -10,6 +10,7 @@ import type { Source } from "@/lib/domain";
 import {
   RequestBodyTooLargeError,
   TRANSCRIPT_JSON_BODY_BYTES,
+  formatBodyLimit,
   readJsonBody,
 } from "@/lib/request-body";
 import { foodPayloadSchema, type FoodPayload } from "@/lib/food-payload";
@@ -130,7 +131,9 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     if (error instanceof RequestBodyTooLargeError) {
       return NextResponse.json(
-        { error: "요청 본문은 256 KiB 이하여야 합니다." },
+        {
+          error: `요청 본문은 ${formatBodyLimit(TRANSCRIPT_JSON_BODY_BYTES)} 이하여야 합니다.`,
+        },
         { status: 413 },
       );
     }

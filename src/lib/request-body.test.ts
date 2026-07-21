@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { TRANSCRIPT_JSON_BODY_BYTES, readJsonBody } from "./request-body";
+import {
+  TRANSCRIPT_JSON_BODY_BYTES,
+  formatBodyLimit,
+  readJsonBody,
+} from "./request-body";
 
 describe("readJsonBody", () => {
+  it("formats the transcript request limit used by API errors", () => {
+    expect(formatBodyLimit(TRANSCRIPT_JSON_BODY_BYTES)).toBe("2 MiB");
+  });
+
   it("accepts a 256 KiB transcript inside its JSON envelope", async () => {
     const capturedText = '"'.repeat(256 * 1024);
     const request = new Request("https://example.com/api/foods/1/sources", {
