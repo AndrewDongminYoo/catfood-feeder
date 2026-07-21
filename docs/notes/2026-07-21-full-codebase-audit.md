@@ -101,7 +101,7 @@ Server-side search or pagination remains preferable when the catalog approaches 
 
 ## Follow-up fixes
 
-- The public `foods` SELECT policy now exposes only rows with `data_verified_at IS NOT NULL` to `anon` and `authenticated`; curator DRAFT reads remain behind the authorized server-only service-role route (`20260721142248_restrict_public_foods_to_verified.sql`).
+- The public `foods` SELECT policy now exposes only rows with `data_verified_at IS NOT NULL` to `anon` and `authenticated`; curator DRAFT reads remain behind the authorized server-only service-role route (`20260721142248_restrict_public_foods_to_verified.sql`). Feeding-log inserts and updates also require a verified food, preventing hidden DRAFT references and existence inference (`20260721231454_restrict_feeding_logs_to_verified_foods.sql`).
 
 ## Still open
 

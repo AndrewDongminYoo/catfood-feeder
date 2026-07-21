@@ -21,6 +21,7 @@
 | Evidence precision                  | `migrations/20260721131159_compare_evidence_precision.sql`                 | Compares refresh values against exact evidence rather than rounded food fields. |
 | Evidence-only refresh               | `migrations/20260721133137_evidence_only_equal_refresh.sql`                | Keeps equal same-kind refreshes from touching the food row.                     |
 | Verified catalog visibility         | `migrations/20260721142248_restrict_public_foods_to_verified.sql`          | Limits anon and authenticated food reads to human-verified rows.                |
+| Verified feeding references         | `migrations/20260721231454_restrict_feeding_logs_to_verified_foods.sql`    | Prevents owner writes from referencing hidden DRAFT foods.                      |
 
 ## CONVENTIONS
 
