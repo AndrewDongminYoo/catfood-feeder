@@ -278,7 +278,7 @@ function parseContentType(
  */
 function decodeBody(bytes: Uint8Array, charset: string): string {
   try {
-    return new TextDecoder(charset).decode(bytes);
+    return new TextDecoder(charset.replace(/^cp949$/, "euc-kr")).decode(bytes);
   } catch {
     return new TextDecoder("utf-8").decode(bytes);
   }

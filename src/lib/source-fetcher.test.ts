@@ -73,27 +73,30 @@ describe("captureSource", () => {
     expect(result).toEqual({ kind: "failure", code: "response_too_large" });
   });
 
-  it("선언된 euc-kr charset으로 디코딩한다", async () => {
-    // "조단백질 30%"를 euc-kr로 인코딩한 바이트. utf-8로 읽으면 깨진 문자가 나온다.
-    const eucKr = new Uint8Array(
-      Buffer.from("c1b6b4dcb9e9c1fa20333025", "hex"),
-    );
-    const result = await captureSource(
-      { url: "https://example.test", kind: "kr_label" },
-      {
-        resolveHostname: publicResolver,
-        fetch: async () =>
-          new Response(eucKr, {
-            headers: { "content-type": "text/plain; charset=euc-kr" },
-          }),
-      },
-    );
+  it.each(["euc-kr", "cp949", "windows-949"])(
+    "선언된 %s charset으로 디코딩한다",
+    async (charset) => {
+      // "조단백질 30%"를 euc-kr로 인코딩한 바이트. utf-8로 읽으면 깨진 문자가 나온다.
+      const eucKr = new Uint8Array(
+        Buffer.from("c1b6b4dcb9e9c1fa20333025", "hex"),
+      );
+      const result = await captureSource(
+        { url: "https://example.test", kind: "kr_label" },
+        {
+          resolveHostname: publicResolver,
+          fetch: async () =>
+            new Response(eucKr, {
+              headers: { "content-type": `text/plain; charset=${charset}` },
+            }),
+        },
+      );
 
-    expect(result).toMatchObject({
-      kind: "success",
-      capturedText: "조단백질 30%",
-    });
-  });
+      expect(result).toMatchObject({
+        kind: "success",
+        capturedText: "조단백질 30%",
+      });
+    },
+  );
 
   it("returns visible HTML text and its SHA-256 hash", async () => {
     const result = await captureSource(
