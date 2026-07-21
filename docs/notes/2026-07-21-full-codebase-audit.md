@@ -38,7 +38,7 @@ Everything below is on branch `fix/audit-2026-07-21`, verified by `pnpm typechec
 
 **Verification layer**
 
-- `pnpm test` exists and collects `src/**/*.test.{ts,tsx}`; the current suite went from collecting 191 vendor failures to 8 passing TypeScript files / 52 tests.
+- `pnpm test` exists and collects `src/**/*.test.{ts,tsx}`; the current suite went from collecting 191 vendor failures to 8 passing TypeScript files / 62 tests.
 - `src/lib/fixtures.test.ts` makes the ACANA case drive real domain math, so the "regression check" claim is now true.
 - `src/lib/source-first-boundary.test.ts` fails if the autonomous-enrichment script returns or a second Anthropic caller appears.
 - `knip.json` and `eslint.config.mjs` exclude `.trunk`/`.remember` correctly; knip reports clean without being told to ignore live code.
@@ -90,11 +90,19 @@ The authenticated smoke-test product existed as DRAFT `#197` but could not be se
 The limit is now 1000, which covers the current catalog and allowed the real workflow to proceed.
 Server-side search or pagination remains preferable when the catalog approaches that ceiling.
 
+## Found during final PR review
+
+- `num()` rejected only ASCII-hyphen ranges, so pasted or OCR-derived values such as `36–40`, `36—40`, and `36~40` collapsed to `3640`. Common dash and wave-dash range separators are now rejected before numeric cleanup.
+- Negative nutrient values produced warnings or nonsensical derived values but were not uniformly blocking. Shared validation now emits an error for every negative nutrient field while preserving `num()`'s syntax-only parsing contract.
+- Extraction retry covered request setup but not a timeout while reading a successful response body. Body parsing now occurs inside each bounded attempt, with a regression test proving that a first body-stage timeout retries once.
+- The cats and feeding-log routes hid database details from clients but also discarded the server-side diagnostic. They now log the original error while retaining the generic response.
+
 ## Still open
 
 | Item                                                                                     | Why it was not fixed                                                                                                                                                                                                                                                                                                                             |
 | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | SSRF DNS rebinding (TOCTOU) in `source-fetcher.ts`                                       | Closing it needs a pinned-lookup undici `Agent` — a new dependency. Fetching the validated IP directly would break HTTPS certificate validation. Marked with a `ponytail:` comment naming the upgrade path. Reachable only with a curator session.                                                                                               |
+| Remaining special-purpose IP ranges in `source-fetcher.ts`                               | The filter still accepts non-global ranges such as `198.18.0.0/15` and `fec0::/10`. Completing the policy requires an IANA-backed classification table or a proven classifier rather than another ad hoc prefix check.                                                                                                                           |
 | `food_sources.kind` typed wider than its CHECK constraint                                | Not drift after all, and not fixable by regeneration: the column's Postgres type genuinely is `nutrient_source`, and the two-value restriction lives in a CHECK the generator cannot see. `insert({ kind: "estimated" })` still typechecks and fails at runtime. Narrowing needs a dedicated enum for the column or a hand-written wrapper type. |
 | Curator workspace UI: transcript viewer, failed-source list, retry, and DRAFT search     | Deferred by decision — needs a screen design pass. The data is already in the ledger and partly on the wire. The current DRAFT selector now loads up to 1000 rows, but search or pagination is still needed before the catalog reaches that ceiling.                                                                                             |
 | `source-research-client.test.tsx` (action-order invariant)                               | Needs jsdom and a React testing library. Deferred with the UI work above; the three plan steps are left unchecked and annotated.                                                                                                                                                                                                                 |

@@ -517,7 +517,7 @@ Expected: PASS and the public catalog remains unchanged for the DRAFT food.
 Run:
 
 ```bash
-git add 'src/app/api/foods/drafts/route.ts' src/app/new/research/page.tsx src/components/source-research-client.tsx src/components/source-research-client.test.tsx src/app/new/page.tsx
+git add 'src/app/api/foods/drafts/route.ts' src/app/new/research/page.tsx src/components/source-research-client.tsx src/app/new/page.tsx
 git commit -m "feat(collection): add curator source research workspace"
 ```
 

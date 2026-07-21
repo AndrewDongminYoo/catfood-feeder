@@ -39,13 +39,13 @@ Requirements marked **DEFERRED** below remain product requirements, but are not 
 
 `foods.data_verified_at` records the last human verification time.
 
-`foods.research_attempted_at` records the latest automated research attempt.
+`food_sources.captured_at` records when a fetched or manually transcribed source was captured.
 
-`foods.research_last_result` records whether the latest attempt found no evidence, produced an invalid result, or wrote a draft.
+`food_sources.observed_at` records the source page or label observation time when known.
 
-The current model has no source-level collection timestamp, source-content fingerprint, captured evidence record, or separate manual-input timestamp.
+`food_sources.content_hash` identifies repeated source content, and `food_nutrient_evidence.created_at` records when field-level evidence was applied.
 
-`manufacturer_url` and `kr_label_source` keep only one URL each and cannot associate a nutrient with its exact evidence.
+The retired food-level `research_attempted_at` and `research_last_result` columns were removed after the source ledger replaced autonomous research state.
 
 ## Approaches Considered
 
