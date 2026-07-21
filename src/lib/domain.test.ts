@@ -60,6 +60,19 @@ describe("num 절단 방지", () => {
     expect(num("3,850 kcal/kg")).toBe(3850);
     expect(num("1.9")).toBe(1.9);
     expect(num("-2")).toBe(-2);
+    expect(num(".7")).toBe(0.7);
+  });
+
+  it("약어의 마침표를 소수점으로 읽지 않는다", () => {
+    // AAFCO 라벨 표준 표기. 라벨에서 그대로 복사하는 것이 자연스러운 동작이다.
+    expect(num("Crude ash (max.) 7 %")).toBe(7);
+    expect(num("Crude protein (min.) 36 %")).toBe(36);
+    expect(num("Calcium (min.) 1.9 %")).toBe(1.9);
+  });
+
+  it("한글 라벨의 이하·이상 표기를 읽는다", () => {
+    expect(num("조회분 7% 이하")).toBe(7);
+    expect(num("조단백질 36.0% 이상")).toBe(36);
   });
 });
 

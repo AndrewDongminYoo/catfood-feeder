@@ -33,7 +33,11 @@ export const EXTRUSION_ASH_DEFAULT = 9.0; // 익스트루전 사료 회분 폴�
 
 export function num(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null;
-  const cleaned = String(v).replace(/[^0-9.\-]/g, "");
+  const cleaned = String(v)
+    // 약어의 마침표는 소수점이 아니다. 이걸 남기면 AAFCO 라벨을 그대로 붙여넣은
+    // "Crude ash (max.) 7 %"가 ".7" → 0.7로 읽혀 10배 틀린 값이 들어간다.
+    .replace(/([a-zA-Z])\./g, "$1")
+    .replace(/[^0-9.\-]/g, "");
   // parseFloat은 앞부분만 읽고 멈춘다. 범위("1.9-2.1" → 1.9)나 소수점이 둘 이상인
   // 값("10.5.2" → 10.5)을 조용히 절단하느니 미기록으로 두고 큐레이터가 확정하게 한다.
   if (/\d-/.test(cleaned)) return null;
