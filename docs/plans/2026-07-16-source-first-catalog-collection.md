@@ -217,7 +217,9 @@ The function receives a JSON array of `{nutrient_key, source_id, value, excerpt}
 
 It must verify that every source belongs to `p_food_id`, is current, and has `fetch_status = 'fetched'`.
 
-It must update only currently null `foods` nutrient columns, then mark prior current evidence as non-current and insert new evidence only for values that were actually written. Already-populated nutrients must leave both their values and provenance untouched so a second source can fill only missing fields. Merge the corresponding `manufacturer` or `kr_label` category into `foods.nutrient_sources`, and leave `data_verified_at` unchanged.
+It must write currently null `foods` nutrient columns and return `applied`.
+For populated nutrients, a different source kind must return `skipped` and preserve the existing value and provenance, an equal same-kind refresh must keep the food value while replacing current evidence and return `applied`, and a changed same-kind refresh must return `conflict` without mutation.
+Merge the corresponding `manufacturer` or `kr_label` category into `foods.nutrient_sources` only when a missing nutrient is written, and leave `data_verified_at` unchanged.
 
 It must reject unsupported nutrient keys, duplicate nutrient keys, non-finite values, source-kind mismatch, and excerpts absent from `food_sources.captured_text` after whitespace-and-case normalization.
 
