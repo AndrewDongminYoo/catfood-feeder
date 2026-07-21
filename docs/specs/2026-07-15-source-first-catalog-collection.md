@@ -29,7 +29,7 @@ Requirements marked **DEFERRED** below remain product requirements, but are not 
 
 - This does not automate price collection, Korean recall synchronization, or catalog publication.
 - This does not make source text or LLM output public without curator review.
-- This does not replace the existing public-food filter requiring `data_verified_at`.
+- This does not replace the public-food publication gate: database RLS exposes only rows where `data_verified_at IS NOT NULL` to `anon` and `authenticated` clients.
 
 ## Current Timestamp Coverage
 
@@ -218,4 +218,4 @@ The ACANA regression fixture remains a domain-calculation test fixture and is no
 - A stalled source request fails within the configured timeout and does not prevent processing another food.
 - A DRAFT nutrient update has a matching evidence row whose excerpt appears in the retained source transcript.
 - A source URL can be refreshed without invoking web search or modifying unrelated food rows.
-- Public catalog queries continue to exclude rows without `data_verified_at`.
+- Public catalog queries and direct Data API reads exclude rows without `data_verified_at`; authorized curator routes retain DRAFT access through the server-only service-role client.

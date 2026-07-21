@@ -8,7 +8,7 @@
 
 | Task                                | Location                                                                   | Notes                                                                           |
 | ----------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Base schema and RLS                 | `migrations/0001_init.sql`                                                 | Catalog tables are public-read; cats and feeding logs are owner-scoped.         |
+| Base schema and RLS                 | `migrations/0001_init.sql`                                                 | Defines the original catalog policies; cats and feeding logs are owner-scoped.  |
 | Remote reconciliation and hardening | `migrations/0002_reconcile_remote.sql`                                     | Aligns remote policy/index state with the intended baseline.                    |
 | External catalog identity           | `migrations/0003_foods_external_source.sql`                                | Stable `(source, external_id)` ingest identity.                                 |
 | Catalog integrity                   | `migrations/0004_catalog_integrity.sql`                                    | Constraints and generated Ca:P ratio.                                           |
@@ -20,6 +20,7 @@
 | Source refresh outcomes             | `migrations/20260721121348_source_refresh_provenance.sql`                  | Returns applied, skipped, and conflict results.                                 |
 | Evidence precision                  | `migrations/20260721131159_compare_evidence_precision.sql`                 | Compares refresh values against exact evidence rather than rounded food fields. |
 | Evidence-only refresh               | `migrations/20260721133137_evidence_only_equal_refresh.sql`                | Keeps equal same-kind refreshes from touching the food row.                     |
+| Verified catalog visibility         | `migrations/20260721142248_restrict_public_foods_to_verified.sql`          | Limits anon and authenticated food reads to human-verified rows.                |
 
 ## CONVENTIONS
 
