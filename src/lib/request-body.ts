@@ -5,7 +5,7 @@ export class RequestBodyTooLargeError extends Error {
 /** 본문이 작은 라우트(식별자/짧은 필드)의 기본 상한. */
 export const SMALL_JSON_BODY_BYTES = 16 * 1024;
 /** 라벨 전사본이나 근거 배열처럼 원문을 싣는 라우트의 상한. */
-export const TRANSCRIPT_JSON_BODY_BYTES = 256 * 1024;
+export const TRANSCRIPT_JSON_BODY_BYTES = 2 * 1024 * 1024;
 
 /**
  * 스트리밍으로 JSON 본문을 읽고 `maxBytes`를 넘으면 즉시 중단한다.
