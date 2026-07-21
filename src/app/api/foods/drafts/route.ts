@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
       )
       .is("data_verified_at", null)
       .order("id")
-      .limit(100);
+      .limit(1000);
     if (error) {
       return NextResponse.json(
         { error: "Draft 목록을 불러오지 못했습니다." },
