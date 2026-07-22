@@ -2,7 +2,14 @@ packages:
   - .
 
 overrides:
+  "@hono/node-server": 2.0.11 # GHSA-9mqv-5hh9-4cgg, GHSA-frvp-7c67-39w9
+  "body-parser@": 2.3.0 # GHSA-v422-hmwv-36x6
+  "brace-expansion@": 5.0.7 # GHSA-3jxr-9vmj-r5cp
+  "fast-uri@": 3.1.4 # GHSA-4c8g-83qw-93j6, GHSA-v2hh-gcrm-f6hx
+  "hono@": 4.12.31 # GHSA-hvrm-45r6-mjfj, GHSA-w62v-xxxg-mg59, GHSA-xgm2-5f3f-mvvc
+  "js-yaml@": 4.3.0 # GHSA-52cp-r559-cp3m
   postcss: ">=8.5.10"
+  sharp: 0.35.3 # GHSA-f88m-g3jw-g9cj
   tldts: 7.4.0
   tldts-core: 7.4.0
 
