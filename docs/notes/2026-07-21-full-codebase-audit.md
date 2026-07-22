@@ -102,6 +102,7 @@ Server-side search or pagination remains preferable when the catalog approaches 
 ## Follow-up fixes
 
 - The public `foods` SELECT policy now exposes only rows with `data_verified_at IS NOT NULL` to `anon` and `authenticated`; curator DRAFT reads remain behind the authorized server-only service-role route (`20260721142248_restrict_public_foods_to_verified.sql`). Feeding-log inserts and updates also require a verified food, preventing hidden DRAFT references and existence inference (`20260721231454_restrict_feeding_logs_to_verified_foods.sql`).
+- `replaceCurrentFoodSource` now calls the service-role-only `replace_current_food_source` RPC, so retiring the previous capture, inserting the replacement, and updating the compatibility URL commit or roll back together (`20260722135129_transactional_source_replacement.sql`).
 
 ## Still open
 
@@ -112,7 +113,6 @@ Server-side search or pagination remains preferable when the catalog approaches 
 | `food_sources.kind` typed wider than its CHECK constraint                                | Not drift after all, and not fixable by regeneration: the column's Postgres type genuinely is `nutrient_source`, and the two-value restriction lives in a CHECK the generator cannot see. `insert({ kind: "estimated" })` still typechecks and fails at runtime. Narrowing needs a dedicated enum for the column or a hand-written wrapper type. |
 | Curator workspace UI: transcript viewer, failed-source list, retry, and DRAFT search     | Deferred by decision — needs a screen design pass. The data is already in the ledger and partly on the wire. The current DRAFT selector now loads up to 1000 rows, but search or pagination is still needed before the catalog reaches that ceiling.                                                                                             |
 | `source-research-client.test.tsx` (action-order invariant)                               | Needs jsdom and a React testing library. Deferred with the UI work above; the four incomplete or partial plan steps are left unchecked and annotated.                                                                                                                                                                                            |
-| `replaceCurrentFoodSource` is not transactional                                          | Folding its three writes into an RPC is a new migration and a design decision beyond this pass.                                                                                                                                                                                                                                                  |
 | `content_hash` change detection                                                          | Captures persist a normalized SHA-256 fingerprint, but no code compares it with the prior source to decide whether review is needed.                                                                                                                                                                                                             |
 | Minimum excerpt length                                                                   | `isEvidenceExcerpt` still accepts a two-character excerpt like `"37"`. A safe minimum needs real-label data to calibrate.                                                                                                                                                                                                                        |
 | Ambiguous locale dot separators in `num()`                                               | Ranges and multi-dot values are rejected, but `3.850` remains indistinguishable from decimal 3.85 versus 3850 kcal/kg without field-aware parsing.                                                                                                                                                                                               |
@@ -221,7 +221,7 @@ Verified correct, for the record: `feeding_logs` has no IDOR (the RLS policy at 
 - **Charset was ignored** (fixed). The fetcher now decodes declared `euc-kr`, `cp949`, and `windows-949` responses before extracting visible text.
 - **No minimum excerpt length.** `isEvidenceExcerpt` is a bare substring test; a model returning `excerpt: "37"` passes both the zod `.min(1)` and the SQL non-empty check whenever `37` appears anywhere, including inside an unrelated SKU.
 - **Failed requests cleared curator input** (fixed). State is cleared only after the corresponding request succeeds.
-- **`replaceCurrentFoodSource` is not transactional** (`source-repository.ts:61`). Three un-wrapped statements; if the insert fails after the retire commits, the food is left with no current source of that kind. Spec 143 requires transactional draft writes — the evidence path honors it via the RPC, this path does not.
+- **`replaceCurrentFoodSource` was not transactional** (`source-repository.ts:61`, fixed). The former three-statement repository sequence could leave a food without a current source when a later write failed. The repository now delegates the complete replacement to one database RPC.
 
 ## 6. Schema and type drift — historical findings; `food_sources.kind` remains open
 
@@ -257,6 +257,5 @@ At `e317ecf`, `AGENTS.md` carried `Generated: 2026-07-15 / Commit: 968cf38`, whi
 ## Suggested next pass
 
 1. Design the transcript viewer, failed-source list, retry/replace UI, searchable DRAFT picker, and its deferred component test as a separate PR.
-2. Make `replaceCurrentFoodSource` transactional.
-3. Close DNS rebinding with a pinned lookup once the undici dependency is approved.
-4. Calibrate a minimum excerpt length and decide whether `food_sources.kind` needs a dedicated database enum.
+2. Close DNS rebinding with a pinned lookup once the undici dependency is approved.
+3. Calibrate a minimum excerpt length and decide whether `food_sources.kind` needs a dedicated database enum.
