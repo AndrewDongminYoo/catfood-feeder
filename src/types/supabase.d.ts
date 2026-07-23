@@ -505,6 +505,20 @@ export type Database = {
         Args: { p_limit: number; p_subject: string; p_window_seconds: number };
         Returns: number;
       };
+      replace_current_food_source: {
+        Args: {
+          p_capture_method: string;
+          p_captured_at: string;
+          p_captured_text: string;
+          p_content_hash: string;
+          p_created_by?: string;
+          p_food_id: number;
+          p_kind: Database["public"]["Enums"]["nutrient_source"];
+          p_observed_at?: string;
+          p_url: string;
+        };
+        Returns: number;
+      };
     };
     Enums: {
       cooking_method: "extrusion" | "baked" | "freeze_dried" | "dried";

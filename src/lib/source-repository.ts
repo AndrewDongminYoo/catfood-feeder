@@ -61,47 +61,33 @@ export async function createFailedFoodSource(
 }
 
 export async function replaceCurrentFoodSource(
-  source: SourceWrite,
+  source: SourceWrite & {
+    readonly capturedAt: string;
+    readonly capturedText: string;
+    readonly contentHash: string;
+  },
 ): Promise<number> {
   const supabase = createAdminClient();
-  const { error: staleError } = await supabase
-    .from("food_sources")
-    .update({ is_current: false })
-    .eq("food_id", source.foodId)
-    .eq("kind", source.kind)
-    .eq("is_current", true);
-
-  if (staleError) {
-    throw new SourceRepositoryError(
-      "retire_current_source",
-      staleError.message,
-    );
-  }
-
-  const { data, error } = await supabase
-    .from("food_sources")
-    .insert(toSourceInsert(source, true))
-    .select("id")
-    .single();
+  const { data, error } = await supabase.rpc("replace_current_food_source", {
+    p_capture_method: source.captureMethod,
+    p_captured_at: source.capturedAt,
+    p_captured_text: source.capturedText,
+    p_content_hash: source.contentHash,
+    p_food_id: source.foodId,
+    p_kind: source.kind,
+    p_url: source.url,
+    ...(source.createdBy === null ? {} : { p_created_by: source.createdBy }),
+    ...(source.observedAt === null ? {} : { p_observed_at: source.observedAt }),
+  });
 
   if (error)
-    throw new SourceRepositoryError("create_current_source", error.message);
-
-  const sourceLink =
-    source.kind === "manufacturer"
-      ? { manufacturer_url: source.url }
-      : { kr_label_source: source.url };
-  const { error: linkError } = await supabase
-    .from("foods")
-    .update(sourceLink)
-    .eq("id", source.foodId);
-  if (linkError)
+    throw new SourceRepositoryError("replace_current_source", error.message);
+  if (data === null)
     throw new SourceRepositoryError(
-      "update_food_source_link",
-      linkError.message,
+      "replace_current_source",
+      "Source replacement RPC returned no source ID",
     );
-
-  return data.id;
+  return data;
 }
 
 export async function getCurrentFetchedFoodSources(
