@@ -1,6 +1,7 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { load } from "cheerio";
+import { Agent, type Dispatcher } from "undici";
 import { hashSourceText, isPublicHttpUrl } from "./source-collection";
 import type { SourceKind } from "./source-collection";
 
@@ -39,6 +40,10 @@ type CaptureFailure = {
 export type CaptureResult = CaptureSuccess | CaptureFailure;
 
 type FetchDependencies = {
+  readonly createDispatcher?: (
+    hostname: string,
+    addresses: readonly string[],
+  ) => Pick<Dispatcher, "close">;
   readonly fetch?: typeof globalThis.fetch;
   readonly resolveHostname?: (hostname: string) => Promise<readonly string[]>;
 };
@@ -52,6 +57,8 @@ export async function captureSource(
   }
 
   const fetchSource = dependencies.fetch ?? globalThis.fetch;
+  const createDispatcher =
+    dependencies.createDispatcher ?? createPinnedDispatcher;
   const resolveHostname = dependencies.resolveHostname ?? resolvePublicHostname;
   let currentUrl = input.url;
 
@@ -69,56 +76,90 @@ export async function captureSource(
       return { kind: "failure", code: "unsafe_destination" };
     }
 
-    // ponytail: 검증과 실제 연결이 각각 DNS를 조회하므로 rebinding(TOCTOU) 창이 남는다.
-    // 짧은 TTL로 검증 때는 공인 IP를, 연결 때는 169.254.169.254를 주는 도메인은 통과한다.
-    // 닫으려면 검증된 주소를 고정한 lookup을 undici Agent에 주입해야 한다(새 의존성).
-    // 호출부가 큐레이터 세션으로 제한돼 있어 현재는 내부자 위협 범위로 남겨둔다.
-    const response = await fetchWithRetry(fetchSource, currentUrl);
-    if (response === null) {
-      return { kind: "failure", code: "network_error" };
-    }
-
-    if (isRedirect(response.status)) {
-      const location = response.headers.get("location");
-      if (!location) return { kind: "failure", code: "invalid_response" };
-      if (redirectCount === MAX_REDIRECTS) {
-        return { kind: "failure", code: "redirect_limit" };
+    const dispatcher = createDispatcher(destination.hostname, addresses);
+    try {
+      const response = await fetchWithRetry(
+        fetchSource,
+        currentUrl,
+        dispatcher,
+      );
+      if (response === null) {
+        return { kind: "failure", code: "network_error" };
       }
 
-      const redirectedUrl = new URL(location, currentUrl).toString();
-      if (!isPublicHttpUrl(redirectedUrl)) {
-        return { kind: "failure", code: "unsafe_destination" };
+      if (isRedirect(response.status)) {
+        const location = response.headers.get("location");
+        if (!location) return { kind: "failure", code: "invalid_response" };
+        if (redirectCount === MAX_REDIRECTS) {
+          return { kind: "failure", code: "redirect_limit" };
+        }
+
+        const redirectedUrl = new URL(location, currentUrl).toString();
+        if (!isPublicHttpUrl(redirectedUrl)) {
+          return { kind: "failure", code: "unsafe_destination" };
+        }
+        currentUrl = redirectedUrl;
+        continue;
       }
-      currentUrl = redirectedUrl;
-      continue;
+
+      if (!response.ok) return { kind: "failure", code: "http_error" };
+
+      const contentType = parseContentType(
+        response.headers.get("content-type"),
+      );
+      if (contentType === null) {
+        return { kind: "failure", code: "unsupported_content_type" };
+      }
+
+      const body = await readResponseBody(response);
+      if (body === null) return { kind: "failure", code: "response_too_large" };
+
+      const capturedText = extractVisibleText(
+        decodeBody(body, contentType.charset),
+        contentType.type,
+      );
+      if (!capturedText) return { kind: "failure", code: "empty_content" };
+
+      return {
+        kind: "success",
+        capturedText,
+        contentHash: hashSourceText(capturedText),
+        contentType: contentType.type,
+        url: currentUrl,
+      };
+    } finally {
+      await dispatcher.close();
     }
-
-    if (!response.ok) return { kind: "failure", code: "http_error" };
-
-    const contentType = parseContentType(response.headers.get("content-type"));
-    if (contentType === null) {
-      return { kind: "failure", code: "unsupported_content_type" };
-    }
-
-    const body = await readResponseBody(response);
-    if (body === null) return { kind: "failure", code: "response_too_large" };
-
-    const capturedText = extractVisibleText(
-      decodeBody(body, contentType.charset),
-      contentType.type,
-    );
-    if (!capturedText) return { kind: "failure", code: "empty_content" };
-
-    return {
-      kind: "success",
-      capturedText,
-      contentHash: hashSourceText(capturedText),
-      contentType: contentType.type,
-      url: currentUrl,
-    };
   }
 
   return { kind: "failure", code: "redirect_limit" };
+}
+
+function createPinnedDispatcher(
+  _hostname: string,
+  addresses: readonly string[],
+): Dispatcher {
+  return new Agent({
+    connect: {
+      lookup: (_lookupHostname, options, callback) => {
+        const records = addresses.map((address) => ({
+          address,
+          family: isIP(address) as 4 | 6,
+        }));
+        const matchingRecords = options.family
+          ? records.filter((record) => record.family === options.family)
+          : records;
+
+        if (options.all) callback(null, matchingRecords);
+        else
+          callback(
+            null,
+            matchingRecords[0]?.address ?? addresses[0],
+            matchingRecords[0]?.family ?? 4,
+          );
+      },
+    },
+  });
 }
 
 async function resolvePublicHostname(
@@ -250,13 +291,16 @@ function ipv6ToBytes(address: string): number[] | null {
 async function fetchWithRetry(
   fetchSource: typeof globalThis.fetch,
   url: string,
+  dispatcher: Pick<Dispatcher, "close">,
 ): Promise<Response | null> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
       const response = await fetchSource(url, {
+        // Node의 fetch가 사용하는 undici 전용 옵션이다.
+        dispatcher,
         redirect: "manual",
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
+      } as RequestInit & { dispatcher: Pick<Dispatcher, "close"> });
       if (response.status < 500 || attempt === 1) return response;
     } catch {
       if (attempt === 1) return null;

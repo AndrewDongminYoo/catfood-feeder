@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { captureSource } from "./source-fetcher";
 
 const publicResolver = async (): Promise<readonly string[]> => [
@@ -13,6 +13,33 @@ describe("captureSource", () => {
     );
 
     expect(result).toEqual({ kind: "failure", code: "unsafe_destination" });
+  });
+
+  it("pins the validated DNS address to the outbound request", async () => {
+    const dispatcher = { close: async () => undefined };
+    const createDispatcher = vi.fn(() => dispatcher);
+    const fetchSource = vi.fn(
+      async (_url: string | URL | Request, init?: RequestInit) => {
+        expect(init).toMatchObject({ dispatcher });
+        return new Response("Crude protein 37%", {
+          headers: { "content-type": "text/plain" },
+        });
+      },
+    );
+
+    const result = await captureSource(
+      { url: "https://example.test", kind: "manufacturer" },
+      {
+        createDispatcher,
+        fetch: fetchSource as typeof globalThis.fetch,
+        resolveHostname: publicResolver,
+      },
+    );
+
+    expect(result).toMatchObject({ kind: "success" });
+    expect(createDispatcher).toHaveBeenCalledWith("example.test", [
+      "93.184.216.34",
+    ]);
   });
 
   it("returns an unsafe destination failure for an IPv4-mapped loopback address", async () => {
