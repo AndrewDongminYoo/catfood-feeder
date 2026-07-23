@@ -7,6 +7,12 @@ import {
   evidenceApplyResponseSchema,
   evidenceCandidateSchema,
 } from "@/lib/source-apply";
+import {
+  sourceCaptureResponseSchema,
+  sourceCaptureStatusMessage,
+  sourceCaptureTone,
+} from "@/lib/source-capture-response";
+import type { SourceContentStatus } from "@/lib/source-capture-response";
 
 const sourceSchema = z.object({
   captured_at: z.string().nullable(),
@@ -33,6 +39,8 @@ export function SourceResearchClient() {
   const [url, setUrl] = useState("");
   const [manualText, setManualText] = useState("");
   const [candidates, setCandidates] = useState<readonly Candidate[]>([]);
+  const [captureStatus, setCaptureStatus] =
+    useState<SourceContentStatus | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -73,6 +81,12 @@ export function SourceResearchClient() {
     });
     // 실패 시 입력을 지우지 않는다. 손으로 붙여넣은 전사본을 다시 받아낼 방법이 없다.
     if (result === null) return;
+    const parsed = sourceCaptureResponseSchema.safeParse(result);
+    if (!parsed.success) {
+      setMessage("출처 수집 결과를 확인하지 못했습니다.");
+      return;
+    }
+    setCaptureStatus(parsed.data.contentStatus);
     setUrl("");
     setManualText("");
     setCandidates([]);
@@ -112,6 +126,7 @@ export function SourceResearchClient() {
   async function request(path: string, body: object): Promise<unknown> {
     setBusy(true);
     setMessage(null);
+    setCaptureStatus(null);
     try {
       const response = await fetch(path, {
         method: "POST",
@@ -192,6 +207,20 @@ export function SourceResearchClient() {
       >
         출처 수집
       </button>
+      {captureStatus && (
+        <p
+          className={
+            sourceCaptureTone(captureStatus) === "warning"
+              ? "flag warn"
+              : "okbox"
+          }
+          role={
+            sourceCaptureTone(captureStatus) === "warning" ? "alert" : "status"
+          }
+        >
+          {sourceCaptureStatusMessage(captureStatus)}
+        </p>
+      )}
       {fetchedSources.length > 0 && (
         <div className="warn" role="status">
           수집 완료 출처 {fetchedSources.length}개
