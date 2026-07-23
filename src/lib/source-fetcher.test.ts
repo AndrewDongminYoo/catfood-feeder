@@ -42,6 +42,120 @@ describe("captureSource", () => {
     ]);
   });
 
+  it("cancels a redirect body before closing its dispatcher", async () => {
+    let bodyCanceled = false;
+    const firstDispatcher = {
+      close: vi.fn(async () => {
+        expect(bodyCanceled).toBe(true);
+      }),
+    };
+    const secondDispatcher = { close: vi.fn(async () => undefined) };
+    const createDispatcher = vi
+      .fn()
+      .mockReturnValueOnce(firstDispatcher)
+      .mockReturnValueOnce(secondDispatcher);
+    const fetchSource = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          new ReadableStream({
+            cancel() {
+              bodyCanceled = true;
+            },
+          }),
+          {
+            headers: { location: "https://next.example.test" },
+            status: 302,
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response("Crude protein 37%", {
+          headers: { "content-type": "text/plain" },
+        }),
+      );
+
+    const result = await captureSource(
+      { url: "https://example.test", kind: "manufacturer" },
+      {
+        createDispatcher,
+        fetch: fetchSource as typeof globalThis.fetch,
+        resolveHostname: publicResolver,
+      },
+    );
+
+    expect(result).toMatchObject({ kind: "success" });
+    expect(firstDispatcher.close).toHaveBeenCalledOnce();
+    expect(secondDispatcher.close).toHaveBeenCalledOnce();
+  });
+
+  it("cancels a retryable response body before retrying", async () => {
+    let bodyCanceled = false;
+    const fetchSource = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          new ReadableStream({
+            cancel() {
+              bodyCanceled = true;
+            },
+          }),
+          { status: 500 },
+        ),
+      )
+      .mockImplementationOnce(async () => {
+        expect(bodyCanceled).toBe(true);
+        return new Response("Crude protein 37%", {
+          headers: { "content-type": "text/plain" },
+        });
+      });
+
+    const result = await captureSource(
+      { url: "https://example.test", kind: "manufacturer" },
+      {
+        createDispatcher: () => ({ close: async () => undefined }),
+        fetch: fetchSource as typeof globalThis.fetch,
+        resolveHostname: publicResolver,
+      },
+    );
+
+    expect(result).toMatchObject({ kind: "success" });
+  });
+
+  it("cancels an oversized response body before closing its dispatcher", async () => {
+    let bodyCanceled = false;
+    const dispatcher = {
+      close: vi.fn(async () => {
+        expect(bodyCanceled).toBe(true);
+      }),
+    };
+
+    const result = await captureSource(
+      { url: "https://example.test", kind: "manufacturer" },
+      {
+        createDispatcher: () => dispatcher,
+        fetch: async () =>
+          new Response(
+            new ReadableStream({
+              cancel() {
+                bodyCanceled = true;
+              },
+            }),
+            {
+              headers: {
+                "content-length": String(256 * 1024 + 1),
+                "content-type": "text/plain",
+              },
+            },
+          ),
+        resolveHostname: publicResolver,
+      },
+    );
+
+    expect(result).toEqual({ kind: "failure", code: "response_too_large" });
+    expect(dispatcher.close).toHaveBeenCalledOnce();
+  });
+
   it("returns an unsafe destination failure for an IPv4-mapped loopback address", async () => {
     const result = await captureSource(
       { url: "https://example.test", kind: "manufacturer" },

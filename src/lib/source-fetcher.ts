@@ -89,6 +89,7 @@ export async function captureSource(
 
       if (isRedirect(response.status)) {
         const location = response.headers.get("location");
+        await cancelResponseBody(response);
         if (!location) return { kind: "failure", code: "invalid_response" };
         if (redirectCount === MAX_REDIRECTS) {
           return { kind: "failure", code: "redirect_limit" };
@@ -102,12 +103,16 @@ export async function captureSource(
         continue;
       }
 
-      if (!response.ok) return { kind: "failure", code: "http_error" };
+      if (!response.ok) {
+        await cancelResponseBody(response);
+        return { kind: "failure", code: "http_error" };
+      }
 
       const contentType = parseContentType(
         response.headers.get("content-type"),
       );
       if (contentType === null) {
+        await cancelResponseBody(response);
         return { kind: "failure", code: "unsupported_content_type" };
       }
 
@@ -302,6 +307,7 @@ async function fetchWithRetry(
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       } as RequestInit & { dispatcher: Pick<Dispatcher, "close"> });
       if (response.status < 500 || attempt === 1) return response;
+      await cancelResponseBody(response);
     } catch {
       if (attempt === 1) return null;
     }
@@ -341,7 +347,10 @@ async function readResponseBody(
   response: Response,
 ): Promise<Uint8Array | null> {
   const contentLength = response.headers.get("content-length");
-  if (contentLength && Number(contentLength) > MAX_RESPONSE_BYTES) return null;
+  if (contentLength && Number(contentLength) > MAX_RESPONSE_BYTES) {
+    await cancelResponseBody(response);
+    return null;
+  }
   if (!response.body) return new Uint8Array();
 
   const reader = response.body.getReader();
@@ -360,6 +369,10 @@ async function readResponseBody(
   }
 
   return Buffer.concat(chunks);
+}
+
+async function cancelResponseBody(response: Response): Promise<void> {
+  await response.body?.cancel();
 }
 
 function extractVisibleText(
