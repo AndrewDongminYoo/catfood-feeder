@@ -69,6 +69,50 @@ describe("extractCapturedSources", () => {
 });
 
 describe("validateExtractedEvidence", () => {
+  it("drops a nutrient whose value is not present in its evidence excerpt", () => {
+    const result = validateExtractedEvidence(
+      [
+        {
+          excerpt: "Crude protein 37%",
+          nutrientKey: "protein_pct",
+          sourceId: 11,
+          value: 99,
+        },
+      ],
+      [
+        {
+          capturedText: "Crude protein 37%",
+          id: 11,
+          kind: "manufacturer",
+        },
+      ],
+    );
+
+    expect(result).toEqual([]);
+  });
+
+  it("drops an evidence-backed nutrient that violates catalog domain rules", () => {
+    const result = validateExtractedEvidence(
+      [
+        {
+          excerpt: "Crude protein 101%",
+          nutrientKey: "protein_pct",
+          sourceId: 11,
+          value: 101,
+        },
+      ],
+      [
+        {
+          capturedText: "Crude protein 101%",
+          id: 11,
+          kind: "manufacturer",
+        },
+      ],
+    );
+
+    expect(result).toEqual([]);
+  });
+
   it("drops a nutrient whose excerpt is absent from its cited source", () => {
     const result = validateExtractedEvidence(
       [

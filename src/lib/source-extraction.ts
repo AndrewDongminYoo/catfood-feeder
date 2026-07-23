@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { NUTRIENT_FIELDS } from "./domain";
+import { computeDerived, NUTRIENT_FIELDS, validate } from "./domain";
 import { isEvidenceExcerpt } from "./source-collection";
 import type { CookingMethod, NutrientKey, Source } from "./domain";
 import type { SourceKind } from "./source-collection";
@@ -252,7 +252,7 @@ export function validateExtractedEvidence(
   const sourcesById = new Map(sources.map((source) => [source.id, source]));
   const seenNutrients = new Set<NutrientKey>();
 
-  return candidates.filter((candidate) => {
+  const evidenceBackedCandidates = candidates.filter((candidate) => {
     if (
       !Number.isFinite(candidate.value) ||
       candidate.value < 0 ||
@@ -261,12 +261,38 @@ export function validateExtractedEvidence(
       return false;
     }
     const source = sourcesById.get(candidate.sourceId);
-    if (!source || !isEvidenceExcerpt(source.capturedText, candidate.excerpt)) {
+    if (
+      !source ||
+      !isEvidenceExcerpt(source.capturedText, candidate.excerpt) ||
+      !excerptContainsValue(candidate.excerpt, candidate.value)
+    ) {
       return false;
     }
     seenNutrients.add(candidate.nutrientKey);
     return NUTRIENT_FIELDS.some(([key]) => key === candidate.nutrientKey);
   });
+  const nutrients = Object.fromEntries(
+    evidenceBackedCandidates.map((candidate) => [
+      candidate.nutrientKey,
+      candidate.value,
+    ]),
+  );
+  const derived = computeDerived(nutrients, null, null);
+  return validate(nutrients, derived).some((flag) => flag.level === "error")
+    ? []
+    : evidenceBackedCandidates;
+}
+
+function excerptContainsValue(excerpt: string, value: number): boolean {
+  const numericTokens = excerpt
+    .normalize("NFKC")
+    .replace(/−/g, "-")
+    .match(/-?\d[\d,]*(?:\.\d+)?/g);
+  return (
+    numericTokens?.some(
+      (token) => Number(token.replaceAll(",", "")) === value,
+    ) ?? false
+  );
 }
 
 function buildExtractionPrompt(
