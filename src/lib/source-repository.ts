@@ -1,6 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseEvidenceApplyResults } from "./source-apply";
 import type { EvidenceApplyResult } from "./source-apply";
+import { parseSourceReplacementResult } from "./source-capture-response";
+import type { SourceReplacementResult } from "./source-capture-response";
 import type { ExtractedEvidence } from "./source-extraction";
 import type {
   SourceCaptureMethod,
@@ -66,7 +68,7 @@ export async function replaceCurrentFoodSource(
     readonly capturedText: string;
     readonly contentHash: string;
   },
-): Promise<number> {
+): Promise<SourceReplacementResult> {
   const supabase = createAdminClient();
   const { data, error } = await supabase.rpc("replace_current_food_source", {
     p_capture_method: source.captureMethod,
@@ -82,12 +84,14 @@ export async function replaceCurrentFoodSource(
 
   if (error)
     throw new SourceRepositoryError("replace_current_source", error.message);
-  if (data === null)
+  try {
+    return parseSourceReplacementResult(data);
+  } catch {
     throw new SourceRepositoryError(
       "replace_current_source",
-      "Source replacement RPC returned no source ID",
+      "Source replacement RPC returned an invalid result",
     );
-  return data;
+  }
 }
 
 export async function getCurrentFetchedFoodSources(

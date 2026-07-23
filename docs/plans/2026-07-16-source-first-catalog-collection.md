@@ -4,7 +4,7 @@
 
 **Goal:** Let a human curator register exact product sources, capture their text safely, extract evidence-backed DRAFT nutrients from only that captured text, and retain source-level audit history.
 
-**Scope decision (2026-07-21):** This phase includes charset-aware capture and extraction retry. Transcript preview, per-source status/history, failed-source listing, retry/replace controls, and their component tests are deferred to a separate curator-workspace PR.
+**Scope decision (2026-07-21, updated 2026-07-23):** This phase includes charset-aware capture and extraction retry. Content-hash status is now implemented; transcript preview, per-source history, failed-source listing, retry/replace controls, and their component tests remain deferred to a separate curator-workspace PR.
 
 **Architecture:** A new private source ledger stores versioned product-source captures and field-level evidence.
 Curator-only route handlers own URL fetching, LLM extraction, and draft application.
@@ -496,7 +496,7 @@ Select the food ID, product name, brand name, current sources, and research stat
 
 Require a human curator and never return `captured_text` from this inventory endpoint.
 
-- [ ] **Step 4: Implement the complete research page and client.** — PARTIAL: source registration, extraction candidates, and explicit DRAFT apply are implemented; transcript preview, per-source status/history, and failed-source controls are deferred by the scope decision above.
+- [ ] **Step 4: Implement the complete research page and client.** — PARTIAL: source registration, content-hash status, extraction candidates, and explicit DRAFT apply are implemented; transcript preview, per-source history, and failed-source controls are deferred by the scope decision above.
 
 Add a visible link from `/new` to `/new/research`.
 
@@ -594,7 +594,8 @@ Spec coverage maps to tasks as follows.
 - Source timestamps, hashes, captured text, and field evidence are implemented by Task 2.
 - Bounded collection and independent failure records are implemented by Task 3.
 - Captured-text-only extraction and evidence verification are implemented by Task 4.
-- Curator review before DRAFT application is implemented by Task 5.
+- Content-hash comparison and curator change warnings are implemented by the 2026-07-23 follow-up.
+- Curator review before DRAFT application is partially implemented by Task 5; transcript preview remains deferred.
 - Retirement of autonomous web search and full security verification are implemented by Task 6.
 
 The plan contains no placeholder implementation steps.

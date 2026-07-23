@@ -517,7 +517,10 @@ export type Database = {
           p_observed_at?: string;
           p_url: string;
         };
-        Returns: number;
+        Returns: {
+          content_status: string;
+          source_id: number;
+        }[];
       };
     };
     Enums: {

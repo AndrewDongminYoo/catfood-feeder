@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(13);
+SELECT plan(15);
 
 INSERT INTO public.brands (id, name, manufacturer)
 OVERRIDING SYSTEM VALUE
@@ -15,8 +15,15 @@ INSERT INTO public.foods (
 )
 OVERRIDING SYSTEM VALUE
 VALUES
-  (-93001, -93001, 'successful replacement', 'https://example.test/success-old'),
-  (-93002, -93001, 'failed replacement', 'https://example.test/failure-old');
+  (-93001, -93001, 'changed replacement', 'https://example.test/success-old'),
+  (-93002, -93001, 'failed replacement', 'https://example.test/failure-old'),
+  (
+    -93003,
+    -93001,
+    'unchanged replacement',
+    'https://example.test/unchanged-old'
+  ),
+  (-93004, -93001, 'initial replacement', NULL);
 
 INSERT INTO public.food_sources (
   id,
@@ -52,6 +59,17 @@ VALUES
     now() - interval '1 day',
     'failure-old',
     'Protein 31%'
+  ),
+  (
+    -93003,
+    -93003,
+    'manufacturer',
+    'https://example.test/unchanged-old',
+    'fetch',
+    'fetched',
+    now() - interval '1 day',
+    'unchanged-hash',
+    'Protein 35%'
   );
 
 -- Given: untrusted API roles can discover the public RPC name.
@@ -133,12 +151,15 @@ SELECT is(
   'invalid source replacement preserves the current source'
 );
 
--- Given: a current fetched manufacturer source exists.
+-- Given: a current fetched manufacturer source has a different content hash.
 -- When: service_role replaces it with a new successful capture.
--- Then: the old source, new source, and compatibility URL change together.
-SELECT lives_ok(
-  $$
-    SELECT public.replace_current_food_source(
+-- Then: the RPC reports changed and returns the inserted source ID.
+SELECT ok(
+  (
+    SELECT
+      to_jsonb(result) ->> 'content_status' = 'changed'
+      AND (to_jsonb(result) ->> 'source_id')::bigint > 0
+    FROM public.replace_current_food_source(
       -93001,
       'manufacturer',
       'https://example.test/success-new',
@@ -148,9 +169,9 @@ SELECT lives_ok(
       'Protein 33%',
       '2026-07-22 11:00:00+00'::timestamptz,
       NULL
-    )
-  $$,
-  'service role can replace a current source'
+    ) AS result
+  ),
+  'changed content returns changed with the inserted source ID'
 );
 RESET ROLE;
 
@@ -192,6 +213,56 @@ SELECT is(
   'https://example.test/success-new',
   'successful replacement updates the compatibility URL'
 );
+
+-- Given: a current fetched manufacturer source has the same content hash.
+-- When: service_role replaces it with a repeated successful capture.
+-- Then: the RPC reports unchanged and returns the new source ID.
+SET LOCAL ROLE service_role;
+SELECT ok(
+  (
+    SELECT
+      to_jsonb(result) ->> 'content_status' = 'unchanged'
+      AND (to_jsonb(result) ->> 'source_id')::bigint > 0
+    FROM public.replace_current_food_source(
+      -93003,
+      'manufacturer',
+      'https://example.test/unchanged-new',
+      'manual',
+      '2026-07-23 12:00:00+00'::timestamptz,
+      'unchanged-hash',
+      'Protein 35%',
+      NULL,
+      NULL
+    ) AS result
+  ),
+  'equal content returns unchanged with the inserted source ID'
+);
+RESET ROLE;
+
+-- Given: no current fetched source exists for the food and kind.
+-- When: service_role stores its first successful capture.
+-- Then: the RPC reports initial and returns the inserted source ID.
+SET LOCAL ROLE service_role;
+SELECT ok(
+  (
+    SELECT
+      to_jsonb(result) ->> 'content_status' = 'initial'
+      AND (to_jsonb(result) ->> 'source_id')::bigint > 0
+    FROM public.replace_current_food_source(
+      -93004,
+      'manufacturer',
+      'https://example.test/initial',
+      'fetch',
+      '2026-07-23 13:00:00+00'::timestamptz,
+      'initial-hash',
+      'Protein 36%',
+      NULL,
+      NULL
+    ) AS result
+  ),
+  'first content returns initial with the inserted source ID'
+);
+RESET ROLE;
 
 CREATE FUNCTION pg_temp.reject_source_link_update()
 RETURNS trigger

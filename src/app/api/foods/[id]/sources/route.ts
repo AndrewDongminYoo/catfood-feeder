@@ -106,7 +106,7 @@ export async function POST(
     if (payload.data.captureMethod === "manual") {
       const capturedAt = new Date().toISOString();
       const contentHash = hashSourceText(payload.data.capturedText);
-      const sourceId = await replaceCurrentFoodSource({
+      const replacement = await replaceCurrentFoodSource({
         capturedAt,
         capturedText: payload.data.capturedText,
         captureMethod: payload.data.captureMethod,
@@ -120,11 +120,12 @@ export async function POST(
         url: payload.data.url,
       });
       return NextResponse.json({
+        contentStatus: replacement.contentStatus,
         source: {
           capturedAt,
           capturedText: payload.data.capturedText,
           contentHash,
-          id: sourceId,
+          id: replacement.sourceId,
           kind: payload.data.kind,
           observedAt: payload.data.observedAt ?? null,
           url: payload.data.url,
@@ -160,7 +161,7 @@ export async function POST(
     }
 
     const capturedAt = new Date().toISOString();
-    const sourceId = await replaceCurrentFoodSource({
+    const replacement = await replaceCurrentFoodSource({
       capturedAt,
       capturedText: captured.capturedText,
       captureMethod: payload.data.captureMethod,
@@ -174,11 +175,12 @@ export async function POST(
       url: captured.url,
     });
     return NextResponse.json({
+      contentStatus: replacement.contentStatus,
       source: {
         capturedAt,
         capturedText: captured.capturedText,
         contentHash: captured.contentHash,
-        id: sourceId,
+        id: replacement.sourceId,
         kind: payload.data.kind,
         observedAt: payload.data.observedAt ?? null,
         url: captured.url,
