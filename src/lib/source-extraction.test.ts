@@ -157,6 +157,53 @@ describe("validateExtractedEvidence", () => {
     expect(result).toEqual([evidence]);
   });
 
+  it.each(["Calcium 1,2%", "Calcium 1,,2%"])(
+    "drops a nutrient with invalid comma grouping: %s",
+    (excerpt) => {
+      const result = validateExtractedEvidence(
+        [
+          {
+            excerpt,
+            nutrientKey: "calcium_pct",
+            sourceId: 11,
+            value: 12,
+          },
+        ],
+        [
+          {
+            capturedText: excerpt,
+            id: 11,
+            kind: "manufacturer",
+          },
+        ],
+      );
+
+      expect(result).toEqual([]);
+    },
+  );
+
+  it("accepts a correctly grouped thousands value", () => {
+    const evidence = {
+      excerpt: "Metabolizable energy 3,850 kcal/kg",
+      nutrientKey: "kcal_per_kg" as const,
+      sourceId: 11,
+      value: 3850,
+    };
+
+    const result = validateExtractedEvidence(
+      [evidence],
+      [
+        {
+          capturedText: evidence.excerpt,
+          id: 11,
+          kind: "manufacturer",
+        },
+      ],
+    );
+
+    expect(result).toEqual([evidence]);
+  });
+
   it("drops an evidence-backed nutrient that violates catalog domain rules", () => {
     const result = validateExtractedEvidence(
       [

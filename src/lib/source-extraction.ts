@@ -287,7 +287,7 @@ function excerptContainsValue(excerpt: string, value: number): boolean {
   const normalizedExcerpt = excerpt.normalize("NFKC").replace(/−/g, "-");
   if (normalizedExcerpt.includes("⁄")) return false;
   const numericTokens = normalizedExcerpt.match(
-    /-?(?:\d[\d,]*(?:\.\d+)?|\.\d+)/g,
+    /-?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)/g,
   );
   return (
     numericTokens?.length === 1 &&

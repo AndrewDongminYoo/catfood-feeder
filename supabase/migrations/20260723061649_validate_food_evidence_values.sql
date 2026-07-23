@@ -118,7 +118,7 @@ BEGIN
         AND bool_and(replace(evidence_number[1], ',', '')::numeric = v_value)
       FROM regexp_matches(
         replace(normalize(v_excerpt, NFKC), '−', '-'),
-        '(-?([0-9][0-9,]*(\.[0-9]+)?|\.[0-9]+))',
+        '(-?([0-9]{1,3}(,[0-9]{3})+(\.[0-9]+)?|[0-9]+(\.[0-9]+)?|\.[0-9]+))',
         'g'
       ) AS evidence_number
     ) THEN
