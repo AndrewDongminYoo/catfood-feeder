@@ -1,6 +1,6 @@
 # Content Hash Change Detection
 
-Status: Proposed — awaiting review of the written specification
+Status: Implemented
 
 ## Context
 
