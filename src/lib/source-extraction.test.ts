@@ -91,6 +91,72 @@ describe("validateExtractedEvidence", () => {
     expect(result).toEqual([]);
   });
 
+  it("drops a nutrient whose evidence contains a Unicode fraction", () => {
+    const result = validateExtractedEvidence(
+      [
+        {
+          excerpt: "Crude protein ½%",
+          nutrientKey: "protein_pct",
+          sourceId: 11,
+          value: 1,
+        },
+      ],
+      [
+        {
+          capturedText: "Crude protein ½%",
+          id: 11,
+          kind: "manufacturer",
+        },
+      ],
+    );
+
+    expect(result).toEqual([]);
+  });
+
+  it("drops a nutrient whose excerpt contains multiple numeric claims", () => {
+    const result = validateExtractedEvidence(
+      [
+        {
+          excerpt: "Crude protein 37%, crude fat 99%",
+          nutrientKey: "protein_pct",
+          sourceId: 11,
+          value: 99,
+        },
+      ],
+      [
+        {
+          capturedText: "Crude protein 37%, crude fat 99%",
+          id: 11,
+          kind: "manufacturer",
+        },
+      ],
+    );
+
+    expect(result).toEqual([]);
+  });
+
+  it("accepts a leading-decimal value from an unambiguous excerpt", () => {
+    const evidence = {
+      excerpt: "Crude protein .7%",
+      nutrientKey: "protein_pct" as const,
+      sourceId: 11,
+      value: 0.7,
+    };
+
+    const result = validateExtractedEvidence(
+      [evidence],
+      [
+        {
+          capturedText: "Crude protein .7%",
+          id: 11,
+          kind: "manufacturer",
+        },
+      ],
+    );
+
+    expect(result).toEqual([evidence]);
+  });
+
   it("drops an evidence-backed nutrient that violates catalog domain rules", () => {
     const result = validateExtractedEvidence(
       [

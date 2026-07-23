@@ -284,14 +284,14 @@ export function validateExtractedEvidence(
 }
 
 function excerptContainsValue(excerpt: string, value: number): boolean {
-  const numericTokens = excerpt
-    .normalize("NFKC")
-    .replace(/−/g, "-")
-    .match(/-?\d[\d,]*(?:\.\d+)?/g);
+  const normalizedExcerpt = excerpt.normalize("NFKC").replace(/−/g, "-");
+  if (normalizedExcerpt.includes("⁄")) return false;
+  const numericTokens = normalizedExcerpt.match(
+    /-?(?:\d[\d,]*(?:\.\d+)?|\.\d+)/g,
+  );
   return (
-    numericTokens?.some(
-      (token) => Number(token.replaceAll(",", "")) === value,
-    ) ?? false
+    numericTokens?.length === 1 &&
+    Number(numericTokens[0]?.replaceAll(",", "")) === value
   );
 }
 

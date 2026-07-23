@@ -112,14 +112,15 @@ BEGIN
       RAISE EXCEPTION 'Evidence excerpt is absent from source %', v_source_id;
     END IF;
 
-    IF NOT EXISTS (
-      SELECT 1
+    IF position('⁄' IN normalize(v_excerpt, NFKC)) > 0
+      OR NOT (
+      SELECT count(*) = 1
+        AND bool_and(replace(evidence_number[1], ',', '')::numeric = v_value)
       FROM regexp_matches(
         replace(normalize(v_excerpt, NFKC), '−', '-'),
-        '(-?[0-9][0-9,]*(\.[0-9]+)?)',
+        '(-?([0-9][0-9,]*(\.[0-9]+)?|\.[0-9]+))',
         'g'
       ) AS evidence_number
-      WHERE replace(evidence_number[1], ',', '')::numeric = v_value
     ) THEN
       RAISE EXCEPTION 'Evidence value is absent from its excerpt';
     END IF;
