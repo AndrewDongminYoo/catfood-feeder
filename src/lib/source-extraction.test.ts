@@ -157,6 +157,31 @@ describe("validateExtractedEvidence", () => {
     expect(result).toEqual([evidence]);
   });
 
+  it.each(["Calcium 0.0000001%", "Calcium .0000001%"])(
+    "accepts a small decimal whose JavaScript value uses exponent notation: %s",
+    (excerpt) => {
+      const evidence = {
+        excerpt,
+        nutrientKey: "calcium_pct" as const,
+        sourceId: 11,
+        value: 0.0000001,
+      };
+
+      const result = validateExtractedEvidence(
+        [evidence],
+        [
+          {
+            capturedText: excerpt,
+            id: 11,
+            kind: "manufacturer",
+          },
+        ],
+      );
+
+      expect(result).toEqual([evidence]);
+    },
+  );
+
   it.each([
     ["Calcium 1,2%", 12],
     ["Calcium 1,,2%", 12],
