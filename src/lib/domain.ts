@@ -34,6 +34,8 @@ export const EXTRUSION_ASH_DEFAULT = 9.0; // 익스트루전 사료 회분 폴�
 export function num(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null;
   const text = String(v).normalize("NFKC").replace(/−/g, "-");
+  // NFKC는 유니코드 분수를 "1⁄2"처럼 분해한다. 분수 슬래시를 지우면 숫자가 이어지므로 거부한다.
+  if (text.includes("⁄")) return null;
   // 붙여넣기와 OCR에서 범위 구분자는 ASCII 하이픈 외에도 en/em dash와 물결표가 흔하다.
   // 숫자 사이의 구분자를 먼저 거부하지 않으면 뒤의 정리 단계에서 "36–40"이 3640이 된다.
   if (/\d\s*[-–—~〜]\s*\d/.test(text)) return null;
