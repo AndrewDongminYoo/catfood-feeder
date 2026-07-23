@@ -205,7 +205,7 @@ function isUnsafeIpv4(address: string): boolean {
     (first === 100 && second >= 64 && second <= 127) ||
     (first === 169 && second === 254) ||
     (first === 172 && second >= 16 && second <= 31) ||
-    (first === 192 && second === 0) ||
+    (first === 192 && second === 0 && (third === 0 || third === 2)) ||
     (first === 192 && second === 168) ||
     (first === 192 && second === 88 && third === 99) ||
     (first === 198 && (second === 18 || second === 19)) ||
@@ -222,51 +222,38 @@ function isUnsafeIpv6(address: string): boolean {
 
   const startsWith = (...prefix: number[]) =>
     prefix.every((byte, index) => bytes[index] === byte);
-  const embeddedIpv4 = (offset: number) =>
-    bytes.slice(offset, offset + 4).join(".");
 
-  // IPv4를 품는 형식은 전부 IPv4 규칙으로 되돌려 검사한다. 이 환원을 빠뜨리면
-  // 2002:7f00:0001::(6to4 → 127.0.0.1) 같은 주소가 공인 IP로 통과한다.
-  if (startsWith(0x20, 0x02)) return isUnsafeIpv4(embeddedIpv4(2)); // 6to4 2002::/16
+  // 현재 전역 유니캐스트 할당인 2000::/3 밖의 주소는 전부 내부·특수 용도로 거부한다.
+  if ((bytes[0] & 0xe0) !== 0x20) return true;
+  if (startsWith(0x20, 0x02)) return isUnsafeIpv4(bytes.slice(2, 6).join(".")); // 6to4 2002::/16
+
+  // 2001::/23은 기본적으로 비전역이며 IANA가 따로 지정한 전역 예외만 허용한다.
   if (
-    startsWith(0x00, 0x64, 0xff, 0x9b) &&
-    bytes.slice(4, 12).every((byte) => byte === 0)
+    startsWith(0x20, 0x01) &&
+    bytes[2] <= 0x01 &&
+    !isGloballyReachableIetfAssignment(bytes)
   )
-    return true; // NAT64 64:ff9b::/96
-  if (startsWith(0x00, 0x64, 0xff, 0x9b, 0x00, 0x01)) return true; // local-use NAT64 64:ff9b:1::/48
-  if (startsWith(0x01, 0x00) && bytes.slice(2, 8).every((byte) => byte === 0))
-    return true; // discard-only 100::/64
-  if (startsWith(0x20, 0x01, 0x00, 0x00)) return true; // Teredo 2001::/32
-  if (startsWith(0x20, 0x01, 0x00, 0x02, 0x00, 0x00)) return true; // benchmark 2001:2::/48
+    return true;
   if (startsWith(0x20, 0x01, 0x0d, 0xb8)) return true; // documentation 2001:db8::/32
   if (startsWith(0x3f, 0xff) && (bytes[2] & 0xf0) === 0) return true; // documentation 3fff::/20
-  // ::ffff:0:a.b.c.d (IPv4-translatable) — SIIT 환경에서는 마지막 32비트가 IPv4다.
-  if (
-    bytes.slice(0, 8).every((byte) => byte === 0) &&
-    bytes[8] === 0xff &&
-    bytes[9] === 0xff &&
-    bytes[10] === 0 &&
-    bytes[11] === 0
-  )
-    return isUnsafeIpv4(embeddedIpv4(12));
-  // ::ffff:a.b.c.d (IPv4-mapped) 및 ::a.b.c.d (IPv4-compatible)
-  if (bytes.slice(0, 10).every((byte) => byte === 0)) {
-    if (bytes[10] === 0xff && bytes[11] === 0xff)
-      return isUnsafeIpv4(embeddedIpv4(12));
-    if (bytes[10] === 0 && bytes[11] === 0)
-      return bytes.slice(12).some((byte) => byte !== 0)
-        ? isUnsafeIpv4(embeddedIpv4(12))
-        : true; // :: 자체(미지정 주소)
-  }
-
-  if (bytes.every((byte) => byte === 0)) return true; // ::
-  if (bytes.slice(0, 15).every((byte) => byte === 0) && bytes[15] === 1)
-    return true; // ::1
-  if ((bytes[0] & 0xfe) === 0xfc) return true; // fc00::/7 unique-local
-  if (bytes[0] === 0xfe && (bytes[1] & 0xc0) === 0x80) return true; // fe80::/10 link-local
-  if (bytes[0] === 0xfe && (bytes[1] & 0xc0) === 0xc0) return true; // fec0::/10 site-local
-  if (bytes[0] === 0xff) return true; // ff00::/8 multicast
   return false;
+}
+
+function isGloballyReachableIetfAssignment(bytes: readonly number[]): boolean {
+  const startsWith = (...prefix: number[]) =>
+    prefix.every((byte, index) => bytes[index] === byte);
+  const isProtocolAnycast =
+    startsWith(0x20, 0x01, 0x00, 0x01) &&
+    bytes.slice(4, 15).every((byte) => byte === 0) &&
+    (bytes[15] === 1 || bytes[15] === 2 || bytes[15] === 3);
+
+  return (
+    isProtocolAnycast ||
+    startsWith(0x20, 0x01, 0x00, 0x03) ||
+    startsWith(0x20, 0x01, 0x00, 0x04, 0x01, 0x12) ||
+    (startsWith(0x20, 0x01, 0x00) &&
+      ((bytes[3] & 0xf0) === 0x20 || (bytes[3] & 0xf0) === 0x30))
+  );
 }
 
 /** IPv6 문자열을 16바이트로 편다. `::` 압축과 끝자리 dotted-quad를 처리한다. */

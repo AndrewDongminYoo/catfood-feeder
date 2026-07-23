@@ -202,6 +202,8 @@ describe("captureSource", () => {
     ["IPv4 documentation", "203.0.113.1"],
     ["IPv6 site-local", "fec0::1"],
     ["IPv6 documentation", "2001:db8::1"],
+    ["IPv6 dummy", "100:0:0:1::1"],
+    ["IPv6 segment-routing SID", "5f00::1"],
   ])("%s 주소를 unsafe로 거부한다: %s", async (_label, address) => {
     const result = await captureSource(
       { url: "https://example.test", kind: "manufacturer" },
@@ -231,6 +233,24 @@ describe("captureSource", () => {
 
     expect(result).toMatchObject({ kind: "success" });
   });
+
+  it.each(["192.0.1.1", "2001:3::1"])(
+    "공인 주소는 통과시킨다: %s",
+    async (address) => {
+      const result = await captureSource(
+        { url: "https://example.test", kind: "manufacturer" },
+        {
+          resolveHostname: async () => [address],
+          fetch: async () =>
+            new Response("Crude protein 37%", {
+              headers: { "content-type": "text/plain" },
+            }),
+        },
+      );
+
+      expect(result).toMatchObject({ kind: "success" });
+    },
+  );
 
   it("returns a response size failure when the response exceeds the byte limit", async () => {
     const result = await captureSource(
