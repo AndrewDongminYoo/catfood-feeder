@@ -43,7 +43,7 @@ type FetchDependencies = {
   readonly createDispatcher?: (
     hostname: string,
     addresses: readonly string[],
-  ) => Pick<Dispatcher, "close">;
+  ) => Dispatcher;
   readonly fetch?: typeof globalThis.fetch;
   readonly resolveHostname?: (hostname: string) => Promise<readonly string[]>;
 };
@@ -194,8 +194,9 @@ function isUnsafeAddress(address: string): boolean {
 
 function isUnsafeIpv4(address: string): boolean {
   const octets = address.split(".").map(Number);
-  const [first, second] = octets;
-  if (first === undefined || second === undefined) return true;
+  const [first, second, third] = octets;
+  if (first === undefined || second === undefined || third === undefined)
+    return true;
 
   return (
     first === 0 ||
@@ -204,7 +205,12 @@ function isUnsafeIpv4(address: string): boolean {
     (first === 100 && second >= 64 && second <= 127) ||
     (first === 169 && second === 254) ||
     (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 0) ||
     (first === 192 && second === 168) ||
+    (first === 192 && second === 88 && third === 99) ||
+    (first === 198 && (second === 18 || second === 19)) ||
+    (first === 198 && second === 51 && third === 100) ||
+    (first === 203 && second === 0 && third === 113) ||
     first >= 224
   );
 }
@@ -222,8 +228,18 @@ function isUnsafeIpv6(address: string): boolean {
   // IPv4를 품는 형식은 전부 IPv4 규칙으로 되돌려 검사한다. 이 환원을 빠뜨리면
   // 2002:7f00:0001::(6to4 → 127.0.0.1) 같은 주소가 공인 IP로 통과한다.
   if (startsWith(0x20, 0x02)) return isUnsafeIpv4(embeddedIpv4(2)); // 6to4 2002::/16
-  if (startsWith(0x00, 0x64, 0xff, 0x9b)) return true; // NAT64 64:ff9b::/96
+  if (
+    startsWith(0x00, 0x64, 0xff, 0x9b) &&
+    bytes.slice(4, 12).every((byte) => byte === 0)
+  )
+    return true; // NAT64 64:ff9b::/96
+  if (startsWith(0x00, 0x64, 0xff, 0x9b, 0x00, 0x01)) return true; // local-use NAT64 64:ff9b:1::/48
+  if (startsWith(0x01, 0x00) && bytes.slice(2, 8).every((byte) => byte === 0))
+    return true; // discard-only 100::/64
   if (startsWith(0x20, 0x01, 0x00, 0x00)) return true; // Teredo 2001::/32
+  if (startsWith(0x20, 0x01, 0x00, 0x02, 0x00, 0x00)) return true; // benchmark 2001:2::/48
+  if (startsWith(0x20, 0x01, 0x0d, 0xb8)) return true; // documentation 2001:db8::/32
+  if (startsWith(0x3f, 0xff) && (bytes[2] & 0xf0) === 0) return true; // documentation 3fff::/20
   // ::ffff:0:a.b.c.d (IPv4-translatable) — SIIT 환경에서는 마지막 32비트가 IPv4다.
   if (
     bytes.slice(0, 8).every((byte) => byte === 0) &&
@@ -248,6 +264,7 @@ function isUnsafeIpv6(address: string): boolean {
     return true; // ::1
   if ((bytes[0] & 0xfe) === 0xfc) return true; // fc00::/7 unique-local
   if (bytes[0] === 0xfe && (bytes[1] & 0xc0) === 0x80) return true; // fe80::/10 link-local
+  if (bytes[0] === 0xfe && (bytes[1] & 0xc0) === 0xc0) return true; // fec0::/10 site-local
   if (bytes[0] === 0xff) return true; // ff00::/8 multicast
   return false;
 }
@@ -296,7 +313,7 @@ function ipv6ToBytes(address: string): number[] | null {
 async function fetchWithRetry(
   fetchSource: typeof globalThis.fetch,
   url: string,
-  dispatcher: Pick<Dispatcher, "close">,
+  dispatcher: Dispatcher,
 ): Promise<Response | null> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
@@ -305,7 +322,7 @@ async function fetchWithRetry(
         dispatcher,
         redirect: "manual",
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      } as RequestInit & { dispatcher: Pick<Dispatcher, "close"> });
+      } as RequestInit & { dispatcher: Dispatcher });
       if (response.status < 500 || attempt === 1) return response;
       await cancelResponseBody(response);
     } catch {

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { MockAgent } from "undici";
 import { captureSource } from "./source-fetcher";
 
 const publicResolver = async (): Promise<readonly string[]> => [
@@ -16,7 +17,7 @@ describe("captureSource", () => {
   });
 
   it("pins the validated DNS address to the outbound request", async () => {
-    const dispatcher = { close: async () => undefined };
+    const dispatcher = new MockAgent();
     const createDispatcher = vi.fn(() => dispatcher);
     const fetchSource = vi.fn(
       async (_url: string | URL | Request, init?: RequestInit) => {
@@ -44,12 +45,14 @@ describe("captureSource", () => {
 
   it("cancels a redirect body before closing its dispatcher", async () => {
     let bodyCanceled = false;
-    const firstDispatcher = {
-      close: vi.fn(async () => {
+    const firstDispatcher = new MockAgent();
+    const secondDispatcher = new MockAgent();
+    const closeFirstDispatcher = vi
+      .spyOn(firstDispatcher, "close")
+      .mockImplementation(async () => {
         expect(bodyCanceled).toBe(true);
-      }),
-    };
-    const secondDispatcher = { close: vi.fn(async () => undefined) };
+      });
+    const closeSecondDispatcher = vi.spyOn(secondDispatcher, "close");
     const createDispatcher = vi
       .fn()
       .mockReturnValueOnce(firstDispatcher)
@@ -85,8 +88,8 @@ describe("captureSource", () => {
     );
 
     expect(result).toMatchObject({ kind: "success" });
-    expect(firstDispatcher.close).toHaveBeenCalledOnce();
-    expect(secondDispatcher.close).toHaveBeenCalledOnce();
+    expect(closeFirstDispatcher).toHaveBeenCalledOnce();
+    expect(closeSecondDispatcher).toHaveBeenCalledOnce();
   });
 
   it("cancels a retryable response body before retrying", async () => {
@@ -113,7 +116,7 @@ describe("captureSource", () => {
     const result = await captureSource(
       { url: "https://example.test", kind: "manufacturer" },
       {
-        createDispatcher: () => ({ close: async () => undefined }),
+        createDispatcher: () => new MockAgent(),
         fetch: fetchSource as typeof globalThis.fetch,
         resolveHostname: publicResolver,
       },
@@ -124,11 +127,12 @@ describe("captureSource", () => {
 
   it("cancels an oversized response body before closing its dispatcher", async () => {
     let bodyCanceled = false;
-    const dispatcher = {
-      close: vi.fn(async () => {
+    const dispatcher = new MockAgent();
+    const closeDispatcher = vi
+      .spyOn(dispatcher, "close")
+      .mockImplementation(async () => {
         expect(bodyCanceled).toBe(true);
-      }),
-    };
+      });
 
     const result = await captureSource(
       { url: "https://example.test", kind: "manufacturer" },
@@ -153,7 +157,7 @@ describe("captureSource", () => {
     );
 
     expect(result).toEqual({ kind: "failure", code: "response_too_large" });
-    expect(dispatcher.close).toHaveBeenCalledOnce();
+    expect(closeDispatcher).toHaveBeenCalledOnce();
   });
 
   it("returns an unsafe destination failure for an IPv4-mapped loopback address", async () => {
@@ -179,7 +183,35 @@ describe("captureSource", () => {
   ])("%s 주소를 unsafe로 거부한다: %s", async (_label, address) => {
     const result = await captureSource(
       { url: "https://example.test", kind: "manufacturer" },
-      { resolveHostname: async () => [address] },
+      {
+        fetch: async () =>
+          new Response("Crude protein 37%", {
+            headers: { "content-type": "text/plain" },
+          }),
+        resolveHostname: async () => [address],
+      },
+    );
+
+    expect(result).toEqual({ kind: "failure", code: "unsafe_destination" });
+  });
+
+  it.each([
+    ["IPv4 benchmark", "198.18.0.1"],
+    ["IPv4 documentation", "192.0.2.1"],
+    ["IPv4 documentation", "198.51.100.1"],
+    ["IPv4 documentation", "203.0.113.1"],
+    ["IPv6 site-local", "fec0::1"],
+    ["IPv6 documentation", "2001:db8::1"],
+  ])("%s 주소를 unsafe로 거부한다: %s", async (_label, address) => {
+    const result = await captureSource(
+      { url: "https://example.test", kind: "manufacturer" },
+      {
+        fetch: async () =>
+          new Response("Crude protein 37%", {
+            headers: { "content-type": "text/plain" },
+          }),
+        resolveHostname: async () => [address],
+      },
     );
 
     expect(result).toEqual({ kind: "failure", code: "unsafe_destination" });
