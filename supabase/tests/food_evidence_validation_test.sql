@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(12);
+SELECT plan(15);
 
 INSERT INTO public.brands (id, name, manufacturer)
 OVERRIDING SYSTEM VALUE
@@ -32,7 +32,7 @@ VALUES (
   'fetched',
   now(),
   'evidence-validation',
-  'Crude protein 37%. Invalid claim: Crude protein 101%. Unsupported fraction: Crude protein ½%. Ambiguous claim: Crude protein 37%, crude fat 99%. Invalid comma: Calcium 1,2%. Repeated comma: Calcium 1,,2%. Trailing comma: Calcium 1,%. Leading comma: Calcium ,1%. Repeated trailing comma: Calcium 1,,%. Unsafe integer: Calcium 9007199254740993%. Leading decimal: Crude protein .7%. Metabolizable energy 3,850 kcal/kg.'
+  'Crude protein 37%. Invalid claim: Crude protein 101%. Unsupported fraction: Crude protein ½%. Ambiguous claim: Crude protein 37%, crude fat 99%. Invalid comma: Calcium 1,2%. Repeated comma: Calcium 1,,2%. Trailing comma: Calcium 1,%. Leading comma: Calcium ,1%. Repeated trailing comma: Calcium 1,,%. Repeated dot: Calcium ..1%. Unsafe integer: Calcium 9007199254740993%. Rounded fraction: Calcium 0.99999999999999999%. Rounded safe integer: Calcium 9007199254740991.4%. Leading decimal: Crude protein .7%. Metabolizable energy 3,850 kcal/kg.'
 );
 
 SELECT throws_ok(
@@ -123,6 +123,33 @@ SELECT throws_ok(
   )$$,
   'Evidence value is absent from its excerpt',
   'rejects numeric evidence outside the JavaScript safe-integer range'
+);
+
+SELECT throws_ok(
+  $$SELECT public.apply_food_evidence_draft(
+    -92001,
+    '[{"nutrient_key":"calcium_pct","source_id":-92001,"value":0.1,"excerpt":"Calcium ..1%"}]'::jsonb
+  )$$,
+  'Evidence value is absent from its excerpt',
+  'rejects repeated decimal points'
+);
+
+SELECT throws_ok(
+  $$SELECT public.apply_food_evidence_draft(
+    -92001,
+    '[{"nutrient_key":"calcium_pct","source_id":-92001,"value":1,"excerpt":"Calcium 0.99999999999999999%"}]'::jsonb
+  )$$,
+  'Evidence value is absent from its excerpt',
+  'rejects a decimal that would round to the submitted value'
+);
+
+SELECT throws_ok(
+  $$SELECT public.apply_food_evidence_draft(
+    -92001,
+    '[{"nutrient_key":"calcium_pct","source_id":-92001,"value":9007199254740991,"excerpt":"Calcium 9007199254740991.4%"}]'::jsonb
+  )$$,
+  'Evidence value is absent from its excerpt',
+  'rejects a near-limit decimal that would round to the submitted value'
 );
 
 SELECT lives_ok(

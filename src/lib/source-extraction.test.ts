@@ -163,6 +163,7 @@ describe("validateExtractedEvidence", () => {
     ["Calcium 1,%", 1],
     ["Calcium ,1%", 1],
     ["Calcium 1,,%", 1],
+    ["Calcium ..1%", 0.1],
   ])("drops a nutrient with invalid comma grouping: %s", (excerpt, value) => {
     const result = validateExtractedEvidence(
       [
@@ -206,6 +207,34 @@ describe("validateExtractedEvidence", () => {
 
     expect(result).toEqual([]);
   });
+
+  it.each([
+    ["Calcium 0.99999999999999999%", 1],
+    ["Calcium 9007199254740991.4%", 9007199254740991],
+  ])(
+    "drops a decimal literal that rounds to the submitted value: %s",
+    (excerpt, value) => {
+      const result = validateExtractedEvidence(
+        [
+          {
+            excerpt,
+            nutrientKey: "calcium_pct",
+            sourceId: 11,
+            value,
+          },
+        ],
+        [
+          {
+            capturedText: excerpt,
+            id: 11,
+            kind: "manufacturer",
+          },
+        ],
+      );
+
+      expect(result).toEqual([]);
+    },
+  );
 
   it("accepts a correctly grouped thousands value", () => {
     const evidence = {

@@ -125,7 +125,7 @@ BEGIN
         )
       FROM regexp_matches(
         replace(normalize(v_excerpt, NFKC), '−', '-'),
-        '(-?([0-9][0-9.,]*|[,.][0-9][0-9.,]*))',
+        '(-?([0-9][0-9.,]*|[,.]+[0-9][0-9.,]*))',
         'g'
       ) AS evidence_number
     ) THEN

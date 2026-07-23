@@ -296,12 +296,26 @@ function excerptContainsValue(excerpt: string, value: number): boolean {
     )
   )
     return false;
-  const parsedValue = Number(numericToken.replaceAll(",", ""));
-  return (
-    Number.isFinite(parsedValue) &&
-    Math.abs(parsedValue) <= Number.MAX_SAFE_INTEGER &&
-    parsedValue === value
+  const normalizedToken = normalizeDecimalLiteral(
+    numericToken.replaceAll(",", ""),
   );
+  const normalizedValue = normalizeDecimalLiteral(String(value));
+  return (
+    normalizedToken !== null &&
+    normalizedValue !== null &&
+    Number.isFinite(value) &&
+    Math.abs(value) <= Number.MAX_SAFE_INTEGER &&
+    normalizedToken === normalizedValue
+  );
+}
+
+function normalizeDecimalLiteral(value: string): string | null {
+  const match = value.match(/^(-?)(\d*)(?:\.(\d*))?$/);
+  if (!match || (!match[2] && !match[3])) return null;
+  const integer = (match[2] ?? "").replace(/^0+(?=\d)/, "") || "0";
+  const fraction = (match[3] ?? "").replace(/0+$/, "");
+  const sign = match[1] === "-" && (integer !== "0" || fraction) ? "-" : "";
+  return `${sign}${integer}${fraction ? `.${fraction}` : ""}`;
 }
 
 function buildExtractionPrompt(
