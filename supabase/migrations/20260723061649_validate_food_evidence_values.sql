@@ -115,10 +115,17 @@ BEGIN
     IF position('⁄' IN normalize(v_excerpt, NFKC)) > 0
       OR NOT (
       SELECT count(*) = 1
-        AND bool_and(replace(evidence_number[1], ',', '')::numeric = v_value)
+        AND bool_and(
+          CASE
+            WHEN evidence_number[1] ~ '^-?([0-9]{1,3}(,[0-9]{3})+(\.[0-9]+)?|[0-9]+(\.[0-9]+)?|\.[0-9]+)$'
+            THEN abs(replace(evidence_number[1], ',', '')::numeric) <= 9007199254740991
+              AND replace(evidence_number[1], ',', '')::numeric = v_value
+            ELSE false
+          END
+        )
       FROM regexp_matches(
         replace(normalize(v_excerpt, NFKC), '−', '-'),
-        '(-?([0-9]{1,3}(,[0-9]{3})+(\.[0-9]+)?|[0-9]+(\.[0-9]+)?|\.[0-9]+))',
+        '(-?([0-9][0-9.,]*|[,.][0-9][0-9.,]*))',
         'g'
       ) AS evidence_number
     ) THEN

@@ -286,12 +286,21 @@ export function validateExtractedEvidence(
 function excerptContainsValue(excerpt: string, value: number): boolean {
   const normalizedExcerpt = excerpt.normalize("NFKC").replace(/−/g, "-");
   if (normalizedExcerpt.includes("⁄")) return false;
-  const numericTokens = normalizedExcerpt.match(
-    /-?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)/g,
-  );
+  const numericTokens = normalizedExcerpt.match(/-?(?=[\d,.]*\d)[\d,.]+/g);
+  const numericToken = numericTokens?.[0];
+  if (
+    numericTokens?.length !== 1 ||
+    !numericToken ||
+    !/^-?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)$/.test(
+      numericToken,
+    )
+  )
+    return false;
+  const parsedValue = Number(numericToken.replaceAll(",", ""));
   return (
-    numericTokens?.length === 1 &&
-    Number(numericTokens[0]?.replaceAll(",", "")) === value
+    Number.isFinite(parsedValue) &&
+    Math.abs(parsedValue) <= Number.MAX_SAFE_INTEGER &&
+    parsedValue === value
   );
 }
 

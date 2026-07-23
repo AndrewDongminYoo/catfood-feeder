@@ -157,30 +157,55 @@ describe("validateExtractedEvidence", () => {
     expect(result).toEqual([evidence]);
   });
 
-  it.each(["Calcium 1,2%", "Calcium 1,,2%"])(
-    "drops a nutrient with invalid comma grouping: %s",
-    (excerpt) => {
-      const result = validateExtractedEvidence(
-        [
-          {
-            excerpt,
-            nutrientKey: "calcium_pct",
-            sourceId: 11,
-            value: 12,
-          },
-        ],
-        [
-          {
-            capturedText: excerpt,
-            id: 11,
-            kind: "manufacturer",
-          },
-        ],
-      );
+  it.each([
+    ["Calcium 1,2%", 12],
+    ["Calcium 1,,2%", 12],
+    ["Calcium 1,%", 1],
+    ["Calcium ,1%", 1],
+    ["Calcium 1,,%", 1],
+  ])("drops a nutrient with invalid comma grouping: %s", (excerpt, value) => {
+    const result = validateExtractedEvidence(
+      [
+        {
+          excerpt,
+          nutrientKey: "calcium_pct",
+          sourceId: 11,
+          value,
+        },
+      ],
+      [
+        {
+          capturedText: excerpt,
+          id: 11,
+          kind: "manufacturer",
+        },
+      ],
+    );
 
-      expect(result).toEqual([]);
-    },
-  );
+    expect(result).toEqual([]);
+  });
+
+  it("drops a numeric token outside the JavaScript safe-integer range", () => {
+    const result = validateExtractedEvidence(
+      [
+        {
+          excerpt: "Calcium 9007199254740993%",
+          nutrientKey: "calcium_pct",
+          sourceId: 11,
+          value: 9007199254740992,
+        },
+      ],
+      [
+        {
+          capturedText: "Calcium 9007199254740993%",
+          id: 11,
+          kind: "manufacturer",
+        },
+      ],
+    );
+
+    expect(result).toEqual([]);
+  });
 
   it("accepts a correctly grouped thousands value", () => {
     const evidence = {
