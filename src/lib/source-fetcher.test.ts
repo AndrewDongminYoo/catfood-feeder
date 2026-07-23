@@ -234,23 +234,26 @@ describe("captureSource", () => {
     expect(result).toMatchObject({ kind: "success" });
   });
 
-  it.each(["192.0.1.1", "2001:3::1"])(
-    "공인 주소는 통과시킨다: %s",
-    async (address) => {
-      const result = await captureSource(
-        { url: "https://example.test", kind: "manufacturer" },
-        {
-          resolveHostname: async () => [address],
-          fetch: async () =>
-            new Response("Crude protein 37%", {
-              headers: { "content-type": "text/plain" },
-            }),
-        },
-      );
+  it.each([
+    "192.0.0.9",
+    "192.0.0.10",
+    "192.0.1.1",
+    "64:ff9b::808:808",
+    "2001:3::1",
+  ])("공인 주소는 통과시킨다: %s", async (address) => {
+    const result = await captureSource(
+      { url: "https://example.test", kind: "manufacturer" },
+      {
+        resolveHostname: async () => [address],
+        fetch: async () =>
+          new Response("Crude protein 37%", {
+            headers: { "content-type": "text/plain" },
+          }),
+      },
+    );
 
-      expect(result).toMatchObject({ kind: "success" });
-    },
-  );
+    expect(result).toMatchObject({ kind: "success" });
+  });
 
   it("returns a response size failure when the response exceeds the byte limit", async () => {
     const result = await captureSource(

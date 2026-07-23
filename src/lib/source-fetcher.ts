@@ -194,8 +194,13 @@ function isUnsafeAddress(address: string): boolean {
 
 function isUnsafeIpv4(address: string): boolean {
   const octets = address.split(".").map(Number);
-  const [first, second, third] = octets;
-  if (first === undefined || second === undefined || third === undefined)
+  const [first, second, third, fourth] = octets;
+  if (
+    first === undefined ||
+    second === undefined ||
+    third === undefined ||
+    fourth === undefined
+  )
     return true;
 
   return (
@@ -205,7 +210,9 @@ function isUnsafeIpv4(address: string): boolean {
     (first === 100 && second >= 64 && second <= 127) ||
     (first === 169 && second === 254) ||
     (first === 172 && second >= 16 && second <= 31) ||
-    (first === 192 && second === 0 && (third === 0 || third === 2)) ||
+    (first === 192 &&
+      second === 0 &&
+      ((third === 0 && fourth !== 9 && fourth !== 10) || third === 2)) ||
     (first === 192 && second === 168) ||
     (first === 192 && second === 88 && third === 99) ||
     (first === 198 && (second === 18 || second === 19)) ||
@@ -222,6 +229,12 @@ function isUnsafeIpv6(address: string): boolean {
 
   const startsWith = (...prefix: number[]) =>
     prefix.every((byte, index) => bytes[index] === byte);
+
+  if (
+    startsWith(0x00, 0x64, 0xff, 0x9b) &&
+    bytes.slice(4, 12).every((byte) => byte === 0)
+  )
+    return isUnsafeIpv4(bytes.slice(12).join("."));
 
   // 현재 전역 유니캐스트 할당인 2000::/3 밖의 주소는 전부 내부·특수 용도로 거부한다.
   if ((bytes[0] & 0xe0) !== 0x20) return true;
