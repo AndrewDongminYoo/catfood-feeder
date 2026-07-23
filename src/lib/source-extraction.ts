@@ -310,10 +310,24 @@ function excerptContainsValue(excerpt: string, value: number): boolean {
 }
 
 function normalizeDecimalLiteral(value: string): string | null {
-  const match = value.match(/^(-?)(\d*)(?:\.(\d*))?$/);
+  const match = value.match(/^(-?)(\d*)(?:\.(\d*))?(?:e([+-]?\d+))?$/i);
   if (!match || (!match[2] && !match[3])) return null;
-  const integer = (match[2] ?? "").replace(/^0+(?=\d)/, "") || "0";
-  const fraction = (match[3] ?? "").replace(/0+$/, "");
+  const sourceInteger = match[2] || "0";
+  const sourceFraction = match[3] ?? "";
+  const exponent = Number(match[4] ?? 0);
+  if (!Number.isSafeInteger(exponent)) return null;
+
+  const digits = `${sourceInteger}${sourceFraction}`;
+  const decimalIndex = sourceInteger.length + exponent;
+  const expanded =
+    decimalIndex <= 0
+      ? `0.${"0".repeat(-decimalIndex)}${digits}`
+      : decimalIndex >= digits.length
+        ? `${digits}${"0".repeat(decimalIndex - digits.length)}`
+        : `${digits.slice(0, decimalIndex)}.${digits.slice(decimalIndex)}`;
+  const [expandedInteger = "0", expandedFraction = ""] = expanded.split(".");
+  const integer = expandedInteger.replace(/^0+(?=\d)/, "") || "0";
+  const fraction = expandedFraction.replace(/0+$/, "");
   const sign = match[1] === "-" && (integer !== "0" || fraction) ? "-" : "";
   return `${sign}${integer}${fraction ? `.${fraction}` : ""}`;
 }
