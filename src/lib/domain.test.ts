@@ -60,6 +60,13 @@ describe("num 절단 방지", () => {
     expect(num("10.5.2")).toBeNull();
   });
 
+  it("유니코드 분수 표기는 숫자를 이어 붙이지 않고 미기록으로 둔다", () => {
+    expect(num("½ %")).toBeNull();
+    expect(num("¼")).toBeNull();
+    expect(num("1½")).toBeNull();
+    expect(num("3⁄4")).toBeNull();
+  });
+
   it("정상 표기는 그대로 읽는다", () => {
     expect(num("36 %")).toBe(36);
     expect(num("3,850 kcal/kg")).toBe(3850);
