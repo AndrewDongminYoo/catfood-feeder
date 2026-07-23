@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { NUTRIENT_FIELDS } from "./domain";
+import { computeDerived, NUTRIENT_FIELDS, validate } from "./domain";
 import { isEvidenceExcerpt } from "./source-collection";
 import type { CookingMethod, NutrientKey, Source } from "./domain";
 import type { SourceKind } from "./source-collection";
@@ -252,7 +252,7 @@ export function validateExtractedEvidence(
   const sourcesById = new Map(sources.map((source) => [source.id, source]));
   const seenNutrients = new Set<NutrientKey>();
 
-  return candidates.filter((candidate) => {
+  const evidenceBackedCandidates = candidates.filter((candidate) => {
     if (
       !Number.isFinite(candidate.value) ||
       candidate.value < 0 ||
@@ -261,12 +261,61 @@ export function validateExtractedEvidence(
       return false;
     }
     const source = sourcesById.get(candidate.sourceId);
-    if (!source || !isEvidenceExcerpt(source.capturedText, candidate.excerpt)) {
+    if (
+      !source ||
+      !isEvidenceExcerpt(source.capturedText, candidate.excerpt) ||
+      !excerptContainsValue(candidate.excerpt, candidate.value)
+    ) {
       return false;
     }
     seenNutrients.add(candidate.nutrientKey);
     return NUTRIENT_FIELDS.some(([key]) => key === candidate.nutrientKey);
   });
+  const nutrients = Object.fromEntries(
+    evidenceBackedCandidates.map((candidate) => [
+      candidate.nutrientKey,
+      candidate.value,
+    ]),
+  );
+  const derived = computeDerived(nutrients, null, null);
+  return validate(nutrients, derived).some((flag) => flag.level === "error")
+    ? []
+    : evidenceBackedCandidates;
+}
+
+function excerptContainsValue(excerpt: string, value: number): boolean {
+  const normalizedExcerpt = excerpt.normalize("NFKC").replace(/−/g, "-");
+  if (normalizedExcerpt.includes("⁄")) return false;
+  const numericTokens = normalizedExcerpt.match(/-?(?=[\d,.]*\d)[\d,.]+/g);
+  const numericToken = numericTokens?.[0];
+  if (
+    numericTokens?.length !== 1 ||
+    !numericToken ||
+    !/^-?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)$/.test(
+      numericToken,
+    )
+  )
+    return false;
+  const normalizedToken = normalizeDecimalLiteral(
+    numericToken.replaceAll(",", ""),
+  );
+  const normalizedValue = normalizeDecimalLiteral(String(value));
+  return (
+    normalizedToken !== null &&
+    normalizedValue !== null &&
+    Number.isFinite(value) &&
+    Math.abs(value) <= Number.MAX_SAFE_INTEGER &&
+    normalizedToken === normalizedValue
+  );
+}
+
+function normalizeDecimalLiteral(value: string): string | null {
+  const match = value.match(/^(-?)(\d*)(?:\.(\d*))?$/);
+  if (!match || (!match[2] && !match[3])) return null;
+  const integer = (match[2] ?? "").replace(/^0+(?=\d)/, "") || "0";
+  const fraction = (match[3] ?? "").replace(/0+$/, "");
+  const sign = match[1] === "-" && (integer !== "0" || fraction) ? "-" : "";
+  return `${sign}${integer}${fraction ? `.${fraction}` : ""}`;
 }
 
 function buildExtractionPrompt(
