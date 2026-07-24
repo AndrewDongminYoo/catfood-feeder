@@ -72,6 +72,13 @@ VALUES
     'Protein 35%'
   );
 
+-- Supabase Cloud grants service_role SELECT on public tables via schema default
+-- privileges; a local `supabase start` does not, so the direct food_sources
+-- reads below would hit "permission denied" under SET ROLE service_role. Grant
+-- what the role reads directly (the RPC is SECURITY DEFINER and runs as its
+-- owner, so it needs no grant here). Transactional, undone by the ROLLBACK.
+GRANT SELECT ON public.food_sources TO service_role;
+
 -- Given: untrusted API roles can discover the public RPC name.
 -- When: they attempt to execute the source replacement RPC.
 -- Then: Postgres denies execution before revealing food state.
