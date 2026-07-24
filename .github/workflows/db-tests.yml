@@ -1,0 +1,28 @@
+name: db-tests
+
+# pgTAP suites in supabase/tests depend only on the migrations, so run them
+# when either the SQL or this workflow changes. A local `supabase db start`
+# applies every migration to an ephemeral Postgres; no secrets are involved.
+on:
+  pull_request:
+    paths:
+      - "supabase/**"
+      - ".github/workflows/db-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/**"
+      - ".github/workflows/db-tests.yml"
+
+jobs:
+  pgtap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+      - name: Start local Postgres (applies migrations)
+        run: supabase db start
+      - name: Run pgTAP tests
+        run: supabase test db
