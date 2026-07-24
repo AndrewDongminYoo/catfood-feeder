@@ -13,6 +13,7 @@ import {
   sourceCaptureTone,
 } from "@/lib/source-capture-response";
 import type { SourceContentStatus } from "@/lib/source-capture-response";
+import { SourceTranscriptPreviews } from "./source-transcript-previews";
 
 const sourceSchema = z.object({
   captured_at: z.string().nullable(),
@@ -29,6 +30,16 @@ const foodSchema = z.object({
   product_name: z.string(),
 });
 const draftsSchema = z.object({ foods: z.array(foodSchema) });
+// captured_text는 최대 256 KiB라 Draft 목록에 싣지 않고 선택한 사료만 지연 로드한다.
+const transcriptSchema = z.object({
+  captured_at: z.string().nullable(),
+  captured_text: z.string().nullable(),
+  id: z.number(),
+  kind: z.enum(["manufacturer", "kr_label"]),
+  url: z.string(),
+});
+const transcriptsSchema = z.object({ sources: z.array(transcriptSchema) });
+type Transcript = z.infer<typeof transcriptSchema>;
 type DraftFood = z.infer<typeof foodSchema>;
 type Candidate = z.infer<typeof evidenceCandidateSchema>;
 
@@ -43,6 +54,7 @@ export function SourceResearchClient() {
     useState<SourceContentStatus | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [transcripts, setTranscripts] = useState<readonly Transcript[]>([]);
 
   const selected = foods.find((food) => String(food.id) === foodId) ?? null;
   const fetchedSources =
@@ -53,6 +65,26 @@ export function SourceResearchClient() {
   useEffect(() => {
     void loadDrafts();
   }, []);
+
+  // 선택이 바뀔 때만 재발화한다. 같은 사료에 출처를 새로 수집/적용한 경우는
+  // registerSource/apply가 loadTranscripts를 직접 다시 호출한다.
+  useEffect(() => {
+    void loadTranscripts(foodId);
+  }, [foodId]);
+
+  async function loadTranscripts(id: number | string) {
+    if (!id) {
+      setTranscripts([]);
+      return;
+    }
+    try {
+      const response = await fetch(`/api/foods/${id}/sources`);
+      const parsed = transcriptsSchema.safeParse(await response.json());
+      setTranscripts(response.ok && parsed.success ? parsed.data.sources : []);
+    } catch {
+      setTranscripts([]);
+    }
+  }
 
   async function loadDrafts() {
     try {
@@ -91,6 +123,7 @@ export function SourceResearchClient() {
     setManualText("");
     setCandidates([]);
     await loadDrafts();
+    await loadTranscripts(selected.id);
   }
 
   async function extract() {
@@ -121,6 +154,7 @@ export function SourceResearchClient() {
     if (conflicts.length > 0)
       setMessage(`저장값과 다른 후보 ${conflicts.length}건을 남겼습니다.`);
     await loadDrafts();
+    await loadTranscripts(selected.id);
   }
 
   async function request(path: string, body: object): Promise<unknown> {
@@ -226,6 +260,7 @@ export function SourceResearchClient() {
           수집 완료 출처 {fetchedSources.length}개
         </div>
       )}
+      <SourceTranscriptPreviews sources={transcripts} />
       <button
         className="ghost"
         disabled={busy || fetchedSources.length === 0}

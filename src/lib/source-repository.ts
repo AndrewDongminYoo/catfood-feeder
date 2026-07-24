@@ -123,6 +123,37 @@ export async function getCurrentFetchedFoodSources(
   );
 }
 
+type SourceTranscriptRow = {
+  readonly id: number;
+  readonly kind: "manufacturer" | "kr_label";
+  readonly url: string;
+  readonly captured_at: string | null;
+  readonly captured_text: string | null;
+};
+
+// 프리뷰는 선택된 사료 하나의 current+fetched 출처만 필요하다. captured_text는
+// 최대 256 KiB라 Draft 목록 쿼리에서 제외하고, 선택 시점에 이 함수로 지연 로드한다.
+export async function getFoodSourceTranscripts(
+  foodId: number,
+): Promise<readonly SourceTranscriptRow[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("food_sources")
+    .select("id, kind, url, captured_at, captured_text")
+    .eq("food_id", foodId)
+    .eq("is_current", true)
+    .eq("fetch_status", "fetched")
+    .order("id");
+
+  if (error)
+    throw new SourceRepositoryError("get_source_transcripts", error.message);
+  return (data ?? []).flatMap((source) =>
+    source.kind === "manufacturer" || source.kind === "kr_label"
+      ? [{ ...source, kind: source.kind }]
+      : [],
+  );
+}
+
 export async function applyFoodEvidenceDraft(
   foodId: number,
   evidence: readonly ExtractedEvidence[],
