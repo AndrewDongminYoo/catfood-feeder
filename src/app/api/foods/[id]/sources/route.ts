@@ -18,6 +18,7 @@ import { captureSource } from "@/lib/source-fetcher";
 import {
   createFailedFoodSource,
   foodExists,
+  getFoodSourceTranscripts,
   replaceCurrentFoodSource,
 } from "@/lib/source-repository";
 
@@ -42,6 +43,44 @@ const sourcePayloadSchema = z.discriminatedUnion("captureMethod", [
     })
     .strict(),
 ]);
+
+export async function GET(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) {
+  const authorization = await authorizeCurator(req);
+  if (authorization.kind === "denied") {
+    return NextResponse.json(
+      { error: authorization.message },
+      { status: authorization.status },
+    );
+  }
+  if (authorization.origin === "automation") {
+    return NextResponse.json(
+      { error: "자동화 자격 증명으로는 출처를 조회할 수 없습니다." },
+      { status: 403 },
+    );
+  }
+
+  const params = await context.params;
+  const foodId = z.coerce.number().int().positive().safeParse(params.id);
+  if (!foodId.success) {
+    return NextResponse.json(
+      { error: "사료 ID가 올바르지 않습니다." },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const sources = await getFoodSourceTranscripts(foodId.data);
+    return NextResponse.json({ sources });
+  } catch {
+    return NextResponse.json(
+      { error: "출처 원문을 불러오지 못했습니다." },
+      { status: 500 },
+    );
+  }
+}
 
 export async function POST(
   req: NextRequest,

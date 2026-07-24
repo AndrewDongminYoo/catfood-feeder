@@ -5,15 +5,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SourceResearchClient } from "./source-research-client";
 
 const sourceUrl = "https://manufacturer.example/products/ocean-cat";
+const capturedAt = "2026-07-24T01:23:45.000Z";
 const transcript = "Crude Protein 32%\nCrude Fat 18%";
+// Draft 목록에는 captured_text가 실리지 않는다(최대 256 KiB, 지연 로드 대상).
 const draftResponse = {
   foods: [
     {
       brands: { name: "Example Brand" },
       food_sources: [
         {
-          captured_at: "2026-07-24T01:23:45.000Z",
-          captured_text: transcript,
+          captured_at: capturedAt,
           fetch_status: "fetched",
           id: 41,
           is_current: true,
@@ -26,12 +27,27 @@ const draftResponse = {
     },
   ],
 };
+const sourcesResponse = {
+  sources: [
+    {
+      captured_at: capturedAt,
+      captured_text: transcript,
+      id: 41,
+      kind: "manufacturer",
+      url: sourceUrl,
+    },
+  ],
+};
 
 describe("SourceResearchClient transcript preview", () => {
   beforeEach(() => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => new Response(JSON.stringify(draftResponse))),
+      vi.fn(async (input: RequestInfo | URL) =>
+        String(input).includes("/sources")
+          ? new Response(JSON.stringify(sourcesResponse))
+          : new Response(JSON.stringify(draftResponse)),
+      ),
     );
   });
 
