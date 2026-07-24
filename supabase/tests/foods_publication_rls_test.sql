@@ -29,6 +29,15 @@ VALUES (
   'pgTAP publication cat'
 );
 
+-- Supabase Cloud grants these table privileges to the API roles via schema
+-- default privileges; a local `supabase start` does not, so anon/authenticated
+-- would hit a table-level "permission denied" before RLS is ever consulted.
+-- Grant exactly what the roles exercise so the test reaches the policy layer it
+-- is actually asserting. Transactional, undone by the test's ROLLBACK.
+GRANT SELECT ON public.foods TO anon, authenticated, service_role;
+GRANT SELECT ON public.cats TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.feeding_logs TO authenticated;
+
 SET LOCAL ROLE anon;
 
 SELECT is(
