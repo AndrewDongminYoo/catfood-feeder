@@ -13,9 +13,11 @@ import {
   sourceCaptureTone,
 } from "@/lib/source-capture-response";
 import type { SourceContentStatus } from "@/lib/source-capture-response";
+import { SourceTranscriptPreviews } from "./source-transcript-previews";
 
 const sourceSchema = z.object({
   captured_at: z.string().nullable(),
+  captured_text: z.string().nullable(),
   fetch_status: z.string(),
   id: z.number(),
   is_current: z.boolean(),
@@ -226,6 +228,7 @@ export function SourceResearchClient() {
           수집 완료 출처 {fetchedSources.length}개
         </div>
       )}
+      <SourceTranscriptPreviews sources={fetchedSources} />
       <button
         className="ghost"
         disabled={busy || fetchedSources.length === 0}
