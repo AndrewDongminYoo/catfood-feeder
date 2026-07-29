@@ -157,6 +157,28 @@ describe("validateExtractedEvidence", () => {
     expect(result).toEqual([evidence]);
   });
 
+  it("drops a leading-decimal value parsed from label punctuation", () => {
+    const result = validateExtractedEvidence(
+      [
+        {
+          excerpt: "Crude protein min.30%",
+          nutrientKey: "protein_pct",
+          sourceId: 11,
+          value: 0.3,
+        },
+      ],
+      [
+        {
+          capturedText: "Crude protein min.30%",
+          id: 11,
+          kind: "manufacturer",
+        },
+      ],
+    );
+
+    expect(result).toEqual([]);
+  });
+
   it.each(["Calcium 0.0000001%", "Calcium .0000001%"])(
     "accepts a small decimal whose JavaScript value uses exponent notation: %s",
     (excerpt) => {

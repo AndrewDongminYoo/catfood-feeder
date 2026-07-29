@@ -288,9 +288,17 @@ function excerptContainsValue(excerpt: string, value: number): boolean {
   if (normalizedExcerpt.includes("⁄")) return false;
   const numericTokens = normalizedExcerpt.match(/-?(?=[\d,.]*\d)[\d,.]+/g);
   const numericToken = numericTokens?.[0];
+  const tokenStart = numericToken
+    ? normalizedExcerpt.indexOf(numericToken)
+    : -1;
+  const leadingDecimalFollowsLabel =
+    numericToken?.startsWith(".") &&
+    tokenStart > 0 &&
+    /[\p{L}\p{N}]/u.test(normalizedExcerpt[tokenStart - 1] ?? "");
   if (
     numericTokens?.length !== 1 ||
     !numericToken ||
+    leadingDecimalFollowsLabel ||
     !/^-?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)$/.test(
       numericToken,
     )

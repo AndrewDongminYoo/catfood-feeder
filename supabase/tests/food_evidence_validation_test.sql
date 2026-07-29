@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(17);
+SELECT plan(18);
 
 INSERT INTO public.brands (id, name, manufacturer)
 OVERRIDING SYSTEM VALUE
@@ -32,7 +32,7 @@ VALUES (
   'fetched',
   now(),
   'evidence-validation',
-  'Crude protein 37%. Invalid claim: Crude protein 101%. Unsupported fraction: Crude protein ½%. Ambiguous claim: Crude protein 37%, crude fat 99%. Invalid comma: Calcium 1,2%. Repeated comma: Calcium 1,,2%. Trailing comma: Calcium 1,%. Leading comma: Calcium ,1%. Repeated trailing comma: Calcium 1,,%. Repeated dot: Calcium ..1%. Unsafe integer: Calcium 9007199254740993%. Rounded fraction: Calcium 0.99999999999999999%. Rounded safe integer: Calcium 9007199254740991.4%. Small decimal: Calcium 0.0000001%. Small leading decimal: Phosphorus .0000001%. Leading decimal: Crude protein .7%. Metabolizable energy 3,850 kcal/kg.'
+  'Crude protein 37%. Invalid claim: Crude protein 101%. Unsupported fraction: Crude protein ½%. Ambiguous claim: Crude protein 37%, crude fat 99%. Invalid comma: Calcium 1,2%. Repeated comma: Calcium 1,,2%. Trailing comma: Calcium 1,%. Leading comma: Calcium ,1%. Repeated trailing comma: Calcium 1,,%. Repeated dot: Calcium ..1%. Unsafe integer: Calcium 9007199254740993%. Rounded fraction: Calcium 0.99999999999999999%. Rounded safe integer: Calcium 9007199254740991.4%. Small decimal: Calcium 0.0000001%. Small leading decimal: Phosphorus .0000001%. Leading decimal: Crude protein .7%. Label punctuation: Crude protein min.30%. Metabolizable energy 3,850 kcal/kg.'
 );
 
 SELECT throws_ok(
@@ -182,6 +182,15 @@ SELECT lives_ok(
     '[{"nutrient_key":"protein_pct","source_id":-92001,"value":0.7,"excerpt":"Crude protein .7%"}]'::jsonb
   )$$,
   'accepts an unambiguous leading-decimal evidence value'
+);
+
+SELECT throws_ok(
+  $$SELECT public.apply_food_evidence_draft(
+    -92001,
+    '[{"nutrient_key":"protein_pct","source_id":-92001,"value":0.3,"excerpt":"Crude protein min.30%"}]'::jsonb
+  )$$,
+  'Evidence value is absent from its excerpt',
+  'rejects a leading decimal parsed from label punctuation'
 );
 
 SELECT * FROM finish();
