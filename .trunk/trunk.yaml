@@ -18,14 +18,7 @@ runtimes:
 lint:
   enabled:
     - actionlint@1.7.8
-    # Held at eslint 9 (workspace's latest resolved patch). Verified 2026-08-02:
-    # eslint-plugin-react (latest published, 7.37.5, transitive via eslint-config-next)
-    # peers eslint "^3 || ^4 || ^5 || ^6 || ^7 || ^8 || ^9.7" (`npm view
-    # eslint-plugin-react peerDependencies`) - no eslint 10 support yet. Reproduced
-    # crash: trunk's eslint@10.8.0 throws "TypeError: Error while loading rule
-    # 'react/display-name': contextOrFilename.getFilename is not a function" on every
-    # file. Re-check when eslint-plugin-react ships an eslint ^10 peer range.
-    - eslint@9.39.5
+    - eslint@10.8.0
     - pinact@4.0.0
     - grype@0.115.0
     - osv-scanner@2.4.0
