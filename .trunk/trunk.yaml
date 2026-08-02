@@ -7,7 +7,7 @@ cli:
 plugins:
   sources:
     - id: trunk
-      ref: v1.10.2
+      ref: v1.11.0
       uri: https://github.com/trunk-io/plugins
 # Many linters and tools depend on runtimes - configure them here. (https://docs.trunk.io/runtimes)
 runtimes:
@@ -17,6 +17,16 @@ runtimes:
 # This is the section where you manage your linters. (https://docs.trunk.io/check/configuration)
 lint:
   enabled:
+    - actionlint@1.7.8
+    # Held at eslint 9 (workspace's latest resolved patch). Verified 2026-08-02:
+    # eslint-plugin-react (latest published, 7.37.5, transitive via eslint-config-next)
+    # peers eslint "^3 || ^4 || ^5 || ^6 || ^7 || ^8 || ^9.7" (`npm view
+    # eslint-plugin-react peerDependencies`) - no eslint 10 support yet. Reproduced
+    # crash: trunk's eslint@10.8.0 throws "TypeError: Error while loading rule
+    # 'react/display-name': contextOrFilename.getFilename is not a function" on every
+    # file. Re-check when eslint-plugin-react ships an eslint ^10 peer range.
+    - eslint@9.39.5
+    - pinact@4.0.0
     - grype@0.115.0
     - osv-scanner@2.4.0
     - taplo@0.10.0
@@ -24,7 +34,7 @@ lint:
     - checkov@3.3.8
     - git-diff-check
     - markdownlint@0.49.1
-    - prettier@3.9.5
+    - prettier@3.9.6
     - trufflehog@3.95.9
     - yamllint@1.38.0
 actions:
