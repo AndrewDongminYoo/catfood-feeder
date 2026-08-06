@@ -67,3 +67,51 @@ describe("research agent 자격 증명 경계", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+/**
+ * 조사 러너가 띄우는 codex 자식은 read-only 샌드박스에서 돌지만, read-only는 쓰기만
+ * 막고 읽기는 파일시스템 전역에 열려 있다. 프롬프트 인젝션을 따르는 에이전트가
+ * 가장 먼저 뒤지는 곳이 저장소 루트의 dotenv 파일이므로, 비밀 자체를 저장소 밖에
+ * 둔다. 경계가 아니라 노출면 축소다 — 진짜 경계는 별도 OS 계정이나 컨테이너다.
+ */
+describe("저장소 밖 비밀 파일 경계", () => {
+  /** 저장소 루트 기준 dotenv 경로. `.env.example`은 값이 없는 템플릿이라 제외한다. */
+  const IN_REPO_DOTENV =
+    /(^|[\s"'=/])\.?\/?\.env(\.local|\.production|\b)(?!\.example|\.sample)/;
+
+  it("어떤 pnpm 스크립트도 저장소 안 dotenv 파일을 읽지 않는다", () => {
+    const scripts: Record<string, string> = JSON.parse(
+      readFileSync(join(ROOT, "package.json"), "utf8"),
+    ).scripts;
+
+    expect(Object.keys(scripts).length).toBeGreaterThan(0);
+    expect(
+      Object.entries(scripts)
+        .filter(([, command]) => IN_REPO_DOTENV.test(command))
+        .map(([name]) => name),
+    ).toEqual([]);
+  });
+
+  it("스크립트 파일도 저장소 안 dotenv를 읽지 않는다", () => {
+    const scriptFiles = readdirSync(join(ROOT, "scripts")).filter((name) =>
+      name.endsWith(".mjs"),
+    );
+
+    expect(scriptFiles.length).toBeGreaterThan(0);
+    expect(
+      scriptFiles.filter((name) =>
+        IN_REPO_DOTENV.test(readFileSync(join(ROOT, "scripts", name), "utf8")),
+      ),
+    ).toEqual([]);
+  });
+
+  it("비밀 파일 경로는 홈 디렉터리 아래에 있다", () => {
+    const wrapper = readFileSync(
+      join(ROOT, "scripts", "with-secrets.mjs"),
+      "utf8",
+    );
+
+    expect(wrapper).toContain("homedir()");
+    expect(wrapper).toContain('".config", "catfood-feeder", "env"');
+  });
+});

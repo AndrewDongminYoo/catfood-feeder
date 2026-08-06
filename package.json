@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack",
-    "build": "next build",
-    "start": "next start",
+    "dev": "node scripts/with-secrets.mjs next dev --webpack",
+    "build": "node scripts/with-secrets.mjs next build",
+    "start": "node scripts/with-secrets.mjs next start",
     "lint": "eslint .",
-    "research:run": "node --env-file=.env.local scripts/research-run.mjs",
+    "research:run": "node scripts/research-run.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

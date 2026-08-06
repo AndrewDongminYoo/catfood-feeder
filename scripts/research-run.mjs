@@ -10,6 +10,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { SECRETS_FILE, loadSecrets } from "./with-secrets.mjs";
 
 export const PROMPT_VERSION = "2026-08-06";
 export const SCHEMA_VERSION = "1";
@@ -180,9 +181,12 @@ async function main() {
     process.exit(1);
   }
 
+  loadSecrets();
   const secret = process.env.RESEARCH_AGENT_SECRET;
   if (!secret) {
-    console.error("RESEARCH_AGENT_SECRET is not set.");
+    console.error(
+      `RESEARCH_AGENT_SECRET is not set (looked in ${SECRETS_FILE}).`,
+    );
     process.exit(1);
   }
   const brokerUrl = process.env.RESEARCH_BROKER_URL ?? "http://localhost:3000";

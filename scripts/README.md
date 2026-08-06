@@ -1,7 +1,19 @@
 # Catalog ingestion & research-agent pipeline
 
 Two-phase pipeline that turns an external product list into the project's core asset (human-verified, source-tagged nutrient data).
-Both scripts read credentials from `.env.local` via `node --env-file=.env.local`.
+
+## Where credentials live
+
+**Secrets live outside the repository, at `$HOME/.config/catfood-feeder/env` (mode 600).**
+`scripts/with-secrets.mjs` is the single loader: package scripts run through it (`node scripts/with-secrets.mjs next dev --webpack`), and the `.mjs` scripts import its `loadSecrets()` directly.
+It uses `process.loadEnvFile` rather than `node --env-file`, because Next propagates the parent's `execArgv` into its Workers' `NODE_OPTIONS`, where `--env-file` is rejected outright.
+A missing file is tolerated so platform-provided environments (Vercel) still build.
+
+The reason is the research runner: its `codex` child runs under a read-only sandbox, and read-only restricts writes, not reads.
+An agent following instructions injected into a product page would look for a dotenv file at the repository root first, so there is nothing there to find.
+This shrinks the exposure; it is not a boundary.
+The boundary is a separate OS account or a container, which stays the next hardening step.
+`src/lib/research-boundary.test.ts` pins that no package script reads an in-repo dotenv file.
 
 ## Phase A — `ingest-petfriends.mjs` (worklist)
 
@@ -10,8 +22,8 @@ Prices are omitted per `BLUEPRINT.md` (pricing is deferred).
 The skeleton rows are the **curation worklist** for the protected `/new/research` workflow.
 
 ```bash
-node --env-file=.env.local scripts/ingest-petfriends.mjs --dry   # preview, no writes
-node --env-file=.env.local scripts/ingest-petfriends.mjs         # ingest
+node scripts/ingest-petfriends.mjs --dry   # preview, no writes
+node scripts/ingest-petfriends.mjs         # ingest
 ```
 
 Requires migration `0003_foods_external_source.sql` and is idempotent on `(source, external_id)`.
@@ -34,7 +46,7 @@ pnpm dev                                  # the broker runs inside the app
 pnpm research:run --food 123              # research one skeleton draft
 ```
 
-Requires `RESEARCH_AGENT_SECRET` in `.env.local` and a logged-in `codex` CLI.
+Requires `RESEARCH_AGENT_SECRET` in `$HOME/.config/catfood-feeder/env` and a logged-in `codex` CLI.
 Optional: `RESEARCH_BROKER_URL` (default `http://localhost:3000`), `RESEARCH_AGENT_MODEL` (default `gpt-5.6-terra`).
 
 What holds the boundary:

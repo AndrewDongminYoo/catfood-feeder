@@ -6,24 +6,26 @@
 //
 // 이 파일은 "리서치 워크리스트"를 만든다: 사람이 검증할 성분 데이터의 입력 큐.
 //
-// 사용법:
-//   node --env-file=.env.local scripts/ingest-petfriends.mjs --dry   # 미리보기(쓰기 없음)
-//   node --env-file=.env.local scripts/ingest-petfriends.mjs         # 실제 적재
+// 사용법(비밀은 저장소 밖에서 읽는다 — scripts/README.md 참고):
+//   node scripts/ingest-petfriends.mjs --dry   # 미리보기(쓰기 없음)
+//   node scripts/ingest-petfriends.mjs         # 실제 적재
 //
 // 멱등성: migration 0003의 (source, external_id)로 upsert한다.
 //         기존 NULL 식별자 행은 추측으로 병합하지 않고 재적재에서 건너뛴다.
 
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
+import { SECRETS_FILE, loadSecrets } from "./with-secrets.mjs";
 
 const DRY = process.argv.includes("--dry");
 const SOURCE = "pet_friends";
 
+loadSecrets();
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key =
   process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!url || !key) {
-  console.error("Supabase URL/service key가 .env.local에 없습니다.");
+  console.error(`Supabase URL/service key가 ${SECRETS_FILE}에 없습니다.`);
   process.exit(1);
 }
 const supabase = createClient(url, key, {
