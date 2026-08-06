@@ -6,14 +6,16 @@
 
 ## WHERE TO LOOK
 
-| Task                     | Location                | Notes                                                    |
-| ------------------------ | ----------------------- | -------------------------------------------------------- |
-| Nutrient types and rules | `domain.ts`             | Shared server/client invariants.                         |
-| Public catalog queries   | `catalog.ts`            | Cached reads with fixture fallback.                      |
-| Feeding insights         | `feeding.ts`            | User-aware dashboard queries and transitions.            |
-| Curator access           | `admin-auth.ts`         | Session email or timing-safe header secret.              |
-| Extraction quota         | `request-rate-limit.ts` | Calls `consume_extract_quota` through Supabase REST RPC. |
-| Supabase trust levels    | `supabase/`             | Server, browser, middleware, and admin clients.          |
+| Task                     | Location                                         | Notes                                                    |
+| ------------------------ | ------------------------------------------------ | -------------------------------------------------------- |
+| Nutrient types and rules | `domain.ts`                                      | Shared server/client invariants.                         |
+| Public catalog queries   | `catalog.ts`                                     | Cached reads with fixture fallback.                      |
+| Feeding insights         | `feeding.ts`                                     | User-aware dashboard queries and transitions.            |
+| Curator access           | `admin-auth.ts`                                  | Session email or timing-safe header secret.              |
+| Research agent access    | `research-auth.ts`                               | Separate secret; valid only for the research broker.     |
+| Research proposals       | `research-proposal.ts`, `research-repository.ts` | Envelope schema, skeleton-target predicate, run ledger.  |
+| Extraction quota         | `request-rate-limit.ts`                          | Calls `consume_extract_quota` through Supabase REST RPC. |
+| Supabase trust levels    | `supabase/`                                      | Server, browser, middleware, and admin clients.          |
 
 ## CONVENTIONS
 
@@ -30,3 +32,4 @@
 - Do not override manufacturer-declared P/F/C energy ratios with a recalculation.
 - Do not use `createAdminClient` for user-scoped reads or browser work.
 - Do not weaken the timing-safe admin-secret comparison or database-backed quota boundary.
+- Do not let the research agent secret authorize anything outside the research broker.

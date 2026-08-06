@@ -70,7 +70,7 @@ Reference centrality is not measured because this session has no LSP or codegrap
 - The ACANA Grasslands fixture drives `src/lib/fixtures.test.ts`, the regression case for domain math.
 - Public catalog routes remain usable without Supabase configuration through sample fixtures.
 - API routes own authorization even though `/new` is protected by the proxy.
-- Catalog verification is represented by `data_verified_at`; the ingest writes drafts without setting it, and `apply_food_evidence_draft` refuses to touch rows where it is set.
+- Public catalog visibility is represented by `published_at`; verification is a separate column, `data_verified_at`. The ingest writes drafts without setting either, and `apply_food_evidence_draft` refuses to touch rows where `data_verified_at` is set.
 
 ## COMMANDS
 
@@ -87,7 +87,7 @@ trunk fmt
 
 ## NOTES
 
-- `pnpm test` runs Vitest over `src/**/*.test.{ts,tsx}`; `src/lib/source-first-boundary.test.ts` guards the source-first boundary.
+- `pnpm test` runs Vitest over `src/**/*.test.{ts,tsx}`. `src/lib/source-first-boundary.test.ts` guards that the server never searches the web itself and that the research runner reaches the database only through the broker; `src/lib/research-boundary.test.ts` guards the research credential and the out-of-repo secrets path.
 - Regenerate `src/types/supabase.d.ts` with the Supabase CLI after applying migrations; never hand-edit it.
 - Run Supabase migrations through the Supabase CLI against the linked project; do not hand-edit generated database state.
 - The build uses Turbopack, while development deliberately uses webpack.

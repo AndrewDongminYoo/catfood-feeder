@@ -6,8 +6,10 @@
 
 ```bash
 pnpm install
-cp .env.example .env.local   # ANTHROPIC_API_KEY 등 입력
-pnpm dev                     # http://localhost:3000
+mkdir -p ~/.config/catfood-feeder
+cp .env.example ~/.config/catfood-feeder/env   # ANTHROPIC_API_KEY 등 입력
+chmod 600 ~/.config/catfood-feeder/env         # 비밀은 저장소 밖에 둔다
+pnpm dev                                       # http://localhost:3000
 ```
 
 `/new` 에서 "샘플" 버튼 → ACANA Grasslands 해피케이스가 채워집니다.
@@ -29,10 +31,11 @@ NFE = 100 − (단백질36 + 지방18 + 섬유4 + 회분9 + 수분10) = 23% → 
 ## 구조
 
 ```log
-supabase/0001_init.sql   확정 스키마 (brands/foods/recalls/prices/cats/feeding_logs + RLS)
+supabase/migrations/     확정 스키마 (brands/foods/recalls/prices/cats/feeding_logs + RLS)
 src/lib/domain.ts        파생 계산·검증·제조사 P/F/C 파싱 (서버/클라 공용)
 src/app/api/extract/     Claude 추출 서버 라우트
-src/app/api/foods/       관리자 저장 라우트(Supabase server key)
+src/app/api/foods/       관리자 저장·출처·발행 라우트(Supabase server key)
+src/app/api/research/    로컬 조사 에이전트 broker (서버가 출처를 재수집·재검증)
 src/app/api/recalls/     openFDA 리콜 동기화 라우트
 src/app/new/             입력 도구 (모바일 우선)
 src/app/foods/           공개 카탈로그/상세

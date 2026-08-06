@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A mobile-first Next.js 16 (App Router) app for curating **imported cat-food nutrition data**.
 There is no public structured dataset for these products in Korea, so the core asset is human-verified, source-tagged nutrient data — not crawled prices.
-The app has three surfaces: an **admin input tool** (`/new`) that extracts label text into structured data, a **curator source workspace** (`/new/research` plus `api/foods/[id]/sources/*`) that captures approved sources and applies evidence-backed drafts, and a **public catalog** (`/foods`, `/compare`, `/recalls`, `/feeding`).
+The app has four surfaces: an **admin input tool** (`/new`) that extracts label text into structured data, a **curator source workspace** (`/new/research` plus `api/foods/[id]/sources/*`) that captures approved sources and applies evidence-backed drafts, a **research broker** (`api/research/*`) that lets a local research agent propose sources for a skeleton draft under server-side re-verification, and a **public catalog** (`/foods`, `/compare`, `/recalls`, `/feeding`).
 
 `BLUEPRINT.md` is the authoritative spec (decisions, phases, domain rules). Read it before changing domain logic.
 
@@ -54,7 +54,7 @@ Three clients, picked by trust level — do not interchange them:
 
 - `server.ts` (`createClient`) — SSR client with cookies, **publishable/anon key**, RLS-enforced. Used for reads and user-scoped writes (cats, feeding_logs). Create a fresh client per request (Fluid Compute).
 - `client.ts` — browser client, same anon key.
-- `admin.ts` (`createAdminClient`) — **service-role key, bypasses RLS**. Only for privileged writes (`/api/foods`, `/api/recalls/sync`, `/api/foods/drafts`, and `src/lib/source-repository.ts`). Never import into client components.
+- `admin.ts` (`createAdminClient`) — **service-role key, bypasses RLS**. Only for privileged writes (`/api/foods`, `/api/foods/[id]/publish`, `/api/recalls/sync`, `/api/foods/drafts`, `src/lib/source-repository.ts`, and `src/lib/research-repository.ts`). Never import into client components.
 
 `src/proxy.ts` wires `updateSession` and redirects unauthenticated `/new` requests to login while preserving the original path.
 API routes enforce their own authorization as well.
@@ -89,4 +89,4 @@ Korean recall data is intentionally not synced (no confirmed public API — see 
 - `next.config.ts` sets `images.unoptimized` (catalog images are external).
 - Hand-rolled classes in `src/app/globals.css` (`.card`, `.panel`, `.primary`) — see `DESIGN.md`. Tailwind v4, config-less. `radix-ui`/`lucide-react`/`class-variance-authority` are installed but unused; there is no `@/components/ui` directory yet.
 - Env: `ANTHROPIC_API_KEY` is server-only (never `NEXT_PUBLIC_`). See `.env.example` for the Supabase key set.
-- **Secrets live outside the repository**, at `$HOME/.config/catfood-feeder/env`. Every package script that needs them loads that path with `node --env-file`; there is no dotenv file at the repo root by design, because the research runner's `codex` child can read (not write) the filesystem. See `scripts/README.md`.
+- **Secrets live outside the repository**, at `$HOME/.config/catfood-feeder/env`. `scripts/with-secrets.mjs` loads that path via `process.loadEnvFile` — not `node --env-file`, which Next rejects when it forwards `execArgv` into its Workers' `NODE_OPTIONS`. There is no dotenv file at the repo root by design, because the research runner's `codex` child can read (not write) the filesystem. See `scripts/README.md`.
