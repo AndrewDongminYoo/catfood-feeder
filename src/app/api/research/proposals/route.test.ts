@@ -272,6 +272,55 @@ describe("POST /api/research/proposals", () => {
     );
   });
 
+  it("records a run when the capture loop throws, instead of losing it", async () => {
+    // 예외가 그대로 빠져나가면 DB는 이미 바뀐 채 원장이 비고, 그 사료는 skeleton
+    // 에서 빠져 재조사 대상에서 영구히 사라진다.
+    mocks.replaceUnclaimedFoodSource.mockRejectedValue(
+      new Error("statement timeout"),
+    );
+
+    const response = await callRoute(envelope());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.status).toBe("errored");
+    expect(body.captures[0]).toMatchObject({ status: "errored" });
+    expect(mocks.applyFoodEvidenceDraft).not.toHaveBeenCalled();
+    expect(mocks.recordFoodResearchRun).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "errored" }),
+    );
+  });
+
+  it("treats its own first source as owned when claiming the second", async () => {
+    // 이 인자가 빈 배열로 퇴화하면 두 번째 출처가 자기 첫 출처와 충돌해 모든
+    // 실행이 출처 하나만 수집하게 된다 — 조용히.
+    mocks.replaceUnclaimedFoodSource
+      .mockResolvedValueOnce({
+        claim: "claimed",
+        result: { contentStatus: "initial", sourceId: 91 },
+      })
+      .mockResolvedValueOnce({
+        claim: "claimed",
+        result: { contentStatus: "initial", sourceId: 92 },
+      });
+
+    await callRoute(
+      envelope({
+        sources: [
+          { kind: "manufacturer", reason: "제조사", url: LABEL_URL },
+          { kind: "kr_label", reason: "수입사", url: "https://example.com/kr" },
+        ],
+      }),
+    );
+
+    expect(mocks.replaceUnclaimedFoodSource.mock.calls[0][0]).toMatchObject({
+      ownedSourceIds: [],
+    });
+    expect(mocks.replaceUnclaimedFoodSource.mock.calls[1][0]).toMatchObject({
+      ownedSourceIds: [91],
+    });
+  });
+
   it("rejects a proposal claiming the same nutrient key twice", async () => {
     const response = await callRoute(
       envelope({

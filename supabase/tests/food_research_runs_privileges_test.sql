@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(8);
+SELECT plan(9);
 
 INSERT INTO public.brands (id, name, manufacturer)
 OVERRIDING SYSTEM VALUE
@@ -32,6 +32,23 @@ VALUES (
   '[]'::jsonb,
   '[]'::jsonb,
   'rejected'
+);
+
+-- terminal status 는 CHECK 로 고정돼 있다. 라우트가 쓰는 값이 빠져 있으면
+-- 그 경로는 프로덕션에서만 23514 로 죽는다 — vitest 는 원장을 mock 하므로 못 잡는다.
+SELECT lives_ok(
+  $$
+    INSERT INTO public.food_research_runs (
+      food_id, agent_name, agent_model, prompt_version, schema_version,
+      proposal, captures, evidence_results, status
+    )
+    SELECT -93001, 'pgTAP agent', 'pgTAP model', '1', '1',
+           '{}'::jsonb, '[]'::jsonb, '[]'::jsonb, status
+    FROM unnest(ARRAY[
+      'applied', 'rejected', 'capture_failed', 'claim_conflict', 'errored'
+    ]) AS status
+  $$,
+  'every terminal run status the route can emit satisfies the CHECK constraint'
 );
 
 SELECT ok(

@@ -109,14 +109,40 @@ describe("research runner subprocess contract", () => {
  * 코드라 실제 프로세스로 확인한다.
  */
 describe("with-secrets signal forwarding", () => {
-  it("terminates the spawned child when the wrapper is signalled", async () => {
-    const wrapper = join(
-      import.meta.dirname,
-      "..",
-      "..",
-      "scripts",
-      "with-secrets.mjs",
+  it("escalates to SIGKILL when the child ignores the forwarded signal", async () => {
+    // 핸들러 등록은 Node의 기본 종료 처리를 없앤다. 에스컬레이션이 빠지면 자식도
+    // 래퍼도 안 죽고, 프로세스 매니저가 래퍼를 SIGKILL할 때 자식이 다시 고아가 된다.
+    const wrapper = wrapperPath();
+    const child = spawn(
+      "node",
+      [
+        wrapper,
+        "node",
+        "-e",
+        "process.on('SIGTERM', () => {}); setTimeout(() => {}, 30000)",
+      ],
+      {
+        env: { ...process.env, CATFOOD_KILL_GRACE_MS: "300" },
+        stdio: "ignore",
+      },
     );
+    const exited = new Promise<void>((resolve) =>
+      child.on("exit", () => resolve()),
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    child.kill("SIGTERM");
+
+    await Promise.race([
+      exited,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("wrapper hung after SIGTERM")), 5000),
+      ),
+    ]);
+  });
+
+  it("terminates the spawned child when the wrapper is signalled", async () => {
+    const wrapper = wrapperPath();
     const marker = `catfood-signal-probe-${process.pid}`;
     const child = spawn(
       "node",
@@ -149,4 +175,8 @@ function pgrep(pattern: string): Promise<string[]> {
     });
     proc.on("close", () => resolve(found));
   });
+}
+
+function wrapperPath(): string {
+  return join(import.meta.dirname, "..", "..", "scripts", "with-secrets.mjs");
 }

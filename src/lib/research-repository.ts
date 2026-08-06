@@ -13,7 +13,7 @@ export type ResearchTarget =
   | { readonly kind: "not_skeleton" };
 
 export type ResearchRunStatus =
-  "applied" | "rejected" | "capture_failed" | "claim_conflict";
+  "applied" | "rejected" | "capture_failed" | "claim_conflict" | "errored";
 
 export class ResearchRepositoryError extends Error {
   readonly name = "ResearchRepositoryError";

@@ -47,6 +47,11 @@ type CaptureOutcome =
       readonly url: string;
       readonly kind: string;
       readonly status: "claim_conflict";
+    }
+  | {
+      readonly url: string;
+      readonly kind: string;
+      readonly status: "errored";
     };
 
 type EvidenceOutcome = {
@@ -103,25 +108,26 @@ export async function POST(req: NextRequest) {
         { status: 409 },
       );
 
-    const { captures, claimLost, sourceIdByUrl } = await captureProposedSources(
-      foodId,
-      proposal,
-    );
+    const { captures, claimLost, errored, sourceIdByUrl } =
+      await captureProposedSources(foodId, proposal);
     // 클레임은 제안 전체 단위다. 출처 하나라도 뺏겼다면 이미 잡아 둔 출처의 근거도
     // 적용하지 않는다 — 그 사이 대상을 잡은 사람이 값을 쓰고 있을 수 있다.
-    const { appliedCount, outcomes } = claimLost
-      ? {
-          appliedCount: 0,
-          outcomes: proposal.evidence.map((item) => ({
-            nutrientKey: item.nutrientKey,
-            sourceUrl: item.sourceUrl,
-            status: "claim_conflict" as const,
-            value: item.value,
-          })),
-        }
-      : await applyProposedEvidence(foodId, proposal, sourceIdByUrl);
+    // 수집이 예외로 끊긴 경우도 같다: DB 상태를 모르는 채로 값을 쓰지 않는다.
+    const { appliedCount, outcomes } =
+      claimLost || errored
+        ? {
+            appliedCount: 0,
+            outcomes: proposal.evidence.map((item) => ({
+              nutrientKey: item.nutrientKey,
+              sourceUrl: item.sourceUrl,
+              status: (claimLost ? "claim_conflict" : "source_unavailable") as
+                "claim_conflict" | "source_unavailable",
+              value: item.value,
+            })),
+          }
+        : await applyProposedEvidence(foodId, proposal, sourceIdByUrl);
 
-    const status = runStatus(captures, outcomes);
+    const status = errored ? "errored" : runStatus(captures, outcomes);
     const runId = await recordFoodResearchRun({
       captures,
       evidenceResults: outcomes,
@@ -130,13 +136,17 @@ export async function POST(req: NextRequest) {
       status,
     });
 
-    return NextResponse.json({
-      appliedCount,
-      captures,
-      evidence: outcomes,
-      runId,
-      status,
-    });
+    return NextResponse.json(
+      {
+        appliedCount,
+        captures,
+        evidence: outcomes,
+        runId,
+        status,
+      },
+      // 부분적으로 쓰고 끊긴 실행은 성공이 아니다. 원장에 남긴 뒤 실패로 알린다.
+      errored ? { status: 500 } : undefined,
+    );
   } catch (error: unknown) {
     if (error instanceof RequestBodyTooLargeError)
       return NextResponse.json(
@@ -166,78 +176,107 @@ async function captureProposedSources(
 ): Promise<{
   readonly captures: readonly CaptureOutcome[];
   readonly claimLost: boolean;
+  readonly errored: boolean;
   readonly sourceIdByUrl: ReadonlyMap<string, number>;
 }> {
   const captures: CaptureOutcome[] = [];
   const sourceIdByUrl = new Map<string, number>();
   let claimLost = false;
+  let errored = false;
 
   for (const source of proposal.sources) {
-    const captured = await captureSource({
-      kind: source.kind,
-      url: source.url,
-    });
-    if (captured.kind === "failure") {
-      const sourceId = await createFailedFoodSource({
-        capturedAt: null,
-        capturedText: null,
-        captureMethod: "fetch",
-        contentHash: null,
-        createdBy: null,
-        failureCode: captured.code,
-        fetchStatus: "failed",
-        foodId,
-        kind: source.kind,
-        observedAt: null,
-        url: source.url,
-      });
+    // 한 출처가 던져도 그때까지의 진행 상황은 원장에 남겨야 한다. 예외가 그대로
+    // 빠져나가면 DB는 이미 바뀐 채 기록이 없고, 그 사료는 skeleton에서 빠져
+    // 재조사 대상에서 영구히 사라진다.
+    try {
+      await captureOneSource(foodId, source, captures, sourceIdByUrl);
+    } catch (error: unknown) {
+      console.error("research source capture failed", error);
       captures.push({
-        failureCode: captured.code,
         kind: source.kind,
-        sourceId,
-        status: "failed",
+        status: "errored",
         url: source.url,
       });
-      continue;
+      errored = true;
+      break;
     }
-
-    const replacement = await replaceUnclaimedFoodSource({
-      capturedAt: new Date().toISOString(),
-      capturedText: captured.capturedText,
-      captureMethod: "fetch",
-      contentHash: captured.contentHash,
-      createdBy: null,
-      failureCode: null,
-      fetchStatus: "fetched",
-      foodId,
-      kind: source.kind,
-      observedAt: null,
-      // 이번 실행이 이미 만든 출처만 소유로 인정된다. 큐레이터 출처든 동시에 도는
-      // 다른 실행의 출처든, 내 것이 아니면 RPC가 잠금 안에서 거절한다.
-      ownedSourceIds: [...sourceIdByUrl.values()],
-      url: captured.url,
-    });
-    // 수집하는 동안 큐레이터가 출처를 붙였거나 발행했다면 아무것도 쓰지 않는다.
-    // 남은 출처도 같은 이유로 거절될 것이므로 더 진행하지 않는다.
-    if (replacement.claim === "conflict") {
-      captures.push({
-        kind: source.kind,
-        status: "claim_conflict",
-        url: source.url,
-      });
+    const last = captures.at(-1);
+    if (last?.status === "claim_conflict") {
       claimLost = true;
       break;
     }
-    sourceIdByUrl.set(source.url, replacement.result.sourceId);
-    captures.push({
-      kind: source.kind,
-      sourceId: replacement.result.sourceId,
-      status: "captured",
-      url: source.url,
-    });
   }
 
-  return { captures, claimLost, sourceIdByUrl };
+  return { captures, claimLost, errored, sourceIdByUrl };
+}
+
+async function captureOneSource(
+  foodId: number,
+  source: ResearchProposal["sources"][number],
+  captures: CaptureOutcome[],
+  sourceIdByUrl: Map<string, number>,
+): Promise<void> {
+  const captured = await captureSource({
+    kind: source.kind,
+    url: source.url,
+  });
+  if (captured.kind === "failure") {
+    const sourceId = await createFailedFoodSource({
+      capturedAt: null,
+      capturedText: null,
+      captureMethod: "fetch",
+      contentHash: null,
+      createdBy: null,
+      failureCode: captured.code,
+      fetchStatus: "failed",
+      foodId,
+      kind: source.kind,
+      observedAt: null,
+      url: source.url,
+    });
+    captures.push({
+      failureCode: captured.code,
+      kind: source.kind,
+      sourceId,
+      status: "failed",
+      url: source.url,
+    });
+    return;
+  }
+
+  const replacement = await replaceUnclaimedFoodSource({
+    capturedAt: new Date().toISOString(),
+    capturedText: captured.capturedText,
+    captureMethod: "fetch",
+    contentHash: captured.contentHash,
+    createdBy: null,
+    failureCode: null,
+    fetchStatus: "fetched",
+    foodId,
+    kind: source.kind,
+    observedAt: null,
+    // 이번 실행이 이미 만든 출처만 소유로 인정된다. 큐레이터 출처든 동시에 도는
+    // 다른 실행의 출처든, 내 것이 아니면 RPC가 잠금 안에서 거절한다.
+    ownedSourceIds: [...sourceIdByUrl.values()],
+    url: captured.url,
+  });
+  // 수집하는 동안 큐레이터가 출처를 붙였거나 발행했다면 아무것도 쓰지 않는다.
+  // 남은 출처도 같은 이유로 거절될 것이므로 더 진행하지 않는다.
+  if (replacement.claim === "conflict") {
+    captures.push({
+      kind: source.kind,
+      status: "claim_conflict",
+      url: source.url,
+    });
+    return;
+  }
+  sourceIdByUrl.set(source.url, replacement.result.sourceId);
+  captures.push({
+    kind: source.kind,
+    sourceId: replacement.result.sourceId,
+    status: "captured",
+    url: source.url,
+  });
 }
 
 async function applyProposedEvidence(

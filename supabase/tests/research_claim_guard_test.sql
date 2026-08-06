@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(8);
+SELECT plan(11);
 
 INSERT INTO auth.users (id)
 VALUES ('00000000-0000-0000-0000-000000094001'::uuid);
@@ -18,8 +18,7 @@ VALUES
   (-94003, -94001, 'pgTAP research-only food'),
   (-94004, -94001, 'pgTAP published food');
 
--- 큐레이터가 잡은 출처는 created_by가 non-null이다. 라우트가 automation 자격
--- 증명을 거부하므로 이 방향은 항상 참이며, 아래 두 assertion이 그것을 고정한다.
+-- 큐레이터가 잡아 둔 출처. 조사 실행의 소유 목록에 없으므로 거절돼야 한다.
 INSERT INTO public.food_sources (
   food_id, kind, url, capture_method, fetch_status,
   captured_at, content_hash, captured_text, created_by, is_current
@@ -30,8 +29,8 @@ VALUES (
   '00000000-0000-0000-0000-000000094001'::uuid, true
 );
 
--- 조사 실행이 남긴 출처는 created_by가 NULL이다. 같은 실행이 두 번째 kind를
--- 얹는 것은 정상 흐름이므로 막히면 안 된다.
+-- 어떤 조사 실행이 남긴 출처. 같은 실행이 소유 목록에 담아 두 번째 kind를 얹는
+-- 것은 정상 흐름이고, 소유하지 않은 다른 실행은 거절돼야 한다.
 INSERT INTO public.food_sources (
   food_id, kind, url, capture_method, fetch_status,
   captured_at, content_hash, captured_text, created_by, is_current
@@ -88,7 +87,7 @@ SELECT is(
 );
 
 -- 동시에 도는 두 번째 실행은 첫 실행의 출처를 소유하지 않으므로 거절돼야 한다.
--- created_by로 판별하면 둘 다 NULL이라 통과해 서로의 출처를 은퇴시킨다.
+-- created_by를 표식으로 삼으면 둘 다 NULL이라 통과해 서로의 출처를 은퇴시킨다.
 SELECT is(
   (
     SELECT claim_status
@@ -181,7 +180,40 @@ SELECT is(
     )
   ),
   'claimed',
-  'the curator path is unaffected because it does not require an unclaimed food'
+  'the curator path is unaffected because it passes no owned-source list'
+);
+
+-- DROP/CREATE 는 함수의 모든 grant 를 초기화한다. 마이그레이션이 다시 부여하지
+-- 않으면 프로덕션에서만 "permission denied for function" 이 난다 — 이 테스트는
+-- 마이그레이션 소유자로 호출하므로 grant 자체는 exercise 하지 못한다.
+SELECT is(
+  has_function_privilege(
+    'service_role',
+    'public.replace_current_food_source(bigint,public.nutrient_source,text,text,timestamptz,text,text,timestamptz,uuid,bigint[])',
+    'EXECUTE'
+  ),
+  true,
+  'service_role can execute the re-created replace_current_food_source'
+);
+
+SELECT is(
+  has_function_privilege(
+    'anon',
+    'public.replace_current_food_source(bigint,public.nutrient_source,text,text,timestamptz,text,text,timestamptz,uuid,bigint[])',
+    'EXECUTE'
+  ),
+  false,
+  'anon cannot execute replace_current_food_source'
+);
+
+SELECT is(
+  has_function_privilege(
+    'authenticated',
+    'public.replace_current_food_source(bigint,public.nutrient_source,text,text,timestamptz,text,text,timestamptz,uuid,bigint[])',
+    'EXECUTE'
+  ),
+  false,
+  'authenticated cannot execute replace_current_food_source'
 );
 
 SELECT * FROM finish();
