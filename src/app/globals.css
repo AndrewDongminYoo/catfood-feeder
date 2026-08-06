@@ -51,6 +51,17 @@
   --sidebar-ring: oklch(0.714 0.014 41.2);
   --app-font-sans: "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif;
   --app-font-heading: Georgia, "Times New Roman", serif;
+
+  /* 반경 스케일: surface > control > pill 한 벌만 쓴다.
+     surface는 control + 패딩보다 커야 중첩 모서리가 동심으로 보인다. */
+  --r-surface: 16px;
+  --r-control: 10px;
+  --r-pill: 999px;
+  /* 터치 최소 타깃. 모바일 우선이라 40px이 아니라 44px 기준. */
+  --tap: 44px;
+  --disabled-bg: #e7e5e4;
+  --disabled-ink: #6b6560;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
 }
 * {
   box-sizing: border-box;
@@ -79,17 +90,27 @@ body {
   font-weight: 700;
   margin: 0;
   letter-spacing: 0;
+  text-wrap: balance;
 }
 .hd p {
   color: var(--mut);
   font-size: 13px;
   margin: 4px 0 16px;
+  text-wrap: pretty;
+}
+/* 뒤로가기 링크는 모든 페이지의 유일한 탈출구다. 글자 높이(16px)가 아니라
+   터치 타깃 높이를 갖게 한다. */
+.hd p a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding-right: 8px;
 }
 
 .card {
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--r-surface);
   padding: 16px 14px;
   margin-bottom: 14px;
 }
@@ -102,12 +123,17 @@ body {
 .panel {
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--r-surface);
   padding: 16px 14px;
 }
 .panel h2 {
   margin: 0 0 10px;
   font-size: 15px;
+}
+.source-preview summary {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
 }
 .source-preview {
   margin: 10px 0;
@@ -159,7 +185,7 @@ body {
 .food-card {
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--r-surface);
   padding: 16px;
   text-decoration: none;
   color: inherit;
@@ -169,16 +195,22 @@ body {
   display: block;
   margin: 0 0 6px;
   font-size: 17px;
+  text-wrap: balance;
 }
 .home-link span,
 .food-card p {
   color: var(--mut);
   font-size: 13px;
+  text-wrap: pretty;
 }
 .food-card {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+/* 제목이 1줄이냐 2줄이냐에 따라 카드마다 버튼 높이가 어긋나던 것을 바닥에 정렬한다. */
+.food-card > button {
+  margin-top: auto;
 }
 .food-card h2 a {
   color: inherit;
@@ -198,6 +230,11 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  text-wrap: balance;
+}
+/* 카드가 h2로 시작하면 패딩 16px 위에 margin 18px이 얹혀 위아래가 어긋난다. */
+.card h2:first-child {
+  margin-top: 0;
 }
 .tag {
   font-size: 10px;
@@ -205,7 +242,7 @@ body {
   color: var(--accent);
   background: var(--accent-soft);
   padding: 3px 8px;
-  border-radius: 20px;
+  border-radius: var(--r-pill);
 }
 .muted {
   color: var(--mut);
@@ -227,14 +264,17 @@ label {
 .lblrow label {
   margin-top: 0;
 }
+/* 입력 글자 크기는 16px 미만으로 내리지 않는다. viewport에서 핀치 줌을 허용하고
+   있어(layout.tsx) iOS Safari가 16px 미만 필드에 포커스할 때마다 화면을 확대하고
+   되돌리지 않는다. 성분 입력 그리드는 필드가 10줄이라 매번 튄다. */
 textarea {
   width: 100%;
   min-height: 150px;
   padding: 12px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--r-control);
   font:
-    13px/1.6 "IBM Plex Mono",
+    16px/1.6 "IBM Plex Mono",
     monospace;
   resize: vertical;
   background: var(--bg);
@@ -247,11 +287,14 @@ button {
   font-family: inherit;
   cursor: pointer;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--r-control);
   font-weight: 600;
 }
+/* opacity로 죽이면 라벨까지 같이 흐려진다. 비활성 버튼의 라벨은 "무엇을 해야
+   하는지"를 알려주는 유일한 문구라 읽혀야 한다(흰 글자 + 40% 청록 = 1.94:1). */
 button:disabled {
-  opacity: 0.4;
+  background: var(--disabled-bg);
+  color: var(--disabled-ink);
   cursor: not-allowed;
 }
 .search,
@@ -263,14 +306,15 @@ select {
 label input,
 label select {
   width: 100%;
-  padding: 10px;
+  padding: 11px 10px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  font-size: 14px;
+  border-radius: var(--r-control);
+  font-size: 16px;
   background: #fff;
 }
 .primary {
   width: 100%;
+  min-height: var(--tap);
   padding: 14px;
   background: var(--accent);
   color: #fff;
@@ -278,13 +322,21 @@ label select {
   margin-top: 12px;
 }
 .ghost {
-  padding: 5px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  padding: 11px 14px;
+  border-radius: var(--r-control);
   background: var(--accent-soft);
   color: var(--accent);
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
 }
 .save {
   width: 100%;
+  min-height: var(--tap);
   padding: 15px;
   background: var(--ok);
   color: #fff;
@@ -293,17 +345,80 @@ label select {
 }
 .compare-link {
   display: inline-flex;
+  align-items: center;
   justify-content: center;
+  min-height: var(--tap);
   padding: 10px 14px;
-  border-radius: 8px;
+  border-radius: var(--r-control);
   background: var(--accent);
   color: #fff;
   text-decoration: none;
   font-weight: 700;
 }
+/* pointer-events는 마우스만 막는다. 키보드 도달은 aria-disabled + tabIndex로
+   막고(catalog-client.tsx), 여기서는 "채워진 CTA"로 보이지 않게만 한다. */
 .compare-link.disabled {
-  opacity: 0.45;
+  background: transparent;
+  color: var(--mut);
+  border: 1px dashed var(--line);
   pointer-events: none;
+}
+
+/* 상호작용 상태: transition은 중간에 끊길 수 있어야 하므로 keyframes가 아니라
+   transition으로 둔다. 속성은 명시하고 all은 쓰지 않는다. */
+.ghost,
+.primary,
+.save,
+.compare-link,
+.home-link,
+.food-card,
+.recall-list a,
+.check {
+  transition-property: background-color, border-color, box-shadow, scale;
+  transition-duration: 120ms;
+  transition-timing-function: var(--ease);
+}
+.home-link:hover,
+.food-card:hover,
+.recall-list a:hover {
+  border-color: var(--accent);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.04);
+}
+.check:hover {
+  border-color: var(--accent);
+}
+.primary:hover:not(:disabled),
+.compare-link:not(.disabled):hover {
+  background: #10485a;
+}
+.save:hover:not(:disabled) {
+  background: #126631;
+}
+.ghost:hover:not(:disabled) {
+  background: #b6f3e6;
+}
+button:active:not(:disabled),
+.compare-link:not(.disabled):active {
+  scale: 0.96;
+}
+:focus-visible {
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ghost,
+  .primary,
+  .save,
+  .compare-link,
+  .home-link,
+  .food-card,
+  .recall-list a,
+  .check {
+    transition-duration: 0s;
+  }
+  button:active:not(:disabled),
+  .compare-link:not(.disabled):active {
+    scale: 1;
+  }
 }
 .okbox {
   margin-top: 10px;
@@ -343,10 +458,10 @@ label select {
 .f input,
 .f select {
   width: 100%;
-  padding: 10px;
+  padding: 11px 10px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  font-size: 14px;
+  border-radius: var(--r-control);
+  font-size: 16px;
   font-family: inherit;
   background: #fff;
 }
@@ -366,11 +481,13 @@ label select {
   gap: 6px;
   align-items: center;
   margin: 0;
-  padding: 8px 10px;
+  min-height: var(--tap);
+  padding: 11px 12px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--r-control);
   background: #fff;
-  font-size: 12px;
+  font-size: 13px;
+  cursor: pointer;
 }
 .check input {
   width: auto;
@@ -390,7 +507,7 @@ label select {
   gap: 6px;
   padding: 10px;
   background: var(--bg);
-  border-radius: 10px;
+  border-radius: var(--r-control);
 }
 .nlabel {
   grid-area: label;
@@ -400,20 +517,22 @@ label select {
 }
 .ninput {
   grid-area: input;
-  padding: 10px;
+  min-height: var(--tap);
+  padding: 11px 10px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--r-control);
   font:
-    14px "IBM Plex Mono",
+    16px "IBM Plex Mono",
     monospace;
   text-align: right;
 }
 .nsrc {
   grid-area: src;
-  padding: 10px 6px;
+  min-height: var(--tap);
+  padding: 11px 6px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  font-size: 12px;
+  border-radius: var(--r-control);
+  font-size: 16px;
   background: #fff;
 }
 .ev {
@@ -431,10 +550,16 @@ label select {
   font-style: italic;
 }
 
+/* 셀이 5개다. 2열이면 마지막 하나가 반폭으로 혼자 남으므로 모바일에서는 끝 셀을
+   가로로 채우고, 데스크탑에서는 5열로 한 줄에 놓는다. auto-fit은 답이 아니다 —
+   680px 컨테이너에서 4열을 잡아 같은 고아 셀이 다시 생긴다. */
 .derived {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
+}
+.derived > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
 }
 .metric-row,
 .data-table {
@@ -447,7 +572,7 @@ label select {
 .metric-row div,
 .data-table div {
   padding: 10px;
-  border-radius: 8px;
+  border-radius: var(--r-control);
   background: var(--bg);
 }
 .metric-row span,
@@ -474,7 +599,7 @@ label select {
 }
 .dcell {
   background: var(--bg);
-  border-radius: 10px;
+  border-radius: var(--r-control);
   padding: 10px;
   text-align: center;
 }
@@ -504,8 +629,9 @@ label select {
 .flag {
   font-size: 12px;
   padding: 9px 11px;
-  border-radius: 8px;
+  border-radius: var(--r-control);
   font-weight: 500;
+  text-wrap: pretty;
 }
 .flag.error {
   background: var(--err-bg);
@@ -542,8 +668,9 @@ label select {
   display: block;
   padding: 12px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--r-control);
   background: var(--card);
+  text-wrap: pretty;
 }
 .recall-list a {
   color: inherit;
@@ -582,22 +709,27 @@ pre {
   background: #1c1917;
   color: #d6d3d1;
   padding: 14px;
-  border-radius: 10px;
+  border-radius: var(--r-control);
   font:
     11px/1.6 "IBM Plex Mono",
     monospace;
   overflow: auto;
 }
 
-/* 데스크탑: 보장성분 한 줄로 펼침 */
+/* 데스크탑: 보장성분 한 줄로 펼침.
+   출처 열은 104px. "국내라벨" 셀렉트가 16px에서 자연 너비 90px이라
+   기존 90px 열은 여유가 0이었다. */
 @media (min-width: 560px) {
   .nrow {
-    grid-template-columns: 150px 90px 90px 1fr;
+    grid-template-columns: 150px 96px 104px 1fr;
     grid-template-areas: "label input src ev";
     align-items: center;
   }
   .derived {
     grid-template-columns: repeat(5, 1fr);
+  }
+  .derived > :last-child:nth-child(odd) {
+    grid-column: auto;
   }
 }
 
