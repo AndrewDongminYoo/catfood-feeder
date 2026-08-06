@@ -20,10 +20,13 @@ Implementation:
 ```json
 {
   "scripts": {
-    "dev": "next dev --webpack"
+    "dev": "node scripts/with-secrets.mjs next dev --webpack"
   }
 }
 ```
+
+The `scripts/with-secrets.mjs` prefix is unrelated to this decision — it loads secrets from outside the repository (see `scripts/README.md`).
+Only the trailing `--webpack` flag is what this ADR governs.
 
 ## Scope
 
@@ -53,7 +56,8 @@ Negative:
 
 ## Reversal Criteria
 
-Revert `dev` to `next dev` only after all of these are true:
+Reverting means dropping the `--webpack` flag only, leaving the secrets loader in place.
+Do so only after all of these are true:
 
 - `pnpm exec next dev -p 3001` serves `/` with `HTTP/1.1 200 OK`.
 - CPU usage does not spike during the first page compile.

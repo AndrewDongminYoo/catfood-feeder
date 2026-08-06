@@ -7,12 +7,10 @@ import {
   evidenceApplyResponseSchema,
   evidenceCandidateSchema,
 } from "@/lib/source-apply";
-import {
-  sourceCaptureResponseSchema,
-  sourceCaptureStatusMessage,
-  sourceCaptureTone,
-} from "@/lib/source-capture-response";
+import { sourceCaptureResponseSchema } from "@/lib/source-capture-response";
 import type { SourceContentStatus } from "@/lib/source-capture-response";
+import { SourceCaptureForm } from "./source-capture-form";
+import { SourcePublicationAction } from "./source-publication-action";
 import { SourceTranscriptPreviews } from "./source-transcript-previews";
 
 const sourceSchema = z.object({
@@ -86,14 +84,16 @@ export function SourceResearchClient() {
     }
   }
 
-  async function loadDrafts() {
+  async function loadDrafts(selectFirst = true) {
     try {
       const response = await fetch("/api/foods/drafts");
       const parsed = draftsSchema.safeParse(await response.json());
       if (!response.ok || !parsed.success)
         throw new Error("Draft 목록을 불러오지 못했습니다.");
       setFoods(parsed.data.foods);
-      setFoodId((current) => current || String(parsed.data.foods[0]?.id ?? ""));
+      setFoodId((current) =>
+        selectFirst ? current || String(parsed.data.foods[0]?.id ?? "") : "",
+      );
     } catch (error: unknown) {
       setMessage(
         error instanceof Error
@@ -157,6 +157,20 @@ export function SourceResearchClient() {
     await loadTranscripts(selected.id);
   }
 
+  async function handlePublished() {
+    setCandidates([]);
+    setTranscripts([]);
+    await loadDrafts(false);
+  }
+
+  function handlePublicationBusy(nextBusy: boolean) {
+    setBusy(nextBusy);
+    if (nextBusy) {
+      setMessage(null);
+      setCaptureStatus(null);
+    }
+  }
+
   async function request(path: string, body: object): Promise<unknown> {
     setBusy(true);
     setMessage(null);
@@ -189,77 +203,21 @@ export function SourceResearchClient() {
 
   return (
     <section className="card">
-      <label>
-        Draft 제품
-        <select
-          value={foodId}
-          onChange={(event) => setFoodId(event.target.value)}
-        >
-          <option value="">선택하세요</option>
-          {foods.map((food) => (
-            <option key={food.id} value={food.id}>
-              {food.brands?.name ?? "미분류"} — {food.product_name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        출처 종류
-        <select
-          value={kind}
-          onChange={(event) => {
-            const parsedKind = z
-              .enum(["manufacturer", "kr_label"])
-              .safeParse(event.target.value);
-            if (parsedKind.success) setKind(parsedKind.data);
-          }}
-        >
-          <option value="manufacturer">제조사</option>
-          <option value="kr_label">국내 라벨</option>
-        </select>
-      </label>
-      <label>
-        제품 URL
-        <input
-          value={url}
-          onChange={(event) => setUrl(event.target.value)}
-          placeholder="https://..."
-        />
-      </label>
-      <label>
-        수동 전사본 (선택)
-        <textarea
-          className="sm"
-          value={manualText}
-          onChange={(event) => setManualText(event.target.value)}
-        />
-      </label>
-      <button
-        className="primary"
-        disabled={busy || !selected || !url}
-        onClick={registerSource}
-      >
-        출처 수집
-      </button>
-      {captureStatus && (
-        <p
-          className={
-            sourceCaptureTone(captureStatus) === "warning"
-              ? "flag warn"
-              : "okbox"
-          }
-          role={
-            sourceCaptureTone(captureStatus) === "warning" ? "alert" : "status"
-          }
-        >
-          {sourceCaptureStatusMessage(captureStatus)}
-        </p>
-      )}
-      {fetchedSources.length > 0 && (
-        <div className="warn" role="status">
-          수집 완료 출처 {fetchedSources.length}개
-        </div>
-      )}
+      <SourceCaptureForm
+        busy={busy}
+        captureStatus={captureStatus}
+        fetchedSourceCount={fetchedSources.length}
+        foodId={foodId}
+        foods={foods}
+        kind={kind}
+        manualText={manualText}
+        onFoodIdChange={setFoodId}
+        onKindChange={setKind}
+        onManualTextChange={setManualText}
+        onRegisterSource={registerSource}
+        onUrlChange={setUrl}
+        url={url}
+      />
       <SourceTranscriptPreviews sources={transcripts} />
       <button
         className="ghost"
@@ -285,6 +243,13 @@ export function SourceResearchClient() {
       >
         Draft로 적용
       </button>
+      <SourcePublicationAction
+        busy={busy}
+        foodId={selected?.id ?? null}
+        hasUnappliedCandidates={candidates.length > 0}
+        onBusyChange={handlePublicationBusy}
+        onPublished={handlePublished}
+      />
       {message && (
         <p className="err" role="alert">
           {message}

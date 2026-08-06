@@ -1,0 +1,442 @@
+import { NextRequest } from "next/server";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { POST } from "./route";
+
+const mocks = vi.hoisted(() => ({
+  applyUnclaimedFoodEvidenceDraft: vi.fn(),
+  captureSource: vi.fn(),
+  createFailedFoodSource: vi.fn(),
+  getCurrentFetchedFoodSources: vi.fn(),
+  getResearchTarget: vi.fn(),
+  recordFoodResearchRun: vi.fn(),
+  replaceUnclaimedFoodSource: vi.fn(),
+}));
+
+vi.mock("@/lib/research-repository", () => ({
+  getResearchTarget: mocks.getResearchTarget,
+  recordFoodResearchRun: mocks.recordFoodResearchRun,
+}));
+
+vi.mock("@/lib/source-fetcher", () => ({
+  captureSource: mocks.captureSource,
+}));
+
+vi.mock("@/lib/source-repository", () => ({
+  applyUnclaimedFoodEvidenceDraft: mocks.applyUnclaimedFoodEvidenceDraft,
+  createFailedFoodSource: mocks.createFailedFoodSource,
+  getCurrentFetchedFoodSources: mocks.getCurrentFetchedFoodSources,
+  replaceUnclaimedFoodSource: mocks.replaceUnclaimedFoodSource,
+}));
+
+const LABEL_URL = "https://example.com/label";
+const LABEL_TEXT = "조단백질 36% 이상, 조지방 18% 이상";
+
+function envelope(overrides: Record<string, unknown> = {}) {
+  return {
+    foodId: 7,
+    proposal: {
+      agent: {
+        model: "gpt-5.4-codex",
+        name: "codex-cli",
+        promptVersion: "2026-08-06",
+        schemaVersion: "1",
+      },
+      evidence: [
+        {
+          excerpt: "조단백질 36% 이상",
+          nutrientKey: "protein_pct",
+          sourceUrl: LABEL_URL,
+          value: 36,
+        },
+      ],
+      sources: [
+        {
+          kind: "manufacturer",
+          reason: "제조사 공식 보장성분표",
+          url: LABEL_URL,
+        },
+      ],
+      ...overrides,
+    },
+  };
+}
+
+function callRoute(body: unknown, secret: string | null = "research-secret") {
+  return POST(
+    new NextRequest("http://localhost/api/research/proposals", {
+      body: JSON.stringify(body),
+      headers: secret === null ? {} : { "x-research-agent-secret": secret },
+      method: "POST",
+    }),
+  );
+}
+
+describe("POST /api/research/proposals", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.RESEARCH_AGENT_SECRET = "research-secret";
+    mocks.getResearchTarget.mockResolvedValue({
+      brandName: "ACANA",
+      id: 7,
+      kind: "skeleton",
+      productName: "Grasslands",
+    });
+    mocks.captureSource.mockResolvedValue({
+      capturedText: LABEL_TEXT,
+      contentHash: "hash",
+      contentType: "text/html",
+      kind: "success",
+      url: LABEL_URL,
+    });
+    mocks.replaceUnclaimedFoodSource.mockResolvedValue({
+      claim: "claimed",
+      result: { contentStatus: "initial", sourceId: 91 },
+    });
+    mocks.getCurrentFetchedFoodSources.mockResolvedValue([
+      { capturedText: LABEL_TEXT, id: 91, kind: "manufacturer" },
+    ]);
+    mocks.applyUnclaimedFoodEvidenceDraft.mockImplementation(
+      async (
+        _foodId: number,
+        evidence: readonly { nutrientKey: string }[],
+      ) => ({
+        claim: "claimed",
+        results: evidence.map((item) => ({ ...item, status: "applied" })),
+      }),
+    );
+    mocks.recordFoodResearchRun.mockResolvedValue(1234);
+  });
+
+  it("rejects a request without the research secret before touching the database", async () => {
+    const response = await callRoute(envelope(), null);
+
+    expect(response.status).toBe(401);
+    expect(mocks.getResearchTarget).not.toHaveBeenCalled();
+  });
+
+  it("rejects the admin automation secret", async () => {
+    process.env.ADMIN_WRITE_SECRET = "admin-secret";
+
+    const response = await callRoute(envelope(), "admin-secret");
+
+    expect(response.status).toBe(401);
+    expect(mocks.getResearchTarget).not.toHaveBeenCalled();
+  });
+
+  it("captures the proposed source and applies verified evidence as a draft", async () => {
+    const response = await callRoute(envelope());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.status).toBe("applied");
+    expect(body.appliedCount).toBe(1);
+    expect(body.evidence[0].status).toBe("applied");
+    expect(body.runId).toBe(1234);
+    // 서버가 직접 재수집한다 — 에이전트가 준 본문을 쓰지 않는다.
+    expect(mocks.captureSource).toHaveBeenCalledWith({
+      kind: "manufacturer",
+      url: LABEL_URL,
+    });
+    expect(mocks.applyUnclaimedFoodEvidenceDraft).toHaveBeenCalledWith(
+      7,
+      [
+        {
+          excerpt: "조단백질 36% 이상",
+          nutrientKey: "protein_pct",
+          sourceId: 91,
+          value: 36,
+        },
+      ],
+      [91],
+    );
+  });
+
+  it("refuses a target that already carries a current source", async () => {
+    mocks.getResearchTarget.mockResolvedValue({ kind: "not_skeleton" });
+
+    const response = await callRoute(envelope());
+
+    expect(response.status).toBe(409);
+    expect(mocks.captureSource).not.toHaveBeenCalled();
+    expect(mocks.replaceUnclaimedFoodSource).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 for an unknown food", async () => {
+    mocks.getResearchTarget.mockResolvedValue({ kind: "not_found" });
+
+    const response = await callRoute(envelope());
+
+    expect(response.status).toBe(404);
+    expect(mocks.captureSource).not.toHaveBeenCalled();
+  });
+
+  it("records a capture failure without applying evidence", async () => {
+    mocks.captureSource.mockResolvedValue({
+      code: "http_error",
+      kind: "failure",
+    });
+    mocks.createFailedFoodSource.mockResolvedValue(92);
+
+    const response = await callRoute(envelope());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.status).toBe("capture_failed");
+    expect(body.captures[0]).toMatchObject({
+      failureCode: "http_error",
+      status: "failed",
+    });
+    expect(body.evidence[0].status).toBe("source_unavailable");
+    expect(mocks.applyUnclaimedFoodEvidenceDraft).not.toHaveBeenCalled();
+    expect(mocks.recordFoodResearchRun).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "capture_failed" }),
+    );
+  });
+
+  it("records evidence whose excerpt is absent from the captured text as unverified", async () => {
+    const response = await callRoute(
+      envelope({
+        evidence: [
+          {
+            excerpt: "조단백질 42% 이상",
+            nutrientKey: "protein_pct",
+            sourceUrl: LABEL_URL,
+            value: 42,
+          },
+        ],
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.status).toBe("rejected");
+    expect(body.evidence[0].status).toBe("unverified");
+    expect(mocks.applyUnclaimedFoodEvidenceDraft).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing when the target is claimed while the source is fetching", async () => {
+    mocks.replaceUnclaimedFoodSource.mockResolvedValue({ claim: "conflict" });
+
+    const response = await callRoute(envelope());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.status).toBe("claim_conflict");
+    expect(body.captures[0]).toMatchObject({ status: "claim_conflict" });
+    expect(body.evidence[0].status).toBe("claim_conflict");
+    expect(body.appliedCount).toBe(0);
+    expect(mocks.applyUnclaimedFoodEvidenceDraft).not.toHaveBeenCalled();
+    expect(mocks.recordFoodResearchRun).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "claim_conflict" }),
+    );
+  });
+
+  it("stops capturing the remaining sources once the claim is lost", async () => {
+    mocks.replaceUnclaimedFoodSource.mockResolvedValue({ claim: "conflict" });
+
+    await callRoute(
+      envelope({
+        sources: [
+          { kind: "manufacturer", reason: "제조사", url: LABEL_URL },
+          { kind: "kr_label", reason: "수입사", url: "https://example.com/kr" },
+        ],
+      }),
+    );
+
+    expect(mocks.captureSource).toHaveBeenCalledTimes(1);
+    expect(mocks.replaceUnclaimedFoodSource).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies no evidence when a later source loses the claim", async () => {
+    const KR_URL = "https://example.com/kr";
+    // 첫 출처는 정상적으로 잡히고, 두 번째에서 대상을 뺏긴다.
+    mocks.replaceUnclaimedFoodSource
+      .mockResolvedValueOnce({
+        claim: "claimed",
+        result: { contentStatus: "initial", sourceId: 91 },
+      })
+      .mockResolvedValueOnce({ claim: "conflict" });
+
+    const response = await callRoute(
+      envelope({
+        sources: [
+          { kind: "manufacturer", reason: "제조사", url: LABEL_URL },
+          { kind: "kr_label", reason: "수입사", url: KR_URL },
+        ],
+      }),
+    );
+    const body = await response.json();
+
+    // 첫 출처를 이미 잡았더라도 근거는 하나도 쓰지 않는다.
+    expect(mocks.applyUnclaimedFoodEvidenceDraft).not.toHaveBeenCalled();
+    expect(body.status).toBe("claim_conflict");
+    expect(body.appliedCount).toBe(0);
+    expect(
+      body.evidence.every(
+        (e: { status: string }) => e.status === "claim_conflict",
+      ),
+    ).toBe(true);
+    expect(mocks.recordFoodResearchRun).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "claim_conflict" }),
+    );
+  });
+
+  it("reports claim_conflict when the target is taken between capture and apply", async () => {
+    // 커뮤레이터가 *다른 kind* 를 붙이면 이 실행의 출처는 은퇴되지 않아 수집
+    // 시점 검사를 통과한다. 적용 트랜잭션 안의 재검사만이 이것을 잡는다.
+    mocks.applyUnclaimedFoodEvidenceDraft.mockResolvedValue({
+      claim: "conflict",
+    });
+
+    const response = await callRoute(envelope());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.status).toBe("claim_conflict");
+    expect(body.appliedCount).toBe(0);
+    expect(body.evidence[0].status).toBe("claim_conflict");
+    expect(mocks.recordFoodResearchRun).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "claim_conflict" }),
+    );
+  });
+
+  it("records a run when the capture loop throws, instead of losing it", async () => {
+    // 예외가 그대로 빠져나가면 DB는 이미 바뀐 채 원장이 비고, 그 사료는 skeleton
+    // 에서 빠져 재조사 대상에서 영구히 사라진다.
+    mocks.replaceUnclaimedFoodSource.mockRejectedValue(
+      new Error("statement timeout"),
+    );
+
+    const response = await callRoute(envelope());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.status).toBe("errored");
+    expect(body.captures[0]).toMatchObject({ status: "errored" });
+    expect(mocks.applyUnclaimedFoodEvidenceDraft).not.toHaveBeenCalled();
+    expect(mocks.recordFoodResearchRun).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "errored" }),
+    );
+  });
+
+  it("treats its own first source as owned when claiming the second", async () => {
+    // 이 인자가 빈 배열로 퇴화하면 두 번째 출처가 자기 첫 출처와 충돌해 모든
+    // 실행이 출처 하나만 수집하게 된다 — 조용히.
+    mocks.replaceUnclaimedFoodSource
+      .mockResolvedValueOnce({
+        claim: "claimed",
+        result: { contentStatus: "initial", sourceId: 91 },
+      })
+      .mockResolvedValueOnce({
+        claim: "claimed",
+        result: { contentStatus: "initial", sourceId: 92 },
+      });
+
+    await callRoute(
+      envelope({
+        sources: [
+          { kind: "manufacturer", reason: "제조사", url: LABEL_URL },
+          { kind: "kr_label", reason: "수입사", url: "https://example.com/kr" },
+        ],
+      }),
+    );
+
+    expect(mocks.replaceUnclaimedFoodSource.mock.calls[0][0]).toMatchObject({
+      ownedSourceIds: [],
+    });
+    expect(mocks.replaceUnclaimedFoodSource.mock.calls[1][0]).toMatchObject({
+      ownedSourceIds: [91],
+    });
+  });
+
+  // 스키마 거절은 종류가 여럿인데 결과는 하나로 같아야 한다: 아무것도 수집하지
+  // 않고, 400을 돌려주되, 그 제안을 원장에 남겨 다음 실행이 같은 URL을 다시
+  // 제안하지 않게 한다. 한 종류만 막으면 나머지가 그대로 낭비 루프를 만든다.
+  it.each([
+    [
+      "the same nutrient key twice",
+      {
+        evidence: [
+          {
+            excerpt: "조단백질 36% 이상",
+            nutrientKey: "protein_pct",
+            sourceUrl: LABEL_URL,
+            value: 36,
+          },
+          {
+            excerpt: "조단백질 34% 이상",
+            nutrientKey: "protein_pct",
+            sourceUrl: LABEL_URL,
+            value: 34,
+          },
+        ],
+      },
+    ],
+    [
+      "two sources of the same kind",
+      {
+        sources: [
+          { kind: "manufacturer", reason: "첫 번째", url: LABEL_URL },
+          {
+            kind: "manufacturer",
+            reason: "두 번째",
+            url: "https://example.com/other",
+          },
+        ],
+      },
+    ],
+    [
+      "evidence citing an unproposed source",
+      {
+        evidence: [
+          {
+            excerpt: "조단백질 36% 이상",
+            nutrientKey: "protein_pct",
+            sourceUrl: "https://example.com/elsewhere",
+            value: 36,
+          },
+        ],
+      },
+    ],
+    [
+      "a non-HTTPS source",
+      {
+        evidence: [
+          {
+            excerpt: "조단백질 36% 이상",
+            nutrientKey: "protein_pct",
+            sourceUrl: "http://example.com/label",
+            value: 36,
+          },
+        ],
+        sources: [
+          {
+            kind: "manufacturer",
+            reason: "평문 HTTP",
+            url: "http://example.com/label",
+          },
+        ],
+      },
+    ],
+  ])(
+    "records %s in the ledger before rejecting it",
+    async (_name, override) => {
+      const response = await callRoute(envelope(override));
+
+      expect(response.status).toBe(400);
+      expect(mocks.captureSource).not.toHaveBeenCalled();
+      expect(mocks.recordFoodResearchRun).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "invalid" }),
+      );
+      expect((await response.json()).runId).toBe(1234);
+    },
+  );
+
+  it("never sets publication metadata on the research path", async () => {
+    await callRoute(envelope());
+
+    const applied = mocks.applyUnclaimedFoodEvidenceDraft.mock.calls;
+    expect(applied).toHaveLength(1);
+    expect(JSON.stringify(applied)).not.toContain("published");
+  });
+});
