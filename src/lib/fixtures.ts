@@ -75,6 +75,7 @@ export const SAMPLE_FOODS: FoodWithBrand[] = [
     manufacturer_url: null,
     kr_label_source: "ACANA Grasslands regression fixture",
     data_verified_at: "2026-05-31T00:00:00.000Z",
+    published_at: "2026-05-31T00:00:00.000Z",
     brands: {
       id: 0,
       name: "ACANA",

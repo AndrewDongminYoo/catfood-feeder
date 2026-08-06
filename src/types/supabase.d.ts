@@ -7,11 +7,6 @@ export type Json =
   | Json[];
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5";
-  };
   graphql_public: {
     Tables: {
       [_ in never]: never;
@@ -302,9 +297,13 @@ export type Database = {
           phosphorus_pct: number | null;
           product_name: string;
           protein_pct: number | null;
+          published_at: string | null;
+          published_by: string | null;
           source: string | null;
           source_conflicts: Json;
           updated_at: string;
+          verification_method:
+            Database["public"]["Enums"]["food_verification_method"] | null;
           weight_kg: number | null;
         };
         Insert: {
@@ -339,9 +338,13 @@ export type Database = {
           phosphorus_pct?: number | null;
           product_name: string;
           protein_pct?: number | null;
+          published_at?: string | null;
+          published_by?: string | null;
           source?: string | null;
           source_conflicts?: Json;
           updated_at?: string;
+          verification_method?:
+            Database["public"]["Enums"]["food_verification_method"] | null;
           weight_kg?: number | null;
         };
         Update: {
@@ -376,9 +379,13 @@ export type Database = {
           phosphorus_pct?: number | null;
           product_name?: string;
           protein_pct?: number | null;
+          published_at?: string | null;
+          published_by?: string | null;
           source?: string | null;
           source_conflicts?: Json;
           updated_at?: string;
+          verification_method?:
+            Database["public"]["Enums"]["food_verification_method"] | null;
           weight_kg?: number | null;
         };
         Relationships: [
@@ -505,6 +512,15 @@ export type Database = {
         Args: { p_limit: number; p_subject: string; p_window_seconds: number };
         Returns: number;
       };
+      publish_food_draft: {
+        Args: {
+          p_actor_id: string;
+          p_derived: Json;
+          p_expected_updated_at: string;
+          p_food_id: number;
+        };
+        Returns: Json;
+      };
       replace_current_food_source: {
         Args: {
           p_capture_method: string;
@@ -525,6 +541,7 @@ export type Database = {
     };
     Enums: {
       cooking_method: "extrusion" | "baked" | "freeze_dried" | "dried";
+      food_verification_method: "legacy_human" | "human";
       nutrient_source: "manufacturer" | "kr_label" | "estimated" | "derived";
     };
     CompositeTypes: {
@@ -657,6 +674,7 @@ export const Constants = {
   public: {
     Enums: {
       cooking_method: ["extrusion", "baked", "freeze_dried", "dried"],
+      food_verification_method: ["legacy_human", "human"],
       nutrient_source: ["manufacturer", "kr_label", "estimated", "derived"],
     },
   },

@@ -22,9 +22,9 @@ export async function GET(req: NextRequest) {
     const { data, error } = await supabase
       .from("foods")
       .select(
-        "id, product_name, protein_pct, data_verified_at, brands:brand_id(name), food_sources(id, kind, url, fetch_status, attempted_at, captured_at, observed_at, failure_code, is_current)",
+        "id, product_name, protein_pct, data_verified_at, published_at, brands:brand_id(name), food_sources(id, kind, url, fetch_status, attempted_at, captured_at, observed_at, failure_code, is_current)",
       )
-      .is("data_verified_at", null)
+      .is("published_at", null)
       .order("id")
       .limit(1000);
     if (error) {

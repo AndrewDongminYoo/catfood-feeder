@@ -78,6 +78,7 @@ export interface FoodWithBrand {
   manufacturer_url: string | null;
   kr_label_source: string | null;
   data_verified_at: string | null;
+  published_at: string | null;
   brands: BrandSummary | null;
   recalls?: RecallSummary[];
   prices?: PriceSummary[];
@@ -102,7 +103,7 @@ export const getFoods = cache(async (): Promise<FoodWithBrand[]> => {
       recalls (id, brand_id, food_id, source, source_url, external_id, recalling_firm, reason, classification, affected_lots, recall_date, region)
     `,
     )
-    .not("data_verified_at", "is", null)
+    .not("published_at", "is", null)
     .not("protein_pct", "is", null)
     .order("product_name", { ascending: true });
 

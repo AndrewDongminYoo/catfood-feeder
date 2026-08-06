@@ -90,6 +90,8 @@ export async function POST(req: NextRequest) {
     const supabase = createAdminClient();
     const brand = await findOrCreateBrand(supabase, payload.brand);
     const flags = payload.flags;
+    const publishedAt =
+      authorization.origin === "human" ? new Date().toISOString() : null;
 
     const { data, error } = await supabase
       .from("foods")
@@ -113,8 +115,11 @@ export async function POST(req: NextRequest) {
         manufacturer_url: payload.manufacturer_url ?? null,
         kr_label_source: payload.kr_label_source ?? null,
         source_conflicts: payload.source_conflicts,
-        data_verified_at:
-          authorization.origin === "human" ? new Date().toISOString() : null,
+        data_verified_at: publishedAt,
+        published_at: publishedAt,
+        published_by:
+          authorization.origin === "human" ? authorization.actorId : null,
+        verification_method: authorization.origin === "human" ? "human" : null,
       })
       .select("id, product_name, brand_id")
       .single();
