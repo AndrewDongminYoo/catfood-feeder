@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { getComparisonFoods } from "@/lib/catalog";
-import { formatKcal, formatPct } from "@/lib/format";
+import { formatKcal, formatPct, formatRatio } from "@/lib/format";
 
 export default async function ComparePage({
   searchParams,
@@ -41,7 +41,7 @@ export default async function ComparePage({
               <Row label="단백질 열량비" value={formatPct(food.energy_p_pct)} />
               <Row label="지방 열량비" value={formatPct(food.energy_f_pct)} />
               <Row label="탄수 열량비" value={formatPct(food.energy_c_pct)} />
-              <Row label="Ca:P" value={food.ca_p_ratio?.toString() ?? "—"} />
+              <Row label="Ca:P" value={formatRatio(food.ca_p_ratio)} />
               <Row label="열량" value={formatKcal(food.kcal_per_kg)} />
             </div>
           </article>

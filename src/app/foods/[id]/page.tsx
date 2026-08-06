@@ -3,7 +3,7 @@ import type { Route } from "next";
 import { notFound } from "next/navigation";
 import { getFood } from "@/lib/catalog";
 import { NUTRIENT_FIELDS } from "@/lib/domain";
-import { formatKcal, formatPct, sourceLabel } from "@/lib/format";
+import { formatKcal, formatPct, formatRatio, sourceLabel } from "@/lib/format";
 
 export const revalidate = 3600;
 
@@ -34,7 +34,7 @@ export default async function FoodDetailPage({
           <Cell label="단백질" value={formatPct(food.protein_pct)} />
           <Cell label="지방" value={formatPct(food.fat_pct)} />
           <Cell label="탄수" value={formatPct(food.carb_pct)} />
-          <Cell label="Ca:P" value={food.ca_p_ratio?.toString() ?? "—"} />
+          <Cell label="Ca:P" value={formatRatio(food.ca_p_ratio)} />
           <Cell label="열량" value={formatKcal(food.kcal_per_kg)} />
         </div>
       </section>

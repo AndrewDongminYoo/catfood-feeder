@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useMemo, useState } from "react";
 import type { FoodWithBrand } from "@/lib/catalog";
-import { formatKcal, formatPct } from "@/lib/format";
+import { formatKcalValue, formatPct } from "@/lib/format";
 
 export function CatalogClient({ foods }: { foods: FoodWithBrand[] }) {
   const [query, setQuery] = useState("");
@@ -112,13 +112,17 @@ export function CatalogClient({ foods }: { foods: FoodWithBrand[] }) {
             </select>
           </label>
         </div>
+        {/* pointer-events:none은 마우스만 막는다. aria-disabled와 tabIndex가 없으면
+            키보드로 탭이 닿고 Enter로 "#"까지 이동한다. */}
         <Link
+          aria-disabled={selected.length !== 2}
           className={`compare-link${selected.length === 2 ? "" : " disabled"}`}
           href={
             (selected.length === 2
               ? `/compare?ids=${selected.join(",")}`
               : "#") as Route
           }
+          tabIndex={selected.length === 2 ? undefined : -1}
         >
           비교하기
         </Link>
@@ -135,10 +139,15 @@ export function CatalogClient({ foods }: { foods: FoodWithBrand[] }) {
                 </Link>
               </h2>
             </div>
+            {/* 단위를 라벨로 올린다. 값에 "kcal/kg"이 붙으면 셋 중 하나만 두 줄이
+                되어 세 값의 baseline이 어긋난다. */}
             <div className="metric-row">
               <Metric label="단백질" value={formatPct(food.protein_pct)} />
               <Metric label="탄수" value={formatPct(food.carb_pct)} />
-              <Metric label="열량" value={formatKcal(food.kcal_per_kg)} />
+              <Metric
+                label="열량 kcal/kg"
+                value={formatKcalValue(food.kcal_per_kg)}
+              />
             </div>
             <div className="chips">
               {food.grain_free && <span>grain free</span>}
