@@ -349,9 +349,13 @@ describe("POST /api/research/proposals", () => {
     });
   });
 
-  it("rejects a proposal claiming the same nutrient key twice", async () => {
-    const response = await callRoute(
-      envelope({
+  // 스키마 거절은 종류가 여럿인데 결과는 하나로 같아야 한다: 아무것도 수집하지
+  // 않고, 400을 돌려주되, 그 제안을 원장에 남겨 다음 실행이 같은 URL을 다시
+  // 제안하지 않게 한다. 한 종류만 막으면 나머지가 그대로 낭비 루프를 만든다.
+  it.each([
+    [
+      "the same nutrient key twice",
+      {
         evidence: [
           {
             excerpt: "조단백질 36% 이상",
@@ -366,12 +370,67 @@ describe("POST /api/research/proposals", () => {
             value: 34,
           },
         ],
-      }),
-    );
+      },
+    ],
+    [
+      "two sources of the same kind",
+      {
+        sources: [
+          { kind: "manufacturer", reason: "첫 번째", url: LABEL_URL },
+          {
+            kind: "manufacturer",
+            reason: "두 번째",
+            url: "https://example.com/other",
+          },
+        ],
+      },
+    ],
+    [
+      "evidence citing an unproposed source",
+      {
+        evidence: [
+          {
+            excerpt: "조단백질 36% 이상",
+            nutrientKey: "protein_pct",
+            sourceUrl: "https://example.com/elsewhere",
+            value: 36,
+          },
+        ],
+      },
+    ],
+    [
+      "a non-HTTPS source",
+      {
+        evidence: [
+          {
+            excerpt: "조단백질 36% 이상",
+            nutrientKey: "protein_pct",
+            sourceUrl: "http://example.com/label",
+            value: 36,
+          },
+        ],
+        sources: [
+          {
+            kind: "manufacturer",
+            reason: "평문 HTTP",
+            url: "http://example.com/label",
+          },
+        ],
+      },
+    ],
+  ])(
+    "records %s in the ledger before rejecting it",
+    async (_name, override) => {
+      const response = await callRoute(envelope(override));
 
-    expect(response.status).toBe(400);
-    expect(mocks.captureSource).not.toHaveBeenCalled();
-  });
+      expect(response.status).toBe(400);
+      expect(mocks.captureSource).not.toHaveBeenCalled();
+      expect(mocks.recordFoodResearchRun).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "invalid" }),
+      );
+      expect((await response.json()).runId).toBe(1234);
+    },
+  );
 
   it("never sets publication metadata on the research path", async () => {
     await callRoute(envelope());

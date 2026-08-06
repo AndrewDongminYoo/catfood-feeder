@@ -68,6 +68,24 @@ The 20260805 migration also backfilled `published_at` from `data_verified_at`, s
 Left alone deliberately: the apply gate asks "has a human verified this?", and `data_verified_at` is the column that answers it — switching it to `published_at` would let evidence overwrite a verified-but-unpublished row, which is the opposite of the invariant.
 If the divergence is worth closing, the right end is the CHECK constraint, which currently sanctions a state no code produces.
 
+## Related: a changed label has no acceptance path
+
+Reproduced by an executing database review on 2026-08-06. Real, and deliberately not patched — the fix is a product decision, and the obvious patch contradicts three tested invariants.
+
+When a manufacturer changes a label and the source is re-captured, the previous `food_sources` row is retired but the `food_nutrient_evidence` row stays current, still pointing at the retired source.
+`replace_current_food_source` never re-points evidence; the subsequent re-apply does.
+So the two refresh outcomes diverge:
+
+- **Identical content** — re-apply returns `applied`, evidence re-points to the new capture, publication works. Covered by `source_refresh_provenance_test.sql`.
+- **Changed content** — re-apply returns `conflict` and writes nothing, by design (`20260721121348`, `20260721133137`, and five assertions in that test file). The stored value keeps its old number, its evidence stays orphaned, and `publish_food_draft` returns `no_evidence` because it only joins current sources.
+
+The result is a food that can be neither published nor updated through the normal flow.
+The only escape found is clearing the column (a full-row re-submit through `POST /api/foods` does it), and nothing in the UI says so — `/new/research` reports only `저장값과 다른 후보 N건을 남겼습니다`.
+
+`no_evidence` is arguably correct here: the stored number genuinely has no live support.
+The missing piece is not a database guard but a curator action — an explicit "accept the changed value" that supersedes the old evidence after a human looks at it.
+An attempted fix that made apply overwrite whenever evidence was orphaned was reverted: it broke `an identical same-source refresh preserves nutrient source tags`, `… does not touch the food timestamp`, and `a changed same-source refresh reports conflict`, which are the deliberate behaviors that keep the machine from silently replacing measured data.
+
 ## Not blocking
 
 Nothing here is a live defect. The current behavior predates the evidence-backed publication work (on `main`, `/api/foods` already set `data_verified_at` on human create and public reads gated on it), so this plan documents an inherited design question, not a regression.

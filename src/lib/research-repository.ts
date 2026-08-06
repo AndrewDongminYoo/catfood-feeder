@@ -1,6 +1,12 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { researchProposalSchema } from "./research-proposal";
+import { z } from "zod";
 import type { ResearchProposal } from "./research-proposal";
+
+/** 원장에 남은 제안에서 URL만 긁어낸다. 거절된 제안도 대상이므로 느슨하게 읽는다. */
+const proposedUrlsSchema = z
+  .object({ sources: z.array(z.object({ url: z.string() }).loose()) })
+  .loose()
+  .transform((proposal) => proposal.sources.map((source) => source.url));
 
 export type ResearchTarget =
   | {
@@ -13,7 +19,12 @@ export type ResearchTarget =
   | { readonly kind: "not_skeleton" };
 
 export type ResearchRunStatus =
-  "applied" | "rejected" | "capture_failed" | "claim_conflict" | "errored";
+  | "applied"
+  | "rejected"
+  | "capture_failed"
+  | "claim_conflict"
+  | "errored"
+  | "invalid";
 
 export class ResearchRepositoryError extends Error {
   readonly name = "ResearchRepositoryError";
@@ -75,16 +86,21 @@ export async function getAttemptedResearchUrls(
     .limit(limit);
 
   if (error) throw new ResearchRepositoryError(error.message);
-  const urls = (data ?? []).flatMap((run) => {
-    const parsed = researchProposalSchema.safeParse(run.proposal);
-    return parsed.success ? parsed.data.sources.map((s) => s.url) : [];
-  });
+  // 거절된 제안도 원장에 남으므로, 엄격 스키마로 읽으면 정작 기억해야 할 URL을
+  // 놓친다. URL 문자열만 느슨하게 긁어낸다.
+  const urls = (data ?? []).flatMap(
+    (run) => proposedUrlsSchema.safeParse(run.proposal).data ?? [],
+  );
   return [...new Set(urls)];
 }
 
+export type ResearchAgentMetadata = ResearchProposal["agent"];
+
 export async function recordFoodResearchRun(run: {
   readonly foodId: number;
-  readonly proposal: ResearchProposal;
+  readonly agent: ResearchAgentMetadata;
+  /** 검증을 통과하지 못한 제안도 그대로 보존한다 — 그것이 기억의 단위다. */
+  readonly proposal: unknown;
   readonly captures: unknown;
   readonly evidenceResults: unknown;
   readonly status: ResearchRunStatus;
@@ -93,14 +109,14 @@ export async function recordFoodResearchRun(run: {
   const { data, error } = await supabase
     .from("food_research_runs")
     .insert({
-      agent_model: run.proposal.agent.model,
-      agent_name: run.proposal.agent.name,
+      agent_model: run.agent.model,
+      agent_name: run.agent.name,
       captures: run.captures as never,
       evidence_results: run.evidenceResults as never,
       food_id: run.foodId,
-      prompt_version: run.proposal.agent.promptVersion,
+      prompt_version: run.agent.promptVersion,
       proposal: run.proposal as never,
-      schema_version: run.proposal.agent.schemaVersion,
+      schema_version: run.agent.schemaVersion,
       status: run.status,
     })
     .select("id")

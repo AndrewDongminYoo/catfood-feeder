@@ -22,10 +22,28 @@ import {
   replaceUnclaimedFoodSource,
 } from "@/lib/source-repository";
 
-const requestSchema = z
+/**
+ * 1단계: 원장에 남기기에 충분한 만큼만 읽는다.
+ *
+ * 엄격 검증을 먼저 걸면 거절된 제안이 아무 흔적도 남기지 않고, 그 URL이
+ * attemptedUrls에 오르지 않아 다음 실행이 같은 것을 또 제안한다 — 유료 조사가
+ * 무한히 반복된다. 그래서 신원과 원문을 먼저 확보하고 검증은 그다음이다.
+ */
+const envelopeSchema = z
   .object({
     foodId: z.number().int().positive(),
-    proposal: researchProposalSchema,
+    proposal: z
+      .object({
+        agent: z
+          .object({
+            model: z.string().min(1).max(120),
+            name: z.string().min(1).max(120),
+            promptVersion: z.string().min(1).max(40),
+            schemaVersion: z.string().min(1).max(40),
+          })
+          .strict(),
+      })
+      .loose(),
   })
   .strict();
 
@@ -84,16 +102,16 @@ export async function POST(req: NextRequest) {
     );
 
   try {
-    const parsed = requestSchema.safeParse(
+    const envelope = envelopeSchema.safeParse(
       await readJsonBody(req, SMALL_JSON_BODY_BYTES),
     );
-    if (!parsed.success)
+    if (!envelope.success)
       return NextResponse.json(
         { error: "조사 제안 형식이 올바르지 않습니다." },
         { status: 400 },
       );
 
-    const { foodId, proposal } = parsed.data;
+    const { foodId } = envelope.data;
     const target = await getResearchTarget(foodId);
     if (target.kind === "not_found")
       return NextResponse.json(
@@ -108,6 +126,28 @@ export async function POST(req: NextRequest) {
         },
         { status: 409 },
       );
+
+    // 2단계: 엄격 검증. 여기서 떨어져도 원장에는 남긴다.
+    const parsed = researchProposalSchema.safeParse(envelope.data.proposal);
+    if (!parsed.success) {
+      const runId = await recordFoodResearchRun({
+        agent: envelope.data.proposal.agent,
+        captures: [],
+        evidenceResults: [],
+        foodId,
+        proposal: envelope.data.proposal,
+        status: "invalid",
+      });
+      return NextResponse.json(
+        {
+          error: "조사 제안 형식이 올바르지 않습니다.",
+          runId,
+          status: "invalid",
+        },
+        { status: 400 },
+      );
+    }
+    const proposal = parsed.data;
 
     const { captures, claimLost, errored, sourceIdByUrl } =
       await captureProposedSources(foodId, proposal);
@@ -134,6 +174,7 @@ export async function POST(req: NextRequest) {
         : runStatus(captures, applied.outcomes);
 
     const runId = await recordFoodResearchRun({
+      agent: proposal.agent,
       captures,
       evidenceResults: applied.outcomes,
       foodId,
