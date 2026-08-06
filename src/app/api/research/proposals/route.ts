@@ -19,7 +19,7 @@ import {
   applyFoodEvidenceDraft,
   createFailedFoodSource,
   getCurrentFetchedFoodSources,
-  replaceCurrentFoodSource,
+  replaceUnclaimedFoodSource,
 } from "@/lib/source-repository";
 
 const requestSchema = z
@@ -42,6 +42,11 @@ type CaptureOutcome =
       readonly status: "failed";
       readonly failureCode: string;
       readonly sourceId: number;
+    }
+  | {
+      readonly url: string;
+      readonly kind: string;
+      readonly status: "claim_conflict";
     };
 
 type EvidenceOutcome = {
@@ -181,7 +186,7 @@ async function captureProposedSources(
       continue;
     }
 
-    const replacement = await replaceCurrentFoodSource({
+    const replacement = await replaceUnclaimedFoodSource({
       capturedAt: new Date().toISOString(),
       capturedText: captured.capturedText,
       captureMethod: "fetch",
@@ -194,10 +199,20 @@ async function captureProposedSources(
       observedAt: null,
       url: captured.url,
     });
-    sourceIdByUrl.set(source.url, replacement.sourceId);
+    // 수집하는 동안 큐레이터가 출처를 붙였거나 발행했다면 아무것도 쓰지 않는다.
+    // 남은 출처도 같은 이유로 거절될 것이므로 더 진행하지 않는다.
+    if (replacement.claim === "conflict") {
+      captures.push({
+        kind: source.kind,
+        status: "claim_conflict",
+        url: source.url,
+      });
+      break;
+    }
+    sourceIdByUrl.set(source.url, replacement.result.sourceId);
     captures.push({
       kind: source.kind,
-      sourceId: replacement.sourceId,
+      sourceId: replacement.result.sourceId,
       status: "captured",
       url: source.url,
     });
@@ -271,5 +286,9 @@ function runStatus(
     return "applied";
   if (captures.some((capture) => capture.status === "captured"))
     return "rejected";
+  // 수집 실패와 대상을 뺏긴 것은 다른 사건이다. 전자는 URL이 나빴다는 뜻이고
+  // 후자는 대상 선정이 낡았다는 뜻이라, 다음 실행이 달리 행동해야 한다.
+  if (captures.some((capture) => capture.status === "claim_conflict"))
+    return "claim_conflict";
   return "capture_failed";
 }

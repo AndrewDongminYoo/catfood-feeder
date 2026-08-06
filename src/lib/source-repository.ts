@@ -1,8 +1,14 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseEvidenceApplyResults } from "./source-apply";
 import type { EvidenceApplyResult } from "./source-apply";
-import { parseSourceReplacementResult } from "./source-capture-response";
-import type { SourceReplacementResult } from "./source-capture-response";
+import {
+  parseResearchSourceReplacement,
+  parseSourceReplacementResult,
+} from "./source-capture-response";
+import type {
+  ResearchSourceReplacementResult,
+  SourceReplacementResult,
+} from "./source-capture-response";
 import type { ExtractedEvidence } from "./source-extraction";
 import type {
   SourceCaptureMethod,
@@ -89,6 +95,42 @@ export async function replaceCurrentFoodSource(
   } catch {
     throw new SourceRepositoryError(
       "replace_current_source",
+      "Source replacement RPC returned an invalid result",
+    );
+  }
+}
+
+/**
+ * 조사 경로 전용 교체. skeleton 조건을 교체 트랜잭션 안에서 다시 확인하므로,
+ * 수집에 걸린 시간 동안 큐레이터가 출처를 등록했거나 다른 실행이 먼저 통과했다면
+ * 아무것도 쓰지 않고 conflict를 돌려준다.
+ */
+export async function replaceUnclaimedFoodSource(
+  source: SourceWrite & {
+    readonly capturedAt: string;
+    readonly capturedText: string;
+    readonly contentHash: string;
+  },
+): Promise<ResearchSourceReplacementResult> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.rpc("replace_current_food_source", {
+    p_capture_method: source.captureMethod,
+    p_captured_at: source.capturedAt,
+    p_captured_text: source.capturedText,
+    p_content_hash: source.contentHash,
+    p_food_id: source.foodId,
+    p_kind: source.kind,
+    p_require_unclaimed: true,
+    p_url: source.url,
+  });
+
+  if (error)
+    throw new SourceRepositoryError("replace_unclaimed_source", error.message);
+  try {
+    return parseResearchSourceReplacement(data);
+  } catch {
+    throw new SourceRepositoryError(
+      "replace_unclaimed_source",
       "Source replacement RPC returned an invalid result",
     );
   }

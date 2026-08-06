@@ -53,7 +53,8 @@ What holds the boundary:
 
 - `RESEARCH_AGENT_SECRET` opens **only** `/api/research/*`. No admin or publish route accepts it, and `src/lib/research-boundary.test.ts` pins that.
 - The child `codex exec` process gets an allowlisted environment (`PATH`, `HOME` → an empty temp dir, `CODEX_HOME`, `LANG`, `TMPDIR`) and runs `--sandbox read-only --ephemeral --ignore-user-config` outside the repo. It never sees the broker secret or any Supabase key.
-- The target must be a **skeleton** draft: unpublished _and_ carrying no current source. An agent URL must never displace a curator's captured source.
+- The target must be a **skeleton** draft: unpublished _and_ carrying no current source. An agent URL must never displace a curator's captured source. The broker checks this before fetching and the replacement RPC re-checks it inside its own lock, so a curator who registers a source while a URL is being fetched wins the race and the run ends as `claim_conflict` having written nothing.
+- Prior runs' proposed URLs are returned by `GET /api/research/foods/[id]` and go into the prompt as "already tried", so a re-run does not spend a research call on the same dead end.
 - Every proposal that reaches capture — including one whose evidence is rejected or whose fetch fails — is appended to `food_research_runs` so the next run does not re-research the same dead end. A proposal rejected at the schema or target check is refused with a 4xx and leaves no ledger row.
 - A partial capture (manufacturer succeeds, importer page fails) still makes the row non-skeleton, so the agent path will not revisit it; register the missing half by hand in `/new/research`.
 - Publication stays human-only. This path writes DRAFT nutrient values and never sets `published_at`.

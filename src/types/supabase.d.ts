@@ -581,9 +581,11 @@ export type Database = {
           p_food_id: number;
           p_kind: Database["public"]["Enums"]["nutrient_source"];
           p_observed_at?: string;
+          p_require_unclaimed?: boolean;
           p_url: string;
         };
         Returns: {
+          claim_status: string;
           content_status: string;
           source_id: number;
         }[];

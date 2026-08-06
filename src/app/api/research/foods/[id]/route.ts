@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { authorizeResearchAgent } from "@/lib/research-auth";
-import { getResearchTarget } from "@/lib/research-repository";
+import {
+  getAttemptedResearchUrls,
+  getResearchTarget,
+} from "@/lib/research-repository";
 
 /**
  * 러너가 필요한 최소 맥락만 준다: 대상 ID, 브랜드, 제품명.
@@ -47,6 +50,9 @@ export async function GET(
 
     return NextResponse.json({
       target: {
+        // 이전 실행이 이미 써 본 URL. 러너가 프롬프트에 실어 같은 곳을 다시
+        // 조사하지 않게 한다.
+        attemptedUrls: await getAttemptedResearchUrls(target.id),
         brandName: target.brandName,
         id: target.id,
         productName: target.productName,

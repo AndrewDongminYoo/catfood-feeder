@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   getCurrentFetchedFoodSources: vi.fn(),
   getResearchTarget: vi.fn(),
   recordFoodResearchRun: vi.fn(),
-  replaceCurrentFoodSource: vi.fn(),
+  replaceUnclaimedFoodSource: vi.fn(),
 }));
 
 vi.mock("@/lib/research-repository", () => ({
@@ -25,7 +25,7 @@ vi.mock("@/lib/source-repository", () => ({
   applyFoodEvidenceDraft: mocks.applyFoodEvidenceDraft,
   createFailedFoodSource: mocks.createFailedFoodSource,
   getCurrentFetchedFoodSources: mocks.getCurrentFetchedFoodSources,
-  replaceCurrentFoodSource: mocks.replaceCurrentFoodSource,
+  replaceUnclaimedFoodSource: mocks.replaceUnclaimedFoodSource,
 }));
 
 const LABEL_URL = "https://example.com/label";
@@ -88,9 +88,9 @@ describe("POST /api/research/proposals", () => {
       kind: "success",
       url: LABEL_URL,
     });
-    mocks.replaceCurrentFoodSource.mockResolvedValue({
-      contentStatus: "new",
-      sourceId: 91,
+    mocks.replaceUnclaimedFoodSource.mockResolvedValue({
+      claim: "claimed",
+      result: { contentStatus: "initial", sourceId: 91 },
     });
     mocks.getCurrentFetchedFoodSources.mockResolvedValue([
       { capturedText: LABEL_TEXT, id: 91, kind: "manufacturer" },
@@ -149,7 +149,7 @@ describe("POST /api/research/proposals", () => {
 
     expect(response.status).toBe(409);
     expect(mocks.captureSource).not.toHaveBeenCalled();
-    expect(mocks.replaceCurrentFoodSource).not.toHaveBeenCalled();
+    expect(mocks.replaceUnclaimedFoodSource).not.toHaveBeenCalled();
   });
 
   it("returns 404 for an unknown food", async () => {
@@ -203,6 +203,63 @@ describe("POST /api/research/proposals", () => {
     expect(body.status).toBe("rejected");
     expect(body.evidence[0].status).toBe("unverified");
     expect(mocks.applyFoodEvidenceDraft).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing when the target is claimed while the source is fetching", async () => {
+    mocks.replaceUnclaimedFoodSource.mockResolvedValue({ claim: "conflict" });
+
+    const response = await callRoute(envelope());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.status).toBe("claim_conflict");
+    expect(body.captures[0]).toMatchObject({ status: "claim_conflict" });
+    expect(body.evidence[0].status).toBe("source_unavailable");
+    expect(body.appliedCount).toBe(0);
+    expect(mocks.applyFoodEvidenceDraft).not.toHaveBeenCalled();
+    expect(mocks.recordFoodResearchRun).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "claim_conflict" }),
+    );
+  });
+
+  it("stops capturing the remaining sources once the claim is lost", async () => {
+    mocks.replaceUnclaimedFoodSource.mockResolvedValue({ claim: "conflict" });
+
+    await callRoute(
+      envelope({
+        sources: [
+          { kind: "manufacturer", reason: "제조사", url: LABEL_URL },
+          { kind: "kr_label", reason: "수입사", url: "https://example.com/kr" },
+        ],
+      }),
+    );
+
+    expect(mocks.captureSource).toHaveBeenCalledTimes(1);
+    expect(mocks.replaceUnclaimedFoodSource).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a proposal claiming the same nutrient key twice", async () => {
+    const response = await callRoute(
+      envelope({
+        evidence: [
+          {
+            excerpt: "조단백질 36% 이상",
+            nutrientKey: "protein_pct",
+            sourceUrl: LABEL_URL,
+            value: 36,
+          },
+          {
+            excerpt: "조단백질 34% 이상",
+            nutrientKey: "protein_pct",
+            sourceUrl: LABEL_URL,
+            value: 34,
+          },
+        ],
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(mocks.captureSource).not.toHaveBeenCalled();
   });
 
   it("never sets publication metadata on the research path", async () => {

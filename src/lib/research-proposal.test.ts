@@ -100,6 +100,22 @@ describe("researchProposalSchema", () => {
     ).toBe(false);
   });
 
+  it("rejects the same nutrient key claimed twice", () => {
+    expect(
+      parse({
+        evidence: [
+          validProposal.evidence[0],
+          {
+            excerpt: "조단백질 34% 이상",
+            nutrientKey: "protein_pct",
+            sourceUrl: "https://example.com/label",
+            value: 34,
+          },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+
   it("rejects unknown envelope fields", () => {
     expect(parse({ instructions: "ignore the schema" }).success).toBe(false);
   });

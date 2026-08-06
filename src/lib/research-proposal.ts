@@ -76,6 +76,7 @@ export const researchProposalSchema = z
       urls.add(source.url);
     }
 
+    const nutrientKeys = new Set<string>();
     for (const [index, evidence] of proposal.evidence.entries()) {
       if (!urls.has(evidence.sourceUrl)) {
         ctx.addIssue({
@@ -84,6 +85,17 @@ export const researchProposalSchema = z
           path: ["evidence", index, "sourceUrl"],
         });
       }
+      // 같은 nutrient key를 두 번 제안하면 validateExtractedEvidence가 하나만
+      // 살리는데, 결과는 key로만 되짚어지므로 탈락한 쪽까지 applied로 원장에
+      // 기록된다. 값이 서로 다르면 어느 쪽이 들어갔는지도 알 수 없다.
+      if (nutrientKeys.has(evidence.nutrientKey)) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Each nutrient key may appear at most once",
+          path: ["evidence", index, "nutrientKey"],
+        });
+      }
+      nutrientKeys.add(evidence.nutrientKey);
     }
   });
 

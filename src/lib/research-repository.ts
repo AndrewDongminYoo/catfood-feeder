@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { researchProposalSchema } from "./research-proposal";
 import type { ResearchProposal } from "./research-proposal";
 
 export type ResearchTarget =
@@ -11,7 +12,8 @@ export type ResearchTarget =
   | { readonly kind: "not_found" }
   | { readonly kind: "not_skeleton" };
 
-export type ResearchRunStatus = "applied" | "rejected" | "capture_failed";
+export type ResearchRunStatus =
+  "applied" | "rejected" | "capture_failed" | "claim_conflict";
 
 export class ResearchRepositoryError extends Error {
   readonly name = "ResearchRepositoryError";
@@ -53,6 +55,31 @@ export async function getResearchTarget(
     kind: "skeleton",
     productName: data.product_name,
   };
+}
+
+/**
+ * 이전 실행이 이미 시도한 URL. 러너 프롬프트에 넣어 같은 막다른 길을 다시 조사하지
+ * 않게 한다. 수집 실패뿐 아니라 근거 검증에서 거절된 URL도 포함해야 의미가 있으므로
+ * `food_sources`가 아니라 원장을 읽는다.
+ */
+export async function getAttemptedResearchUrls(
+  foodId: number,
+  limit = 20,
+): Promise<readonly string[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("food_research_runs")
+    .select("proposal")
+    .eq("food_id", foodId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw new ResearchRepositoryError(error.message);
+  const urls = (data ?? []).flatMap((run) => {
+    const parsed = researchProposalSchema.safeParse(run.proposal);
+    return parsed.success ? parsed.data.sources.map((s) => s.url) : [];
+  });
+  return [...new Set(urls)];
 }
 
 export async function recordFoodResearchRun(run: {
