@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import {
   sourceCaptureStatusMessage,
   sourceCaptureTone,
@@ -43,8 +44,32 @@ export function SourceCaptureForm({
   onUrlChange,
   url,
 }: SourceCaptureFormProps) {
+  const [filter, setFilter] = useState("");
+  // Draft가 700개 가까이 되면 네이티브 select 하나로는 고를 수 없다. 목록만 좁히고
+  // 현재 선택은 항상 남긴다 — 선택이 옵션에서 사라지면 select는 비었는데 버튼은
+  // 살아 있는 상태가 되고, 그건 이 컴포넌트가 이미 막고 있는 버그다.
+  const visibleFoods = useMemo(() => {
+    const query = filter.trim().toLowerCase();
+    if (!query) return foods;
+    return foods.filter(
+      (food) =>
+        String(food.id) === foodId ||
+        `${food.brands?.name ?? ""} ${food.product_name}`
+          .toLowerCase()
+          .includes(query),
+    );
+  }, [filter, foodId, foods]);
+
   return (
     <>
+      <label>
+        Draft 제품 검색
+        <input
+          onChange={(event) => setFilter(event.target.value)}
+          placeholder={`브랜드 또는 제품명 (전체 ${foods.length}개)`}
+          value={filter}
+        />
+      </label>
       <label>
         Draft 제품
         <select
@@ -52,13 +77,18 @@ export function SourceCaptureForm({
           onChange={(event) => onFoodIdChange(event.target.value)}
         >
           <option value="">선택하세요</option>
-          {foods.map((food) => (
+          {visibleFoods.map((food) => (
             <option key={food.id} value={food.id}>
               {food.brands?.name ?? "미분류"} — {food.product_name}
             </option>
           ))}
         </select>
       </label>
+      {filter.trim() !== "" && (
+        <p className="muted" role="status">
+          {visibleFoods.length}개 표시 중 (전체 {foods.length}개)
+        </p>
+      )}
       <label>
         출처 종류
         <select
@@ -116,7 +146,7 @@ export function SourceCaptureForm({
         </p>
       )}
       {fetchedSourceCount > 0 && (
-        <div className="warn" role="status">
+        <div className="flag warn" role="status">
           수집 완료 출처 {fetchedSourceCount}개
         </div>
       )}

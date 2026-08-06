@@ -20,6 +20,7 @@ type PublicationMessage = {
 type SourcePublicationActionProps = {
   readonly busy: boolean;
   readonly foodId: number | null;
+  readonly hasFetchedSource: boolean;
   readonly hasUnappliedCandidates: boolean;
   readonly onBusyChange: (busy: boolean) => void;
   readonly onPublished: () => Promise<void>;
@@ -28,14 +29,19 @@ type SourcePublicationActionProps = {
 export function SourcePublicationAction({
   busy,
   foodId,
+  hasFetchedSource,
   hasUnappliedCandidates,
   onBusyChange,
   onPublished,
 }: SourcePublicationActionProps) {
   const [message, setMessage] = useState<PublicationMessage | null>(null);
+  // 조사를 한 번도 하지 않은 draft에서는 hasUnappliedCandidates가 false라 이 버튼만
+  // 살아 있었다. 서버는 no_evidence로 거절하므로, 그 규칙을 UI에도 반영한다.
+  const blocked =
+    foodId === null || hasUnappliedCandidates || !hasFetchedSource;
 
   async function publish() {
-    if (foodId === null || hasUnappliedCandidates) return;
+    if (blocked) return;
     onBusyChange(true);
     setMessage(null);
     try {
@@ -75,12 +81,8 @@ export function SourcePublicationAction({
 
   return (
     <>
-      <button
-        className="primary"
-        disabled={busy || foodId === null || hasUnappliedCandidates}
-        onClick={publish}
-      >
-        검증 및 발행
+      <button className="primary" disabled={busy || blocked} onClick={publish}>
+        {busy ? "처리 중…" : "검증 및 발행"}
       </button>
       {message && (
         <p

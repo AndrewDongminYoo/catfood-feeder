@@ -219,15 +219,17 @@ export function SourceResearchClient() {
         url={url}
       />
       <SourceTranscriptPreviews sources={transcripts} />
+      {/* 4단계 워크플로의 2단계다. .ghost는 부수적 동작용이라 나머지 셋과 크기가
+          달라 순서가 순서로 읽히지 않았다. */}
       <button
-        className="ghost"
+        className="primary"
         disabled={busy || fetchedSources.length === 0}
         onClick={extract}
       >
-        수집 원문에서 추출
+        {busy ? "처리 중…" : "수집 원문에서 추출"}
       </button>
       {candidates.length > 0 && (
-        <div className="card">
+        <div className="panel">
           <strong>근거 후보</strong>
           {candidates.map((candidate) => (
             <p key={candidate.nutrientKey}>
@@ -241,11 +243,12 @@ export function SourceResearchClient() {
         disabled={busy || candidates.length === 0}
         onClick={apply}
       >
-        Draft로 적용
+        {busy ? "처리 중…" : "Draft로 적용"}
       </button>
       <SourcePublicationAction
         busy={busy}
         foodId={selected?.id ?? null}
+        hasFetchedSource={fetchedSources.length > 0}
         hasUnappliedCandidates={candidates.length > 0}
         onBusyChange={handlePublicationBusy}
         onPublished={handlePublished}
