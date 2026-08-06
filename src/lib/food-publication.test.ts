@@ -62,6 +62,28 @@ describe("prepareFoodPublication", () => {
     }
   });
 
+  it("refuses a declared P/F/C split that does not sum to 100", () => {
+    // 자릿수가 빠진 열량비(7/20/10)는 실측 태그를 달고 공개되면 안 된다. 이전에는
+    // validate가 재계산값을 보고 선언값을 실었기 때문에 이 검사가 돌지 않았다.
+    const result = prepareFoodPublication({
+      ...validDraft,
+      energyCPct: 10,
+      energyFPct: 20,
+      energyPPct: 7,
+      nutrientSources: {
+        ...validDraft.nutrientSources,
+        energy_c_pct: "manufacturer",
+        energy_f_pct: "manufacturer",
+        energy_p_pct: "manufacturer",
+      },
+    });
+
+    expect(result.kind).toBe("invalid");
+    if (result.kind === "invalid") {
+      expect(result.message).toContain("열량비 합계");
+    }
+  });
+
   it("prepares derived values when an evidence-backed draft is valid", () => {
     const result = prepareFoodPublication(validDraft);
 

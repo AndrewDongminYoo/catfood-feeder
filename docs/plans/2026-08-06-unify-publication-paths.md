@@ -40,6 +40,21 @@ Requiring a round trip through the publish endpoint would mean either weakening 
 
 Option 3 is the one that actually removes the asymmetry rather than describing it; option 2 only moves it into the RPC.
 
+## Related: declared energy has no evidence tier
+
+Found by an adversarial review on 2026-08-06 and only partly closed.
+
+`energy_p/f/c_pct` are not evidence-able keys — `apply_food_evidence_draft` rejects them, so no `food_nutrient_evidence` row can ever back them, and `publish_food_draft`'s evidence loop covers only the eight measured nutrient columns.
+A draft can therefore reach the public catalog with energy tagged `manufacturer` (the measured tier) and nothing behind it.
+
+What was fixed: publication now validates what it publishes.
+`prepareFoodPublication` previously ran `validate` against a recomputed split and then substituted the stored one, so the sum check in `domain.ts` never saw the published values and a digit-dropped split (7/20/10) could publish as measured.
+The declared triple is now passed into `computeDerived`, so the check applies.
+
+What remains: internal consistency is not provenance.
+A draft created by an automation credential with `mfg_energy` still carries a `manufacturer` tag no human attested to, and nothing records who wrote a given draft field.
+Closing that needs the same thing option 3 above needs — a per-field provenance trail — which is why it is recorded here rather than patched separately.
+
 ## Not blocking
 
 Nothing here is a live defect. The current behavior predates the evidence-backed publication work (on `main`, `/api/foods` already set `data_verified_at` on human create and public reads gated on it), so this plan documents an inherited design question, not a regression.
