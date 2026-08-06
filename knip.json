@@ -4,7 +4,7 @@
   "tags": ["-lintignore"],
   "project": ["**/*.{js,ts,tsx}", "!.trunk/**", "!.remember/**"],
   "ignoreFiles": ["src/lib/utils.ts"],
-  "ignoreBinaries": ["codex"],
+  "ignoreBinaries": ["codex", "pgrep"],
   "ignoreDependencies": [
     "@vercel/analytics",
     "class-variance-authority",

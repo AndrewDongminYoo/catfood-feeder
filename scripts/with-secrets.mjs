@@ -29,8 +29,16 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.exit(1);
   }
   loadSecrets();
-  spawn(command, args, { env: process.env, stdio: "inherit" }).on(
-    "exit",
-    (code, signal) => process.exit(signal === null ? (code ?? 1) : 1),
+  const child = spawn(command, args, { env: process.env, stdio: "inherit" });
+
+  // 종료 신호를 자식에게 넘긴다. 넘기지 않으면 프로세스 매니저가 이 래퍼 PID에
+  // SIGTERM을 보냈을 때 래퍼만 죽고 next는 살아남아 포트를 쥔 채 고아가 된다.
+  // (Ctrl-C는 포그라운드 프로세스 그룹 전체에 가므로 그 경로에서는 안 드러난다.)
+  for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
+    process.on(signal, () => child.kill(signal));
+  }
+
+  child.on("exit", (code, signal) =>
+    process.exit(signal === null ? (code ?? 1) : 1),
   );
 }

@@ -54,7 +54,12 @@ type EvidenceOutcome = {
   readonly sourceUrl: string;
   readonly value: number;
   readonly status:
-    "applied" | "skipped" | "conflict" | "unverified" | "source_unavailable";
+    | "applied"
+    | "skipped"
+    | "conflict"
+    | "unverified"
+    | "source_unavailable"
+    | "claim_conflict";
 };
 
 /**
@@ -98,15 +103,23 @@ export async function POST(req: NextRequest) {
         { status: 409 },
       );
 
-    const { captures, sourceIdByUrl } = await captureProposedSources(
+    const { captures, claimLost, sourceIdByUrl } = await captureProposedSources(
       foodId,
       proposal,
     );
-    const { appliedCount, outcomes } = await applyProposedEvidence(
-      foodId,
-      proposal,
-      sourceIdByUrl,
-    );
+    // 클레임은 제안 전체 단위다. 출처 하나라도 뺏겼다면 이미 잡아 둔 출처의 근거도
+    // 적용하지 않는다 — 그 사이 대상을 잡은 사람이 값을 쓰고 있을 수 있다.
+    const { appliedCount, outcomes } = claimLost
+      ? {
+          appliedCount: 0,
+          outcomes: proposal.evidence.map((item) => ({
+            nutrientKey: item.nutrientKey,
+            sourceUrl: item.sourceUrl,
+            status: "claim_conflict" as const,
+            value: item.value,
+          })),
+        }
+      : await applyProposedEvidence(foodId, proposal, sourceIdByUrl);
 
     const status = runStatus(captures, outcomes);
     const runId = await recordFoodResearchRun({
@@ -152,10 +165,12 @@ async function captureProposedSources(
   proposal: ResearchProposal,
 ): Promise<{
   readonly captures: readonly CaptureOutcome[];
+  readonly claimLost: boolean;
   readonly sourceIdByUrl: ReadonlyMap<string, number>;
 }> {
   const captures: CaptureOutcome[] = [];
   const sourceIdByUrl = new Map<string, number>();
+  let claimLost = false;
 
   for (const source of proposal.sources) {
     const captured = await captureSource({
@@ -210,6 +225,7 @@ async function captureProposedSources(
         status: "claim_conflict",
         url: source.url,
       });
+      claimLost = true;
       break;
     }
     sourceIdByUrl.set(source.url, replacement.result.sourceId);
@@ -221,7 +237,7 @@ async function captureProposedSources(
     });
   }
 
-  return { captures, sourceIdByUrl };
+  return { captures, claimLost, sourceIdByUrl };
 }
 
 async function applyProposedEvidence(
@@ -285,13 +301,14 @@ function runStatus(
   captures: readonly CaptureOutcome[],
   outcomes: readonly EvidenceOutcome[],
 ): ResearchRunStatus {
+  // 수집 실패와 대상을 뺏긴 것은 다른 사건이다. 전자는 URL이 나빴다는 뜻이고
+  // 후자는 대상 선정이 낡았다는 뜻이라, 다음 실행이 달리 행동해야 한다.
+  // 클레임을 잃으면 근거를 적용하지 않으므로 이 판정이 가장 먼저 온다.
+  if (captures.some((capture) => capture.status === "claim_conflict"))
+    return "claim_conflict";
   if (outcomes.some((outcome) => outcome.status === "applied"))
     return "applied";
   if (captures.some((capture) => capture.status === "captured"))
     return "rejected";
-  // 수집 실패와 대상을 뺏긴 것은 다른 사건이다. 전자는 URL이 나빴다는 뜻이고
-  // 후자는 대상 선정이 낡았다는 뜻이라, 다음 실행이 달리 행동해야 한다.
-  if (captures.some((capture) => capture.status === "claim_conflict"))
-    return "claim_conflict";
   return "capture_failed";
 }

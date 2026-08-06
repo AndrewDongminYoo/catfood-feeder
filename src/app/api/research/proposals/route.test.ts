@@ -214,7 +214,7 @@ describe("POST /api/research/proposals", () => {
     expect(response.status).toBe(200);
     expect(body.status).toBe("claim_conflict");
     expect(body.captures[0]).toMatchObject({ status: "claim_conflict" });
-    expect(body.evidence[0].status).toBe("source_unavailable");
+    expect(body.evidence[0].status).toBe("claim_conflict");
     expect(body.appliedCount).toBe(0);
     expect(mocks.applyFoodEvidenceDraft).not.toHaveBeenCalled();
     expect(mocks.recordFoodResearchRun).toHaveBeenCalledWith(
@@ -236,6 +236,40 @@ describe("POST /api/research/proposals", () => {
 
     expect(mocks.captureSource).toHaveBeenCalledTimes(1);
     expect(mocks.replaceUnclaimedFoodSource).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies no evidence when a later source loses the claim", async () => {
+    const KR_URL = "https://example.com/kr";
+    // 첫 출처는 정상적으로 잡히고, 두 번째에서 대상을 뺏긴다.
+    mocks.replaceUnclaimedFoodSource
+      .mockResolvedValueOnce({
+        claim: "claimed",
+        result: { contentStatus: "initial", sourceId: 91 },
+      })
+      .mockResolvedValueOnce({ claim: "conflict" });
+
+    const response = await callRoute(
+      envelope({
+        sources: [
+          { kind: "manufacturer", reason: "제조사", url: LABEL_URL },
+          { kind: "kr_label", reason: "수입사", url: KR_URL },
+        ],
+      }),
+    );
+    const body = await response.json();
+
+    // 첫 출처를 이미 잡았더라도 근거는 하나도 쓰지 않는다.
+    expect(mocks.applyFoodEvidenceDraft).not.toHaveBeenCalled();
+    expect(body.status).toBe("claim_conflict");
+    expect(body.appliedCount).toBe(0);
+    expect(
+      body.evidence.every(
+        (e: { status: string }) => e.status === "claim_conflict",
+      ),
+    ).toBe(true);
+    expect(mocks.recordFoodResearchRun).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "claim_conflict" }),
+    );
   });
 
   it("rejects a proposal claiming the same nutrient key twice", async () => {
