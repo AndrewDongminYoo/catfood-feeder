@@ -7,15 +7,25 @@
 // 아니라 런타임 호출이라 execArgv를 건드리지 않는다.
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { homedir } from "node:os";
+import { constants, homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /** 비밀은 저장소 안에 두지 않는다 — scripts/README.md의 "Where credentials live" 참고. */
 export const SECRETS_FILE = join(homedir(), ".config", "catfood-feeder", "env");
 
-/** 자식이 종료 신호를 무시할 때 SIGKILL로 올리기까지의 유예. 테스트가 낮춘다. */
-const KILL_GRACE_MS = Number(process.env.CATFOOD_KILL_GRACE_MS ?? 5000);
+/**
+ * 자식이 종료 신호를 무시할 때 SIGKILL로 올리기까지의 유예. 테스트가 낮춘다.
+ * 숫자가 아니면 기본값으로 되돌린다 — `setTimeout(fn, NaN)`은 즉시 발화해서
+ * 유예가 0으로 붕괴하고, 협조적인 자식까지 강제 종료된다.
+ */
+/** 재발생이 통하지 않는 신호의 128+n 폴백용. os.constants가 이름을 알려준다. */
+const SIGNAL_NUMBERS = constants.signals;
+
+const KILL_GRACE_MS = (() => {
+  const configured = Number(process.env.CATFOOD_KILL_GRACE_MS);
+  return Number.isFinite(configured) && configured >= 0 ? configured : 5000;
+})();
 
 /** Vercel처럼 플랫폼이 환경변수를 직접 주는 곳에는 이 파일이 없다. 없으면 그냥 넘어간다. */
 export function loadSecrets() {
@@ -58,5 +68,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     // 정상 종료(143)가 슈퍼바이저에게 크래시로 읽혀 재시작 루프를 부른다.
     process.removeAllListeners(signal);
     process.kill(process.pid, signal);
+    // 재발생이 우리를 죽이지 못하는 신호도 있다 — Node는 SIGPIPE와 SIGXFSZ를
+    // 무시하고 SIGUSR1로는 인스펙터를 연다. 그대로 두면 신호로 죽은 자식이
+    // exit 0(성공)으로 보고되므로, 관례대로 128+n으로 끝낸다.
+    process.exit(128 + (SIGNAL_NUMBERS[signal] ?? 0));
   });
 }

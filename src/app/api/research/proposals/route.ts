@@ -64,7 +64,8 @@ type EvidenceOutcome = {
     | "conflict"
     | "unverified"
     | "source_unavailable"
-    | "claim_conflict";
+    | "claim_conflict"
+    | "errored";
 };
 
 /**
@@ -110,32 +111,31 @@ export async function POST(req: NextRequest) {
 
     const { captures, claimLost, errored, sourceIdByUrl } =
       await captureProposedSources(foodId, proposal);
+
     // 클레임은 제안 전체 단위다. 출처 하나라도 뺏겼다면 이미 잡아 둔 출처의 근거도
     // 적용하지 않는다 — 그 사이 대상을 잡은 사람이 값을 쓰고 있을 수 있다.
     // 수집이 예외로 끊긴 경우도 같다: DB 상태를 모르는 채로 값을 쓰지 않는다.
-    const { appliedCount, outcomes } =
-      claimLost || errored
-        ? {
-            appliedCount: 0,
-            outcomes: proposal.evidence.map((item) => ({
-              nutrientKey: item.nutrientKey,
-              sourceUrl: item.sourceUrl,
-              status: (claimLost ? "claim_conflict" : "source_unavailable") as
-                "claim_conflict" | "source_unavailable",
-              value: item.value,
-            })),
-          }
-        : await applyProposedEvidence(foodId, proposal, sourceIdByUrl);
-    const lostAtApply = outcomes.some((o) => o.status === "claim_conflict");
-
-    const status = errored
+    //
+    // 근거 적용도 캡처와 같은 이유로 감싼다. 캡처만 감싸면 apply RPC가 CFCLM이
+    // 아닌 사유(도메인 규칙 위반, 그 사이 human-verified로 바뀜, 일시적 DB 오류)로
+    // 던질 때 원장 기록을 건너뛰고, 이미 커밋된 출처 때문에 그 사료는 재조사
+    // 대상에서 영구히 빠진다 — 원장을 만든 이유가 바로 그 복구다.
+    const applied = await applyOrSkip(
+      foodId,
+      proposal,
+      sourceIdByUrl,
+      claimLost,
+      errored,
+    );
+    const status = applied.failed
       ? "errored"
-      : lostAtApply
+      : applied.outcomes.some((outcome) => outcome.status === "claim_conflict")
         ? "claim_conflict"
-        : runStatus(captures, outcomes);
+        : runStatus(captures, applied.outcomes);
+
     const runId = await recordFoodResearchRun({
       captures,
-      evidenceResults: outcomes,
+      evidenceResults: applied.outcomes,
       foodId,
       proposal,
       status,
@@ -143,14 +143,19 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(
       {
-        appliedCount,
+        appliedCount: applied.appliedCount,
         captures,
-        evidence: outcomes,
+        evidence: applied.outcomes,
         runId,
         status,
+        // 실패 응답에도 error를 싣는다. 러너는 이 키로 메시지를 만들고, 그것이
+        // 없으면 방금 남긴 runId까지 함께 버려진다.
+        ...(applied.failed
+          ? { error: "조사 실행이 중단됐습니다. 원장을 확인하세요." }
+          : {}),
       },
       // 부분적으로 쓰고 끊긴 실행은 성공이 아니다. 원장에 남긴 뒤 실패로 알린다.
-      errored ? { status: 500 } : undefined,
+      applied.failed ? { status: 500 } : undefined,
     );
   } catch (error: unknown) {
     if (error instanceof RequestBodyTooLargeError)
@@ -168,6 +173,51 @@ export async function POST(req: NextRequest) {
       { error: "조사 제안 처리에 실패했습니다." },
       { status: 500 },
     );
+  }
+}
+
+/**
+ * 근거 적용 단계. 클레임을 잃었거나 캡처가 끊겼으면 아예 시도하지 않고, 시도한
+ * 경우의 예외도 여기서 흡수해 호출자가 항상 원장을 남길 수 있게 한다.
+ */
+async function applyOrSkip(
+  foodId: number,
+  proposal: ResearchProposal,
+  sourceIdByUrl: ReadonlyMap<string, number>,
+  claimLost: boolean,
+  captureErrored: boolean,
+): Promise<{
+  readonly appliedCount: number;
+  readonly failed: boolean;
+  readonly outcomes: readonly EvidenceOutcome[];
+}> {
+  const skipped = (status: EvidenceOutcome["status"]) =>
+    proposal.evidence.map((item) => ({
+      nutrientKey: item.nutrientKey,
+      sourceUrl: item.sourceUrl,
+      status,
+      value: item.value,
+    }));
+
+  if (claimLost)
+    return {
+      appliedCount: 0,
+      failed: false,
+      outcomes: skipped("claim_conflict"),
+    };
+  if (captureErrored)
+    return { appliedCount: 0, failed: true, outcomes: skipped("errored") };
+
+  try {
+    const { appliedCount, outcomes } = await applyProposedEvidence(
+      foodId,
+      proposal,
+      sourceIdByUrl,
+    );
+    return { appliedCount, failed: false, outcomes };
+  } catch (error: unknown) {
+    console.error("research evidence apply failed", error);
+    return { appliedCount: 0, failed: true, outcomes: skipped("errored") };
   }
 }
 

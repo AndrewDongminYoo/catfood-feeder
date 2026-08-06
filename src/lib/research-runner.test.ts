@@ -112,14 +112,14 @@ describe("with-secrets signal forwarding", () => {
   it("escalates to SIGKILL when the child ignores the forwarded signal", async () => {
     // 핸들러 등록은 Node의 기본 종료 처리를 없앤다. 에스컬레이션이 빠지면 자식도
     // 래퍼도 안 죽고, 프로세스 매니저가 래퍼를 SIGKILL할 때 자식이 다시 고아가 된다.
-    const wrapper = wrapperPath();
+    const marker = `catfood-escalation-probe-${process.pid}`;
     const child = spawn(
       "node",
       [
-        wrapper,
+        wrapperPath(),
         "node",
         "-e",
-        "process.on('SIGTERM', () => {}); setTimeout(() => {}, 30000)",
+        `process.on('SIGTERM', () => {}); setTimeout(() => {}, 30000); // ${marker}`,
       ],
       {
         env: { ...process.env, CATFOOD_KILL_GRACE_MS: "300" },
@@ -131,6 +131,7 @@ describe("with-secrets signal forwarding", () => {
     );
 
     await new Promise((resolve) => setTimeout(resolve, 500));
+    expect((await pgrep(marker)).length).toBeGreaterThanOrEqual(2);
     child.kill("SIGTERM");
 
     await Promise.race([
@@ -139,6 +140,14 @@ describe("with-secrets signal forwarding", () => {
         setTimeout(() => reject(new Error("wrapper hung after SIGTERM")), 5000),
       ),
     ]);
+
+    // 래퍼가 끝난 것만으로는 부족하다. 에스컬레이션을 그냥 exit로 바꿔도 래퍼는
+    // 끝나지만 신호를 무시하는 자식은 고아로 남는다 — 그것이 이 테스트의 대상이다.
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      if ((await pgrep(marker)).length === 0) return;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    expect(await pgrep(marker)).toEqual([]);
   });
 
   it("terminates the spawned child when the wrapper is signalled", async () => {
