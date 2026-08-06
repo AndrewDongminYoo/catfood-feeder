@@ -1,5 +1,10 @@
 # Source-First Catalog Collection
 
+> Status: Historical implementation decision, partially superseded on 2026-08-05.
+> The [AI-Native Catalog Turnaround](../notes/2026-08-05-ai-native-catalog-turnaround.md) replaces human-only source discovery and the blanket prohibition on research-agent credentials as forward-looking product constraints.
+> This document remains authoritative for retained captures, literal evidence, per-field provenance, conflict preservation, and bounded server-side writes, and it records the workflow that led to the current implementation.
+> The current code still enforces human-only source discovery and evidence application. The replacement path implemented so far is the explicit publication of an existing evidence-backed DRAFT without value re-entry.
+
 ## Decision
 
 Replace autonomous LLM web search in the catalog-enrichment path with a source-first workflow.
