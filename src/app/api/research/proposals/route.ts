@@ -197,6 +197,9 @@ async function captureProposedSources(
       foodId,
       kind: source.kind,
       observedAt: null,
+      // 이번 실행이 이미 만든 출처만 소유로 인정된다. 큐레이터 출처든 동시에 도는
+      // 다른 실행의 출처든, 내 것이 아니면 RPC가 잠금 안에서 거절한다.
+      ownedSourceIds: [...sourceIdByUrl.values()],
       url: captured.url,
     });
     // 수집하는 동안 큐레이터가 출처를 붙였거나 발행했다면 아무것도 쓰지 않는다.

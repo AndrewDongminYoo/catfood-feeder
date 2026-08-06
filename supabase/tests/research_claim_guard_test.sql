@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(7);
+SELECT plan(8);
 
 INSERT INTO auth.users (id)
 VALUES ('00000000-0000-0000-0000-000000094001'::uuid);
@@ -58,7 +58,7 @@ SELECT is(
       p_captured_at => now(),
       p_content_hash => repeat('c', 64),
       p_captured_text => 'fresh text',
-      p_require_unclaimed => true
+      p_owned_source_ids => ARRAY[]::bigint[]
     )
   ),
   'claimed',
@@ -76,11 +76,35 @@ SELECT is(
       p_captured_at => now(),
       p_content_hash => repeat('d', 64),
       p_captured_text => 'agent kr text',
-      p_require_unclaimed => true
+      p_owned_source_ids => (
+        SELECT array_agg(id)
+        FROM public.food_sources
+        WHERE food_id = -94003
+      )
     )
   ),
   'claimed',
   'a research run may add its second source over its own capture'
+);
+
+-- 동시에 도는 두 번째 실행은 첫 실행의 출처를 소유하지 않으므로 거절돼야 한다.
+-- created_by로 판별하면 둘 다 NULL이라 통과해 서로의 출처를 은퇴시킨다.
+SELECT is(
+  (
+    SELECT claim_status
+    FROM public.replace_current_food_source(
+      p_food_id => -94003,
+      p_kind => 'manufacturer',
+      p_url => 'https://example.com/second-runner',
+      p_capture_method => 'fetch',
+      p_captured_at => now(),
+      p_content_hash => repeat('1', 64),
+      p_captured_text => 'second runner text',
+      p_owned_source_ids => ARRAY[]::bigint[]
+    )
+  ),
+  'conflict',
+  'a concurrent research run cannot retire another run''s source'
 );
 
 SELECT is(
@@ -94,7 +118,7 @@ SELECT is(
       p_captured_at => now(),
       p_content_hash => repeat('e', 64),
       p_captured_text => 'agent text',
-      p_require_unclaimed => true
+      p_owned_source_ids => ARRAY[]::bigint[]
     )
   ),
   'conflict',
@@ -124,7 +148,7 @@ SELECT is(
       p_captured_at => now(),
       p_content_hash => repeat('f', 64),
       p_captured_text => 'agent text',
-      p_require_unclaimed => true
+      p_owned_source_ids => ARRAY[]::bigint[]
     )
   ),
   'conflict',

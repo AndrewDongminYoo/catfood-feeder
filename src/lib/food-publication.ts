@@ -6,6 +6,10 @@ export type FoodPublicationDraft = {
   readonly ashPct: number | null;
   readonly calciumPct: number | null;
   readonly cookingMethod: CookingMethod | null;
+  /** 저장된 P/F/C. `nutrient_sources`가 manufacturer라면 제조사가 선언한 값이다. */
+  readonly energyCPct: number | null;
+  readonly energyFPct: number | null;
+  readonly energyPPct: number | null;
   readonly fatPct: number | null;
   readonly fiberPct: number | null;
   readonly kcalPerKg: number | null;
@@ -93,7 +97,16 @@ export function prepareFoodPublication(
       ? "estimated"
       : "derived";
   }
-  if (derived.energy_p_pct !== null) {
+  // 제조사가 P/F/C를 직접 선언한 DRAFT는 발행이 다시 계산하지 않는다. 재계산하면
+  // 선언값이 NFE 역산값으로 바뀌고 출처 태그도 manufacturer에서 derived로 떨어져,
+  // 측정값을 파생값으로 둔갑시키게 된다.
+  const hasDeclaredEnergy =
+    draft.nutrientSources.energy_p_pct === "manufacturer" &&
+    draft.energyPPct !== null &&
+    draft.energyFPct !== null &&
+    draft.energyCPct !== null;
+
+  if (!hasDeclaredEnergy && derived.energy_p_pct !== null) {
     nutrientSources.energy_p_pct = "derived";
     nutrientSources.energy_f_pct = "derived";
     nutrientSources.energy_c_pct = "derived";
@@ -103,9 +116,9 @@ export function prepareFoodPublication(
     derived: {
       carbIsEstimated: derived.carb_is_estimated,
       carbPct: derived.carb_pct,
-      energyCPct: derived.energy_c_pct,
-      energyFPct: derived.energy_f_pct,
-      energyPPct: derived.energy_p_pct,
+      energyCPct: hasDeclaredEnergy ? draft.energyCPct : derived.energy_c_pct,
+      energyFPct: hasDeclaredEnergy ? draft.energyFPct : derived.energy_f_pct,
+      energyPPct: hasDeclaredEnergy ? draft.energyPPct : derived.energy_p_pct,
       nutrientSources,
     },
     expectedUpdatedAt: draft.updatedAt,

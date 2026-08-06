@@ -110,6 +110,8 @@ export async function replaceUnclaimedFoodSource(
     readonly capturedAt: string;
     readonly capturedText: string;
     readonly contentHash: string;
+    /** 이번 실행이 이미 만든 출처. 그 밖의 current 출처가 있으면 RPC가 거절한다. */
+    readonly ownedSourceIds: readonly number[];
   },
 ): Promise<ResearchSourceReplacementResult> {
   const supabase = createAdminClient();
@@ -120,7 +122,7 @@ export async function replaceUnclaimedFoodSource(
     p_content_hash: source.contentHash,
     p_food_id: source.foodId,
     p_kind: source.kind,
-    p_require_unclaimed: true,
+    p_owned_source_ids: [...source.ownedSourceIds],
     p_url: source.url,
   });
 

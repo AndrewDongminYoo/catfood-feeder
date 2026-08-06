@@ -9,6 +9,9 @@ const validDraft: FoodPublicationDraft = {
   ashPct: 9,
   calciumPct: 1.6,
   cookingMethod: "extrusion",
+  energyCPct: null,
+  energyFPct: null,
+  energyPPct: null,
   fatPct: 18,
   fiberPct: 4,
   kcalPerKg: 3850,
@@ -29,6 +32,36 @@ const validDraft: FoodPublicationDraft = {
 };
 
 describe("prepareFoodPublication", () => {
+  it("keeps a manufacturer-declared P/F/C split instead of recalculating it", () => {
+    const result = prepareFoodPublication({
+      ...validDraft,
+      energyCPct: 20,
+      energyFPct: 42,
+      energyPPct: 38,
+      nutrientSources: {
+        ...validDraft.nutrientSources,
+        energy_c_pct: "manufacturer",
+        energy_f_pct: "manufacturer",
+        energy_p_pct: "manufacturer",
+      },
+    });
+
+    expect(result.kind).toBe("ready");
+    if (result.kind === "ready") {
+      // 재계산했다면 36.2 / 40.7 / 23.1이 나온다.
+      expect(result.derived).toMatchObject({
+        energyCPct: 20,
+        energyFPct: 42,
+        energyPPct: 38,
+      });
+      expect(result.derived.nutrientSources).toMatchObject({
+        energy_c_pct: "manufacturer",
+        energy_f_pct: "manufacturer",
+        energy_p_pct: "manufacturer",
+      });
+    }
+  });
+
   it("prepares derived values when an evidence-backed draft is valid", () => {
     const result = prepareFoodPublication(validDraft);
 

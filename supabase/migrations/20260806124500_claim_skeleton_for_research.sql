@@ -5,14 +5,20 @@
 -- 출처를 등록·발행하면, 이 함수는 아무 확인 없이 current 출처를 은퇴시켜 버린다.
 -- 그래서 foods 행을 잠근 직후, 잠금 안에서 조건을 다시 본다.
 --
--- 판별식: `created_by IS NOT NULL`인 current fetched 출처가 있으면 사람이 잡은
--- 것으로 본다. 이는 추론이 아니라 라우트가 강제하는 사실이다 —
--- `/api/foods/[id]/sources`는 automation 자격 증명을 거부하므로 큐레이터 수집은
--- 항상 세션 uuid를 남기고, research broker는 언제나 NULL을 넘긴다. 이 두 방향은
--- `supabase/tests/research_claim_guard_test.sql`에서 함께 검증한다.
+-- 판별식은 소유권이다: 호출자가 `p_owned_source_ids`로 "이번 실행이 방금 만든
+-- 출처"를 넘기고, 그 밖의 current fetched 출처가 하나라도 있으면 거절한다.
 --
--- 조사 실행이 자기가 방금 넣은 출처(created_by NULL) 위에 두 번째 kind를 얹는 것은
--- 정상 흐름이므로 막지 않는다.
+-- `created_by IS NULL`을 조사 출처의 표식으로 삼지 않는다. 그 추론은 큐레이터는
+-- 막아도 다른 조사 실행은 막지 못해서, 동시에 도는 두 실행이 서로의 출처를
+-- 은퇴시킬 수 있다. 먼저 근거까지 적용한 쪽은 근거만 current로 남고 그 출처는
+-- 은퇴해, 나중에 발행이 missing_evidence로 실패한다.
+--
+-- 소유권 판별식은 세 경우를 한 조건으로 덮는다: 큐레이터 출처(내 것 아님, 거절),
+-- 동시 실행의 출처(내 것 아님, 거절), 같은 실행의 첫 출처 위에 두 번째 kind를
+-- 얹는 정상 흐름(내 것, 허용).
+--
+-- `p_owned_source_ids`가 NULL이면 검사하지 않는다 — 큐레이터 경로의 기존 동작이다.
+-- 빈 배열은 "아직 아무것도 안 만들었다"는 뜻이라 검사 대상이며, NULL과 다르다.
 
 -- 대상을 뺏긴 실행은 수집 실패와 다른 사건이므로 원장에서도 구분한다.
 ALTER TABLE public.food_research_runs
@@ -44,7 +50,7 @@ CREATE FUNCTION public.replace_current_food_source(
   p_captured_text text,
   p_observed_at timestamptz DEFAULT NULL,
   p_created_by uuid DEFAULT NULL,
-  p_require_unclaimed boolean DEFAULT FALSE
+  p_owned_source_ids bigint [] DEFAULT NULL
 )
 RETURNS TABLE(source_id bigint, content_status text, claim_status text)
 LANGUAGE plpgsql
@@ -85,7 +91,7 @@ BEGIN
   END IF;
 
   -- 잠금 안에서 판정한다. 여기서 통과하면 커밋까지 다른 writer가 끼어들 수 없다.
-  IF p_require_unclaimed THEN
+  IF p_owned_source_ids IS NOT NULL THEN
     IF v_published_at IS NOT NULL
       OR EXISTS (
         SELECT 1
@@ -93,7 +99,7 @@ BEGIN
         WHERE food_id = p_food_id
           AND fetch_status = 'fetched'
           AND is_current
-          AND created_by IS NOT NULL
+          AND NOT (id = ANY (p_owned_source_ids))
       ) THEN
       source_id := NULL;
       content_status := NULL;
@@ -179,7 +185,7 @@ REVOKE ALL ON FUNCTION public.replace_current_food_source(
   text,
   timestamptz,
   uuid,
-  boolean
+  bigint []
 ) FROM PUBLIC, anon, authenticated;
 
 GRANT EXECUTE ON FUNCTION public.replace_current_food_source(
@@ -192,5 +198,5 @@ GRANT EXECUTE ON FUNCTION public.replace_current_food_source(
   text,
   timestamptz,
   uuid,
-  boolean
+  bigint []
 ) TO service_role;
