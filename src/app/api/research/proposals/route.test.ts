@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
 
 const mocks = vi.hoisted(() => ({
-  applyFoodEvidenceDraft: vi.fn(),
+  applyUnclaimedFoodEvidenceDraft: vi.fn(),
   captureSource: vi.fn(),
   createFailedFoodSource: vi.fn(),
   getCurrentFetchedFoodSources: vi.fn(),
@@ -22,7 +22,7 @@ vi.mock("@/lib/source-fetcher", () => ({
 }));
 
 vi.mock("@/lib/source-repository", () => ({
-  applyFoodEvidenceDraft: mocks.applyFoodEvidenceDraft,
+  applyUnclaimedFoodEvidenceDraft: mocks.applyUnclaimedFoodEvidenceDraft,
   createFailedFoodSource: mocks.createFailedFoodSource,
   getCurrentFetchedFoodSources: mocks.getCurrentFetchedFoodSources,
   replaceUnclaimedFoodSource: mocks.replaceUnclaimedFoodSource,
@@ -95,9 +95,14 @@ describe("POST /api/research/proposals", () => {
     mocks.getCurrentFetchedFoodSources.mockResolvedValue([
       { capturedText: LABEL_TEXT, id: 91, kind: "manufacturer" },
     ]);
-    mocks.applyFoodEvidenceDraft.mockImplementation(
-      async (_foodId: number, evidence: readonly { nutrientKey: string }[]) =>
-        evidence.map((item) => ({ ...item, status: "applied" })),
+    mocks.applyUnclaimedFoodEvidenceDraft.mockImplementation(
+      async (
+        _foodId: number,
+        evidence: readonly { nutrientKey: string }[],
+      ) => ({
+        claim: "claimed",
+        results: evidence.map((item) => ({ ...item, status: "applied" })),
+      }),
     );
     mocks.recordFoodResearchRun.mockResolvedValue(1234);
   });
@@ -132,14 +137,18 @@ describe("POST /api/research/proposals", () => {
       kind: "manufacturer",
       url: LABEL_URL,
     });
-    expect(mocks.applyFoodEvidenceDraft).toHaveBeenCalledWith(7, [
-      {
-        excerpt: "조단백질 36% 이상",
-        nutrientKey: "protein_pct",
-        sourceId: 91,
-        value: 36,
-      },
-    ]);
+    expect(mocks.applyUnclaimedFoodEvidenceDraft).toHaveBeenCalledWith(
+      7,
+      [
+        {
+          excerpt: "조단백질 36% 이상",
+          nutrientKey: "protein_pct",
+          sourceId: 91,
+          value: 36,
+        },
+      ],
+      [91],
+    );
   });
 
   it("refuses a target that already carries a current source", async () => {
@@ -178,7 +187,7 @@ describe("POST /api/research/proposals", () => {
       status: "failed",
     });
     expect(body.evidence[0].status).toBe("source_unavailable");
-    expect(mocks.applyFoodEvidenceDraft).not.toHaveBeenCalled();
+    expect(mocks.applyUnclaimedFoodEvidenceDraft).not.toHaveBeenCalled();
     expect(mocks.recordFoodResearchRun).toHaveBeenCalledWith(
       expect.objectContaining({ status: "capture_failed" }),
     );
@@ -202,7 +211,7 @@ describe("POST /api/research/proposals", () => {
     expect(response.status).toBe(200);
     expect(body.status).toBe("rejected");
     expect(body.evidence[0].status).toBe("unverified");
-    expect(mocks.applyFoodEvidenceDraft).not.toHaveBeenCalled();
+    expect(mocks.applyUnclaimedFoodEvidenceDraft).not.toHaveBeenCalled();
   });
 
   it("writes nothing when the target is claimed while the source is fetching", async () => {
@@ -216,7 +225,7 @@ describe("POST /api/research/proposals", () => {
     expect(body.captures[0]).toMatchObject({ status: "claim_conflict" });
     expect(body.evidence[0].status).toBe("claim_conflict");
     expect(body.appliedCount).toBe(0);
-    expect(mocks.applyFoodEvidenceDraft).not.toHaveBeenCalled();
+    expect(mocks.applyUnclaimedFoodEvidenceDraft).not.toHaveBeenCalled();
     expect(mocks.recordFoodResearchRun).toHaveBeenCalledWith(
       expect.objectContaining({ status: "claim_conflict" }),
     );
@@ -259,7 +268,7 @@ describe("POST /api/research/proposals", () => {
     const body = await response.json();
 
     // 첫 출처를 이미 잡았더라도 근거는 하나도 쓰지 않는다.
-    expect(mocks.applyFoodEvidenceDraft).not.toHaveBeenCalled();
+    expect(mocks.applyUnclaimedFoodEvidenceDraft).not.toHaveBeenCalled();
     expect(body.status).toBe("claim_conflict");
     expect(body.appliedCount).toBe(0);
     expect(
@@ -267,6 +276,25 @@ describe("POST /api/research/proposals", () => {
         (e: { status: string }) => e.status === "claim_conflict",
       ),
     ).toBe(true);
+    expect(mocks.recordFoodResearchRun).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "claim_conflict" }),
+    );
+  });
+
+  it("reports claim_conflict when the target is taken between capture and apply", async () => {
+    // 커뮤레이터가 *다른 kind* 를 붙이면 이 실행의 출처는 은퇴되지 않아 수집
+    // 시점 검사를 통과한다. 적용 트랜잭션 안의 재검사만이 이것을 잡는다.
+    mocks.applyUnclaimedFoodEvidenceDraft.mockResolvedValue({
+      claim: "conflict",
+    });
+
+    const response = await callRoute(envelope());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.status).toBe("claim_conflict");
+    expect(body.appliedCount).toBe(0);
+    expect(body.evidence[0].status).toBe("claim_conflict");
     expect(mocks.recordFoodResearchRun).toHaveBeenCalledWith(
       expect.objectContaining({ status: "claim_conflict" }),
     );
@@ -285,7 +313,7 @@ describe("POST /api/research/proposals", () => {
     expect(response.status).toBe(500);
     expect(body.status).toBe("errored");
     expect(body.captures[0]).toMatchObject({ status: "errored" });
-    expect(mocks.applyFoodEvidenceDraft).not.toHaveBeenCalled();
+    expect(mocks.applyUnclaimedFoodEvidenceDraft).not.toHaveBeenCalled();
     expect(mocks.recordFoodResearchRun).toHaveBeenCalledWith(
       expect.objectContaining({ status: "errored" }),
     );
@@ -348,7 +376,7 @@ describe("POST /api/research/proposals", () => {
   it("never sets publication metadata on the research path", async () => {
     await callRoute(envelope());
 
-    const applied = mocks.applyFoodEvidenceDraft.mock.calls;
+    const applied = mocks.applyUnclaimedFoodEvidenceDraft.mock.calls;
     expect(applied).toHaveLength(1);
     expect(JSON.stringify(applied)).not.toContain("published");
   });

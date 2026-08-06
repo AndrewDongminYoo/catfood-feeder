@@ -555,7 +555,11 @@ export type Database = {
     };
     Functions: {
       apply_food_evidence_draft: {
-        Args: { p_evidence: Json; p_food_id: number };
+        Args: {
+          p_evidence: Json;
+          p_food_id: number;
+          p_owned_source_ids?: number[];
+        };
         Returns: Json;
       };
       consume_extract_quota: {

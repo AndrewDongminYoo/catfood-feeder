@@ -16,7 +16,7 @@ import {
 import { validateExtractedEvidence } from "@/lib/source-extraction";
 import { captureSource } from "@/lib/source-fetcher";
 import {
-  applyFoodEvidenceDraft,
+  applyUnclaimedFoodEvidenceDraft,
   createFailedFoodSource,
   getCurrentFetchedFoodSources,
   replaceUnclaimedFoodSource,
@@ -126,8 +126,13 @@ export async function POST(req: NextRequest) {
             })),
           }
         : await applyProposedEvidence(foodId, proposal, sourceIdByUrl);
+    const lostAtApply = outcomes.some((o) => o.status === "claim_conflict");
 
-    const status = errored ? "errored" : runStatus(captures, outcomes);
+    const status = errored
+      ? "errored"
+      : lostAtApply
+        ? "claim_conflict"
+        : runStatus(captures, outcomes);
     const runId = await recordFoodResearchRun({
       captures,
       evidenceResults: outcomes,
@@ -307,13 +312,29 @@ async function applyProposedEvidence(
       ])
     : [];
   const accepted = validateExtractedEvidence(candidates, sources);
+  // 수집 시점의 클레임은 적용 시점까지 유효해야 한다. 그 사이 큐레이터가 다른
+  // kind의 출처를 붙였다면 이 실행의 출처는 은퇴되지 않아 검사를 통과하지만,
+  // 대상은 이미 사람의 것이다 — RPC가 잠금 안에서 그것을 다시 본다.
+  const applied = accepted.length
+    ? await applyUnclaimedFoodEvidenceDraft(foodId, accepted, [
+        ...sourceIdByUrl.values(),
+      ])
+    : ({ claim: "claimed", results: [] } as const);
+
+  if (applied.claim === "conflict") {
+    return {
+      appliedCount: 0,
+      outcomes: proposal.evidence.map((item) => ({
+        nutrientKey: item.nutrientKey,
+        sourceUrl: item.sourceUrl,
+        status: "claim_conflict" as const,
+        value: item.value,
+      })),
+    };
+  }
+
   const results = new Map<string, EvidenceOutcome["status"]>(
-    accepted.length
-      ? (await applyFoodEvidenceDraft(foodId, accepted)).map((result) => [
-          result.nutrientKey,
-          result.status,
-        ])
-      : [],
+    applied.results.map((result) => [result.nutrientKey, result.status]),
   );
 
   const outcomes = proposal.evidence.map((item): EvidenceOutcome => ({

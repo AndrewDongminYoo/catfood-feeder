@@ -198,6 +198,50 @@ export async function getFoodSourceTranscripts(
   );
 }
 
+/** RPC가 "이 실행은 대상을 잃었다"를 알리는 커스텀 SQLSTATE. */
+const CLAIM_LOST_SQLSTATE = "CFCLM";
+
+export type ResearchEvidenceApplyOutcome =
+  | {
+      readonly claim: "claimed";
+      readonly results: readonly EvidenceApplyResult[];
+    }
+  | { readonly claim: "conflict" };
+
+/**
+ * 조사 경로 전용 근거 적용. 수집 시점에 잡은 소유권을 적용 트랜잭션 안에서 다시
+ * 확인하므로, 그 사이 큐레이터가 다른 kind의 출처를 붙였다면 아무 값도 쓰지 않는다.
+ */
+export async function applyUnclaimedFoodEvidenceDraft(
+  foodId: number,
+  evidence: readonly ExtractedEvidence[],
+  ownedSourceIds: readonly number[],
+): Promise<ResearchEvidenceApplyOutcome> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.rpc("apply_food_evidence_draft", {
+    p_evidence: evidence.map((candidate) => ({
+      excerpt: candidate.excerpt,
+      nutrient_key: candidate.nutrientKey,
+      source_id: candidate.sourceId,
+      value: candidate.value,
+    })),
+    p_food_id: foodId,
+    p_owned_source_ids: [...ownedSourceIds],
+  });
+
+  if (error) {
+    if (error.code === CLAIM_LOST_SQLSTATE) return { claim: "conflict" };
+    throw new SourceRepositoryError("apply_food_evidence", error.message);
+  }
+  const results = parseEvidenceApplyResults(data);
+  if (results.length !== evidence.length)
+    throw new SourceRepositoryError(
+      "apply_food_evidence",
+      "Evidence RPC returned an incomplete result",
+    );
+  return { claim: "claimed", results };
+}
+
 export async function applyFoodEvidenceDraft(
   foodId: number,
   evidence: readonly ExtractedEvidence[],
