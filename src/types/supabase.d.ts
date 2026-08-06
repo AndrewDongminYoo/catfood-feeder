@@ -202,6 +202,56 @@ export type Database = {
           },
         ];
       };
+      food_research_runs: {
+        Row: {
+          agent_model: string;
+          agent_name: string;
+          captures: Json;
+          created_at: string;
+          evidence_results: Json;
+          food_id: number;
+          id: number;
+          prompt_version: string;
+          proposal: Json;
+          schema_version: string;
+          status: string;
+        };
+        Insert: {
+          agent_model: string;
+          agent_name: string;
+          captures: Json;
+          created_at?: string;
+          evidence_results: Json;
+          food_id: number;
+          id?: never;
+          prompt_version: string;
+          proposal: Json;
+          schema_version: string;
+          status: string;
+        };
+        Update: {
+          agent_model?: string;
+          agent_name?: string;
+          captures?: Json;
+          created_at?: string;
+          evidence_results?: Json;
+          food_id?: number;
+          id?: never;
+          prompt_version?: string;
+          proposal?: Json;
+          schema_version?: string;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "food_research_runs_food_id_fkey";
+            columns: ["food_id"];
+            isOneToOne: false;
+            referencedRelation: "foods";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       food_sources: {
         Row: {
           attempted_at: string;
