@@ -1,0 +1,45 @@
+# Unify the two publication paths
+
+Status: **proposed, not implemented.**
+Raised by a local Codex cross-review of `feature/ai-native-catalog` on 2026-08-06 and deferred deliberately — this is a product decision about the `/new` workflow, not a defect fix.
+
+## The asymmetry
+
+`docs/specs/2026-08-05-evidence-backed-draft-publication.md` introduced an evidence-checked publication step, but it did not become the only way a food turns public.
+Two paths set publication state today, and they hold different bars:
+
+| Path                                 | Actor          | Evidence required                                                         | Result                |
+| ------------------------------------ | -------------- | ------------------------------------------------------------------------- | --------------------- |
+| `POST /api/foods`                    | human session  | none — `nutrient_sources` tags only                                       | published on the spot |
+| `POST /api/foods/[id]/publish`       | human session  | every non-null nutrient must match a current `food_nutrient_evidence` row | published             |
+| `POST /api/foods` + `x-admin-secret` | automation     | n/a — `published_at` stays null                                           | private draft         |
+| `POST /api/research/proposals`       | research agent | server re-captures and re-verifies each excerpt                           | private draft         |
+
+The machine boundary is intact: no automation credential can publish.
+The asymmetry is between two _human_ paths.
+
+## Why it is currently defensible
+
+The direct path is the `/new` admin input tool.
+A curator reads a physical bag or a 상세페이지 image and types the guaranteed analysis in.
+There is no captured source text to check an excerpt against, so `publish_food_draft`'s evidence join would reject every such row — the curator's own reading _is_ the verification, which is what `verification_method` records.
+
+Requiring a round trip through the publish endpoint would mean either weakening that endpoint's evidence rule or blocking hand entry entirely.
+
+## Why it is worth revisiting
+
+- A reviewer reading `supabase/AGENTS.md` reasonably concluded the publish RPC was the only way to set publication fields. The invariant is harder to state than it should be, and a rule that needs an exception clause is a rule that will be misapplied.
+- Public catalog rows are no longer uniform: some carry a source ledger and per-field evidence, some carry only source _tags_. Nothing in the schema or the UI distinguishes them.
+- The 상세페이지-transcription case already has a home in the source ledger (`captureMethod: "manual"` with the image URL as reference). If `/new` routed through that, hand entry would produce evidence too, and the exemption could disappear.
+
+## Options
+
+1. **Keep the exemption, document it precisely.** Done for now — `supabase/AGENTS.md` names both paths and this file holds the open question. Zero code change.
+2. **Make `/new` create a DRAFT, then publish through the endpoint.** Requires `publish_food_draft` to accept a "curator attestation" evidence kind, or a second verification method that skips the evidence join. Changes the `/new` flow from one action to two.
+3. **Make `/new` write a manual source transcript.** The curator pastes or transcribes what they read into a `manual` `food_sources` row, and evidence is derived from it. Highest integrity — every public value becomes traceable — and the largest UX cost.
+
+Option 3 is the one that actually removes the asymmetry rather than describing it; option 2 only moves it into the RPC.
+
+## Not blocking
+
+Nothing here is a live defect. The current behavior predates the evidence-backed publication work (on `main`, `/api/foods` already set `data_verified_at` on human create and public reads gated on it), so this plan documents an inherited design question, not a regression.
