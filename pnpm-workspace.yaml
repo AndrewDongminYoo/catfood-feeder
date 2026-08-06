@@ -3,12 +3,13 @@ packages:
 
 overrides:
   "@hono/node-server": 2.0.11 # GHSA-9mqv-5hh9-4cgg, GHSA-frvp-7c67-39w9
+  "@supabase/supabase-js@>=2.110.5 <3.0.0-0": 2.112.1
   "body-parser@": 2.3.0 # GHSA-v422-hmwv-36x6
   "brace-expansion@1": ^1.1.17 # GHSA-mh99-v99m-4gvg
   "brace-expansion@5": ^5.0.8 # GHSA-mh99-v99m-4gvg, GHSA-3jxr-9vmj-r5cp
-  "fast-uri@": 3.1.4 # GHSA-4c8g-83qw-93j6, GHSA-v2hh-gcrm-f6hx
-  "hono@": 4.12.31 # GHSA-hvrm-45r6-mjfj, GHSA-w62v-xxxg-mg59, GHSA-xgm2-5f3f-mvvc
-  "js-yaml@": 4.3.0 # GHSA-52cp-r559-cp3m
+  "fast-uri@": 3.1.5 # GHSA-4c8g-83qw-93j6, GHSA-v2hh-gcrm-f6hx
+  "hono@": 4.13.0 # GHSA-hvrm-45r6-mjfj, GHSA-w62v-xxxg-mg59, GHSA-xgm2-5f3f-mvvc
+  "js-yaml@": 4.3.1 # GHSA-52cp-r559-cp3m
   postcss: ">=8.5.10"
   sharp: 0.35.3 # GHSA-f88m-g3jw-g9cj
   tldts: 7.4.0
@@ -23,11 +24,11 @@ minimumReleaseAgeExclude:
   - "@ai-sdk/anthropic@3.0.97"
   - "@ai-sdk/gateway@3.0.150"
   - "@ai-sdk/provider-utils@4.0.39"
-  - "@supabase/auth-js@2.110.5"
-  - "@supabase/functions-js@2.110.5"
-  - "@supabase/postgrest-js@2.110.5"
-  - "@supabase/realtime-js@2.110.5"
+  - "@supabase/auth-js@2.112.1"
+  - "@supabase/functions-js@2.112.1"
+  - "@supabase/postgrest-js@2.112.1"
+  - "@supabase/realtime-js@2.112.1"
   - "@supabase/ssr@0.12.3"
-  - "@supabase/storage-js@2.110.5"
-  - "@supabase/supabase-js@2.110.5"
+  - "@supabase/storage-js@2.112.1"
+  - "@supabase/supabase-js@2.112.1"
   - ai@6.0.226
