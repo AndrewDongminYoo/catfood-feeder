@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   NUTRIENT_FIELDS,
@@ -225,9 +226,9 @@ export default function NewFoodPage() {
       <header className="hd">
         <h1>사료 성분 입력</h1>
         <p>제조사 + 국내 라벨 → 출처별 구조화 · 검증 후 저장</p>
-        <a className="ghost" href="/new/research">
+        <Link className="ghost" href="/new/research">
           출처 기반 조사
-        </a>
+        </Link>
       </header>
 
       <section className="card">
@@ -262,7 +263,11 @@ export default function NewFoodPage() {
         >
           {loading ? "추출 중…" : "→ 구조화 추출"}
         </button>
-        {err && <div className="err">{err}</div>}
+        {err && (
+          <div className="err" role="alert">
+            {err}
+          </div>
+        )}
       </section>
 
       {extracted && (
@@ -364,7 +369,7 @@ export default function NewFoodPage() {
                   </select>
                   <div className={"ev" + (missing ? " evmiss" : "")}>
                     {cell.evidence
-                      ? `↤ "${cell.evidence}"`
+                      ? `← "${cell.evidence}"`
                       : "근거 없음 — 수동 확인"}
                   </div>
                 </div>

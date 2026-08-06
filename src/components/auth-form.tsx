@@ -39,7 +39,7 @@ export function AuthForm({
   }
 
   return (
-    <div className="auth-panel">
+    <div>
       <label>
         이메일
         <input
@@ -56,8 +56,16 @@ export function AuthForm({
       >
         {loading ? "전송 중..." : "로그인 링크 받기"}
       </button>
-      {message && <div className="okbox">{message}</div>}
-      {error && <div className="err">{error}</div>}
+      {message && (
+        <div className="okbox" role="status">
+          {message}
+        </div>
+      )}
+      {error && (
+        <div className="err" role="alert">
+          {error}
+        </div>
+      )}
     </div>
   );
 }

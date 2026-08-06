@@ -138,7 +138,9 @@ export function FeedingForm({
           </label>
         </div>
         {hasDateOrderError && (
-          <div className="err">종료일은 시작일보다 빠를 수 없습니다.</div>
+          <div className="err" role="alert">
+            종료일은 시작일보다 빠를 수 없습니다.
+          </div>
         )}
         <label>
           메모
@@ -155,7 +157,11 @@ export function FeedingForm({
           기록
         </button>
       </div>
-      {error && <div className="err">{error}</div>}
+      {error && (
+        <div className="err" role="alert">
+          {error}
+        </div>
+      )}
     </section>
   );
 }
