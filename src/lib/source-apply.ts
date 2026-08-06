@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const nutrientKeySchema = z.enum([
+export const nutrientKeySchema = z.enum([
   "protein_pct",
   "fat_pct",
   "fiber_pct",
