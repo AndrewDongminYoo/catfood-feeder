@@ -92,7 +92,11 @@ export function SourceCaptureForm({
       </label>
       <button
         className="primary"
-        disabled={busy || !foodId || !url}
+        // 목록에 없는 foodId가 남을 수 있다(loadDrafts는 현재 선택을 보존한다).
+        // !foodId로 판단하면 select는 비었는데 버튼만 살아 클릭이 조용히 무시된다.
+        disabled={
+          busy || !foods.some((food) => String(food.id) === foodId) || !url
+        }
         onClick={onRegisterSource}
       >
         출처 수집

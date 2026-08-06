@@ -15,6 +15,13 @@ import { SECRETS_FILE, loadSecrets } from "./with-secrets.mjs";
 export const PROMPT_VERSION = "2026-08-06";
 export const SCHEMA_VERSION = "1";
 
+/**
+ * broker는 HTTPS 공개 URL만 받는다. 그 제약을 출력 스키마에도 걸어 모델이 볼 수
+ * 있게 한다. 스키마에 없으면 http:// 제안이 400으로 거절되는데, 그 400은 원장
+ * 기록 전이라 그 URL이 attemptedUrls에 남지 않아 다음 실행이 또 제안한다.
+ */
+const HTTPS_URL_PATTERN = "^https://";
+
 /** codex `--output-schema`로 넘기는 응답 형태. broker의 zod 스키마와 짝을 이룬다. */
 export const PROPOSAL_JSON_SCHEMA = {
   additionalProperties: false,
@@ -37,7 +44,7 @@ export const PROPOSAL_JSON_SCHEMA = {
             ],
             type: "string",
           },
-          sourceUrl: { type: "string" },
+          sourceUrl: { pattern: HTTPS_URL_PATTERN, type: "string" },
           value: { minimum: 0, type: "number" },
         },
         required: ["excerpt", "nutrientKey", "sourceUrl", "value"],
@@ -53,7 +60,7 @@ export const PROPOSAL_JSON_SCHEMA = {
         properties: {
           kind: { enum: ["manufacturer", "kr_label"], type: "string" },
           reason: { maxLength: 500, minLength: 1, type: "string" },
-          url: { type: "string" },
+          url: { pattern: HTTPS_URL_PATTERN, type: "string" },
         },
         required: ["kind", "reason", "url"],
         type: "object",

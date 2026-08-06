@@ -55,6 +55,19 @@ What remains: internal consistency is not provenance.
 A draft created by an automation credential with `mfg_energy` still carries a `manufacturer` tag no human attested to, and nothing records who wrote a given draft field.
 Closing that needs the same thing option 3 above needs — a per-field provenance trail — which is why it is recorded here rather than patched separately.
 
+## Related: the evidence-apply gate still reads `data_verified_at`
+
+Raised by a code review on 2026-08-06; observation accepted, no change made.
+
+`apply_food_evidence_draft` refuses a food where `data_verified_at IS NOT NULL`, while the rest of the branch moved visibility to `published_at`.
+`foods_publication_state_valid` permits `data_verified_at IS NOT NULL AND published_at IS NULL`, so in principle a row could be listed by `/api/foods/drafts` and then fail every apply with a generic 500.
+
+Not reachable today: the only two writers of `data_verified_at` are the direct `/api/foods` insert and `publish_food_draft`, and both set `published_at` in the same statement — verified by grep over `src/` and `supabase/migrations/`.
+The 20260805 migration also backfilled `published_at` from `data_verified_at`, so no legacy row is in that state either.
+
+Left alone deliberately: the apply gate asks "has a human verified this?", and `data_verified_at` is the column that answers it — switching it to `published_at` would let evidence overwrite a verified-but-unpublished row, which is the opposite of the invariant.
+If the divergence is worth closing, the right end is the CHECK constraint, which currently sanctions a state no code produces.
+
 ## Not blocking
 
 Nothing here is a live defect. The current behavior predates the evidence-backed publication work (on `main`, `/api/foods` already set `data_verified_at` on human create and public reads gated on it), so this plan documents an inherited design question, not a regression.
