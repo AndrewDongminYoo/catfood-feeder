@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { MockAgent } from "undici";
-import { captureSource } from "./source-fetcher";
+import { MAX_RESPONSE_BYTES, captureSource } from "./source-fetcher";
 
 const publicResolver = async (): Promise<readonly string[]> => [
   "93.184.216.34",
@@ -147,7 +147,7 @@ describe("captureSource", () => {
             }),
             {
               headers: {
-                "content-length": String(256 * 1024 + 1),
+                "content-length": String(MAX_RESPONSE_BYTES + 1),
                 "content-type": "text/plain",
               },
             },
@@ -262,7 +262,7 @@ describe("captureSource", () => {
         resolveHostname: publicResolver,
         fetch: async () =>
           new Response("x", {
-            headers: { "content-length": String(256 * 1024 + 1) },
+            headers: { "content-length": String(MAX_RESPONSE_BYTES + 1) },
           }),
       },
     );

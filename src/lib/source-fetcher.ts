@@ -6,7 +6,14 @@ import { hashSourceText, isPublicHttpUrl } from "./source-collection";
 import type { SourceKind } from "./source-collection";
 
 const MAX_REDIRECTS = 3;
-const MAX_RESPONSE_BYTES = 256 * 1024;
+/**
+ * 상한은 **원시 응답**에 걸리지만 보관하는 것은 `extractVisibleText`의 결과다.
+ * 제조사 페이지는 이 둘의 차가 크다 — ACANA 제품 페이지 실측 267,880 bytes 중
+ * 가시 텍스트는 9,546자(3.6%)였고, 옛 256KB 상한은 이 페이지를 2% 차이로 거절해
+ * 성분표가 본문에 그대로 있는데도 캡처가 실패했다.
+ * 신뢰할 수 없는 URL을 막는 경계는 유지하되, 상한은 실제 페이지 크기에 맞춘다.
+ */
+export const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 20_000;
 
 type CaptureFailureCode =
