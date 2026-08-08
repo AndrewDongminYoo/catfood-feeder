@@ -152,7 +152,10 @@ try {
  * 탄수화물까지 가야 카탈로그 행이 의미를 갖는다. 경로는 둘이다: 라벨이 NFE를 직접
  * 쓰거나(한국 등록성분량), 수분까지 있어서 역산이 되거나. 넷은 어느 쪽이든 필요하다.
  */
-const ALWAYS_REQUIRED = ["protein_pct", "fat_pct", "fiber_pct", "ash_pct"];
+// 회분은 넣지 않는다. AAFCO 계열 라벨은 회분을 아예 쓰지 않고, 익스트루전 사료는
+// resolveAsh가 9.0%를 estimated로 채운다 — 여기서 요구하면 그 브랜드 전체가 영구
+// 재조사 대상으로 남는다. 진짜로 계산이 불가능한 행은 발행 시점 validate가 잡는다.
+const ALWAYS_REQUIRED = ["protein_pct", "fat_pct", "fiber_pct"];
 
 function missingForCarb(appliedKeys) {
   const missing = ALWAYS_REQUIRED.filter((key) => !appliedKeys.has(key));
