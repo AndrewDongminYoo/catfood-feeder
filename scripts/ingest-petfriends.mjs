@@ -46,6 +46,8 @@ function parseWeightKg(name) {
 // 키는 정규화된 한글명(소문자), 값은 DB에 쓸 정규 브랜드명.
 const BRAND_ALIASES = {
   아카나: "ACANA", // foods 테이블의 기존 큐레이션 브랜드(brand_id 1)와 병합
+  레오나르도: "LEONARDO", // 큐레이션 브랜드(brand_id 108)와 병합 — 없으면 27/108로 갈린다
+  오리젠: "ORIJEN", // ACANA와 같은 Champion Petfoods. 큐레이션 브랜드는 ASCII 표기를 정규명으로 쓴다
 };
 
 // 괄호 별칭 제거 → 정규 브랜드명. "로얄캐닌(Royal Canin)" / "로얄캐닌 (Royal Canin)" → "로얄캐닌"
