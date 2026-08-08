@@ -111,8 +111,13 @@ try {
     "1. Find the brand's official manufacturer website.",
     "2. For each product above, return the URL of ITS OWN product page — the page",
     "   carrying that recipe's guaranteed analysis / analytical constituents.",
-    "3. Prefer a Korean or Asia-Pacific regional page when one exists, otherwise the",
-    "   global or North American one. HTTPS only.",
+    "3. Region order: Korean (ko-KR) first, then Asia-Pacific, then global or North",
+    "   American English. HTTPS only. Never a German, French, or other",
+    "   non-English European page — this catalog serves the Korean market and those",
+    "   pages state a different regional formulation.",
+    "4. The page must show the analysis as text on the page itself. A page that only",
+    "   links a PDF or an image of the label is useless here: the backend captures",
+    "   text, so pick a regional page that prints the values inline instead.",
     "",
     "Rules:",
     "- Return null for any product whose own page you cannot identify. A wrong URL",
@@ -143,8 +148,23 @@ try {
   await rm(workdir, { force: true, recursive: true });
 }
 
+/**
+ * NFE 탄수화물은 이 다섯이 다 있어야 나온다(domain.ts computeDerived). 하나라도
+ * 빠지면 carb_pct와 열량비가 통째로 비어 카탈로그에 빈 껍데기로 올라가므로,
+ * "적용됨"으로 세면 안 된다 — 다시 조사할 대상이다.
+ */
+const CARB_CRITICAL = [
+  "protein_pct",
+  "fat_pct",
+  "fiber_pct",
+  "moisture_pct",
+  "ash_pct",
+];
+
 const byId = new Map(targets.map((t) => [t.id, t]));
+const thinFoods = [];
 let ok = 0;
+let thin = 0;
 let empty = 0;
 let failed = 0;
 let skipped = 0;
@@ -162,6 +182,20 @@ for (const { foodId, url } of urls) {
     if (outcome.reason === "no_evidence_in_capture") {
       empty++;
       console.log(`  ✗ ${foodId} ${target.product_name} — 원문에 성분표 없음`);
+      continue;
+    }
+    const appliedKeys = new Set(
+      outcome.results
+        .filter((r) => r.status === "applied")
+        .map((r) => r.nutrientKey),
+    );
+    const missing = CARB_CRITICAL.filter((key) => !appliedKeys.has(key));
+    if (missing.length > 0) {
+      thin++;
+      thinFoods.push({ foodId, missing, name: target.product_name });
+      console.log(
+        `  ~ ${foodId} ${target.product_name} — 근거 ${outcome.applied}건, 부족: ${missing.join(",")}`,
+      );
     } else {
       ok++;
       console.log(
@@ -176,6 +210,12 @@ for (const { foodId, url } of urls) {
 
 // 침묵하는 축소는 "전부 조사됨"으로 읽힌다. 빠진 건수를 항상 보고한다.
 console.log(
-  `\n${brandName}: 적용 ${ok} / 성분표 없음 ${empty} / 실패 ${failed} / URL 없음 ${skipped}` +
-    ` (대상 ${targets.length}, 응답 ${urls.length})`,
+  `\n${brandName}: 완전 ${ok} / 불완전 ${thin} / 성분표 없음 ${empty} /` +
+    ` 실패 ${failed} / URL 없음 ${skipped} (대상 ${targets.length}, 응답 ${urls.length})`,
 );
+if (thinFoods.length > 0) {
+  console.log("재조사 필요:");
+  for (const item of thinFoods) {
+    console.log(`  ${item.foodId} ${item.name} — ${item.missing.join(",")}`);
+  }
+}
