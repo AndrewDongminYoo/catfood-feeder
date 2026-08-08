@@ -30,11 +30,6 @@ export async function POST(
       { error: authorization.message },
       { status: authorization.status },
     );
-  if (authorization.origin === "automation")
-    return NextResponse.json(
-      { error: "자동화 자격 증명으로는 Draft를 적용할 수 없습니다." },
-      { status: 403 },
-    );
   const foodId = z.coerce
     .number()
     .int()

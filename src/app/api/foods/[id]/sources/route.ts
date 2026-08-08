@@ -55,12 +55,6 @@ export async function GET(
       { status: authorization.status },
     );
   }
-  if (authorization.origin === "automation") {
-    return NextResponse.json(
-      { error: "자동화 자격 증명으로는 출처를 조회할 수 없습니다." },
-      { status: 403 },
-    );
-  }
 
   const params = await context.params;
   const foodId = z.coerce.number().int().positive().safeParse(params.id);
@@ -91,12 +85,6 @@ export async function POST(
     return NextResponse.json(
       { error: authorization.message },
       { status: authorization.status },
-    );
-  }
-  if (authorization.origin === "automation") {
-    return NextResponse.json(
-      { error: "자동화 자격 증명으로는 출처를 등록할 수 없습니다." },
-      { status: 403 },
     );
   }
 

@@ -52,6 +52,19 @@ describe("research agent 자격 증명 경계", () => {
     expect(offenders).toEqual([]);
   });
 
+  // 큐레이터 경로(출처 등록·추출·적용)는 운영자 자동화에 열려 있지만 발행은 아니다.
+  // 턴어라운드 문서의 사람 게이트는 "발행" 한 곳뿐이고, 나머지를 열어 손작업을 없앤
+  // 변경이 이 마지막 한 곳까지 같이 열어버리는 것이 가장 조용한 실패다.
+  it("발행 경로는 자동화 자격 증명을 계속 거부한다", () => {
+    const publishRoute = readFileSync(
+      join(ROOT, "src/app/api/foods/[id]/publish/route.ts"),
+      "utf8",
+    );
+
+    expect(publishRoute).toContain('authorization.origin === "automation"');
+    expect(publishRoute).toContain("발행할 수 없습니다");
+  });
+
   it("research broker는 관리자 자격 증명을 인정하지 않는다", () => {
     const brokerRoutes = productionSources().filter((path) =>
       relative(path).startsWith("src/app/api/research/"),

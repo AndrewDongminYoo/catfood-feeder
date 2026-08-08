@@ -10,12 +10,6 @@ export async function GET(req: NextRequest) {
       { status: authorization.status },
     );
   }
-  if (authorization.origin === "automation") {
-    return NextResponse.json(
-      { error: "자동화 자격 증명으로는 Draft 목록을 조회할 수 없습니다." },
-      { status: 403 },
-    );
-  }
 
   try {
     const supabase = createAdminClient();
