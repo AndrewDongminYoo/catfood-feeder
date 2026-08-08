@@ -172,7 +172,12 @@ try {
     "  등록성분량 writes as 'NFE' or '가용무질소물'. Never calculate it.",
     "- A product whose own page you cannot find gets an empty sources and evidence",
     "  array. A wrong page applies another recipe's analysis, which is worse.",
-    "- Manufacturer sites only — no retailer, blog or marketplace pages.",
+    "- Two kinds of page count. kind 'manufacturer' is the maker's own product page.",
+    "  kind 'kr_label' is the Korean importer's or Korean brand owner's official page",
+    "  carrying the registered 등록성분량 declaration — for a Korean brand that IS the",
+    "  authoritative source, and for an imported one it is the legally required label.",
+    "  Use whichever exists; both may be cited for the same product.",
+    "- No retailer, marketplace, blog or review pages, and no aggregator listings.",
     "- Return only the JSON object described by the output schema.",
   ].join("\n");
 
