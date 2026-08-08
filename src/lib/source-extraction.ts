@@ -359,14 +359,27 @@ Source records:
 ${JSON.stringify(sources)}`;
 }
 
-function parseModelOutput(
+export function parseModelOutput(
   text: string,
 ): z.infer<typeof modelOutputSchema> | null {
-  try {
-    const clean = text.replace(/```json|```/g, "").trim();
-    const parsed = modelOutputSchema.safeParse(JSON.parse(clean));
-    return parsed.success ? parsed.data : null;
-  } catch {
-    return null;
+  const clean = text.replace(/```json|```/g, "").trim();
+  // 모델이 JSON 앞뒤에 한두 문장을 붙이는 일이 실제로 일어난다. 그때 전체 파싱이
+  // 실패하면 그 사료는 502로 통째로 버려지므로(스윕에서 7건), 바깥 괄호 구간을
+  // 잘라 한 번 더 시도한다. 스키마 검증은 그대로라 형태가 틀리면 여전히 거절된다.
+  const first = clean.indexOf("{");
+  const last = clean.lastIndexOf("}");
+  const candidates =
+    first === -1 || last <= first
+      ? [clean]
+      : [clean, clean.slice(first, last + 1)];
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = modelOutputSchema.safeParse(JSON.parse(candidate));
+      if (parsed.success) return parsed.data;
+    } catch {
+      // 다음 후보로 넘어간다.
+    }
   }
+  return null;
 }

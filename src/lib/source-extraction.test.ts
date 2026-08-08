@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   extractCapturedSources,
+  parseModelOutput,
   validateExtractedEvidence,
 } from "./source-extraction";
 
@@ -391,5 +392,27 @@ describe("validateExtractedEvidence", () => {
     );
 
     expect(result).toEqual([]);
+  });
+});
+
+describe("parseModelOutput", () => {
+  // 모델이 JSON 앞뒤에 한두 문장을 붙이면 예전 파서는 통째로 실패했고 그 사료는
+  // 502로 버려졌다. 브랜드 스윕에서 7건이 이렇게 사라졌다.
+  it("JSON 앞뒤에 산문이 붙어도 객체를 뽑아낸다", () => {
+    const payload = JSON.stringify({
+      nutrients: {
+        protein_pct: { excerpt: "Crude protein 38 %", sourceId: 1, value: 38 },
+      },
+    });
+
+    const parsed = parseModelOutput(
+      `조사 결과입니다:\n${payload}\n확인 바랍니다.`,
+    );
+
+    expect(parsed?.nutrients.protein_pct?.value).toBe(38);
+  });
+
+  it("괄호 구간을 잘라내도 형태가 틀리면 여전히 거절한다", () => {
+    expect(parseModelOutput('설명 { "nutrients": 42 } 끝')).toBeNull();
   });
 });
