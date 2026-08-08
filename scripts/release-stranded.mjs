@@ -1,0 +1,80 @@
+#!/usr/bin/env node
+// 근거를 하나도 남기지 못한 현재 출처를 은퇴시켜, 그 사료를 다시 조사 대상으로 돌린다.
+//
+// 왜 필요한가: 수집은 성공했는데 추출이 실패하면(추출 API 장애, 성분표가 없는 페이지)
+// 그 사료는 현재 출처를 가진 채 근거가 0건인 상태로 남는다. 그러면 에이전트 경로는
+// "skeleton이 아니다"라며 거절하고, 큐레이터 경로는 추출이 죽어 있으면 진행이 안 되어
+// 두 경로 모두 닿지 못한다. Anthropic 크레딧이 떨어진 동안 62건이 이렇게 고였다.
+//
+// 삭제하지 않는다. `is_current = false`로 내려 원장은 그대로 두므로, 그 URL을 시도했다는
+// 사실과 실패 이유는 남는다 — 그게 재조사를 더 낫게 만드는 재료다.
+//
+// 근거가 하나라도 붙은 사료는 건드리지 않는다. 그 출처를 내리면 발행 시점 근거 검사가
+// `source.is_current`를 조인하므로 성공한 조사 결과가 통째로 무효가 된다.
+//
+// 사용법:
+//   node scripts/release-stranded.mjs --dry
+//   node scripts/release-stranded.mjs
+
+import { createClient } from "@supabase/supabase-js";
+import { SECRETS_FILE, loadSecrets } from "./with-secrets.mjs";
+
+loadSecrets();
+
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const key =
+  process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!url || !key) {
+  console.error(`Supabase URL/service key가 ${SECRETS_FILE}에 없습니다.`);
+  process.exit(1);
+}
+const supabase = createClient(url, key, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
+const DRY = process.argv.includes("--dry");
+
+const { data: sources, error: sourcesError } = await supabase
+  .from("food_sources")
+  .select("id, food_id, kind, url, failure_code, foods!inner(published_at)")
+  .eq("is_current", true)
+  .is("foods.published_at", null);
+if (sourcesError) throw sourcesError;
+
+const { data: evidence, error: evidenceError } = await supabase
+  .from("food_nutrient_evidence")
+  .select("food_id")
+  .eq("is_current", true);
+if (evidenceError) throw evidenceError;
+
+const backed = new Set((evidence ?? []).map((row) => row.food_id));
+const stranded = (sources ?? []).filter((row) => !backed.has(row.food_id));
+
+console.log(
+  `현재 출처 ${sources?.length ?? 0}건 중 근거 없는 좌초 ${stranded.length}건`,
+);
+if (stranded.length === 0) process.exit(0);
+
+for (const row of stranded.slice(0, 20)) {
+  console.log(
+    `  ${row.food_id} ${row.kind} ${row.failure_code ?? "fetched"} ${String(row.url).slice(0, 60)}`,
+  );
+}
+if (stranded.length > 20) console.log(`  … 외 ${stranded.length - 20}건`);
+
+if (DRY) {
+  console.log("\n[DRY RUN] 변경 없음.");
+  process.exit(0);
+}
+
+const { error: updateError } = await supabase
+  .from("food_sources")
+  .update({ is_current: false })
+  .in(
+    "id",
+    stranded.map((row) => row.id),
+  );
+if (updateError) throw updateError;
+
+console.log(
+  `\n${stranded.length}건을 현재 출처에서 내렸다. 다시 조사 대상이다.`,
+);
