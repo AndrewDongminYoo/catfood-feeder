@@ -18,6 +18,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 const readyRow = {
   ash_pct: 9,
   calcium_pct: 1.6,
+  carb_pct: null,
   cooking_method: "extrusion",
   energy_c_pct: null,
   energy_f_pct: null,

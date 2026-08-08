@@ -149,17 +149,18 @@ try {
 }
 
 /**
- * NFE 탄수화물은 이 다섯이 다 있어야 나온다(domain.ts computeDerived). 하나라도
- * 빠지면 carb_pct와 열량비가 통째로 비어 카탈로그에 빈 껍데기로 올라가므로,
- * "적용됨"으로 세면 안 된다 — 다시 조사할 대상이다.
+ * 탄수화물까지 가야 카탈로그 행이 의미를 갖는다. 경로는 둘이다: 라벨이 NFE를 직접
+ * 쓰거나(한국 등록성분량), 수분까지 있어서 역산이 되거나. 넷은 어느 쪽이든 필요하다.
  */
-const CARB_CRITICAL = [
-  "protein_pct",
-  "fat_pct",
-  "fiber_pct",
-  "moisture_pct",
-  "ash_pct",
-];
+const ALWAYS_REQUIRED = ["protein_pct", "fat_pct", "fiber_pct", "ash_pct"];
+
+function missingForCarb(appliedKeys) {
+  const missing = ALWAYS_REQUIRED.filter((key) => !appliedKeys.has(key));
+  if (!appliedKeys.has("carb_pct") && !appliedKeys.has("moisture_pct")) {
+    missing.push("carb_pct|moisture_pct");
+  }
+  return missing;
+}
 
 const byId = new Map(targets.map((t) => [t.id, t]));
 const thinFoods = [];
@@ -189,7 +190,7 @@ for (const { foodId, url } of urls) {
         .filter((r) => r.status === "applied")
         .map((r) => r.nutrientKey),
     );
-    const missing = CARB_CRITICAL.filter((key) => !appliedKeys.has(key));
+    const missing = missingForCarb(appliedKeys);
     if (missing.length > 0) {
       thin++;
       thinFoods.push({ foodId, missing, name: target.product_name });

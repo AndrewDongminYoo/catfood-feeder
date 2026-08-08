@@ -8,6 +8,7 @@ import {
 const validDraft: FoodPublicationDraft = {
   ashPct: 9,
   calciumPct: 1.6,
+  carbPct: null,
   cookingMethod: "extrusion",
   energyCPct: null,
   energyFPct: null,
@@ -148,6 +149,39 @@ describe("prepareFoodPublication", () => {
         energyPPct: 36.2,
       });
       expect(result.derived.nutrientSources.energy_p_pct).toBe("derived");
+    }
+  });
+
+  // 한국 등록성분량은 수분을 안 쓰고 NFE를 직접 쓴다. 그 탄수화물은 실측값이므로
+  // 역산값이 덮으면 안 되고, 태그도 derived로 떨어지면 안 된다.
+  it("라벨이 쓴 NFE를 역산값보다 우선하고 태그를 유지한다", () => {
+    const result = prepareFoodPublication({
+      ...validDraft,
+      carbPct: 30.5,
+      moisturePct: null,
+      nutrientSources: { ...validDraft.nutrientSources, carb_pct: "kr_label" },
+    });
+
+    expect(result.kind).toBe("ready");
+    if (result.kind === "ready") {
+      expect(result.derived.carbPct).toBe(30.5);
+      expect(result.derived.carbIsEstimated).toBe(false);
+      expect(result.derived.nutrientSources.carb_pct).toBe("kr_label");
+    }
+  });
+
+  // 역산으로 채워진 carb를 다시 실측으로 넘기면 계산값이 자기 입력이 되어 굳는다.
+  it("derived 태그가 붙은 carb는 실측으로 취급하지 않는다", () => {
+    const result = prepareFoodPublication({
+      ...validDraft,
+      carbPct: 99,
+      nutrientSources: { ...validDraft.nutrientSources, carb_pct: "derived" },
+    });
+
+    expect(result.kind).toBe("ready");
+    if (result.kind === "ready") {
+      expect(result.derived.carbPct).toBe(23);
+      expect(result.derived.nutrientSources.carb_pct).toBe("derived");
     }
   });
 

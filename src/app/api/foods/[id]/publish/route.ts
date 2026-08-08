@@ -13,6 +13,7 @@ const nutrientSourcesSchema = z.record(z.string(), z.enum(SOURCE_VALUES));
 const publicationDraftRowSchema = z.object({
   ash_pct: z.number().nullable(),
   calcium_pct: z.number().nullable(),
+  carb_pct: z.number().nullable(),
   cooking_method: z.enum(COOKING_METHOD_VALUES).nullable(),
   energy_c_pct: z.number().nullable(),
   energy_f_pct: z.number().nullable(),
@@ -31,6 +32,7 @@ const publicationDraftRowSchema = z.object({
 const DRAFT_FIELDS = [
   "ash_pct",
   "calcium_pct",
+  "carb_pct",
   "cooking_method",
   "energy_c_pct",
   "energy_f_pct",
@@ -115,6 +117,7 @@ export async function POST(
     const preparation = prepareFoodPublication({
       ashPct: parsedDraft.data.ash_pct,
       calciumPct: parsedDraft.data.calcium_pct,
+      carbPct: parsedDraft.data.carb_pct,
       cookingMethod: parsedDraft.data.cooking_method,
       energyCPct: parsedDraft.data.energy_c_pct,
       energyFPct: parsedDraft.data.energy_f_pct,

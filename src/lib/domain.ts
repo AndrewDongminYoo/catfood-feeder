@@ -25,6 +25,10 @@ export const NUTRIENT_FIELDS = [
   ["calcium_pct", "칼슘 Calcium"],
   ["phosphorus_pct", "인 Phosphorus"],
   ["kcal_per_kg", "열량 kcal/kg"],
+  // 한국 등록성분량은 수분 대신 NFE를 직접 쓴다("단백질 33%, 지방 22%, 조섬유 1.6%,
+  // 조회분 7.4%, NFE 30.5%"). 그 경우 탄수화물은 계산값이 아니라 실측값이므로 근거를
+  // 붙일 자리가 있어야 한다. 없으면 실측값을 버리고 추정값으로 대체하게 된다.
+  ["carb_pct", "탄수화물 NFE"],
 ] as const;
 
 export type NutrientKey = (typeof NUTRIENT_FIELDS)[number][0];
@@ -66,6 +70,8 @@ export interface NutrientInput {
   calcium_pct?: unknown;
   phosphorus_pct?: unknown;
   kcal_per_kg?: unknown;
+  /** 라벨이 NFE를 직접 쓴 경우의 실측 탄수화물. 없으면 computeDerived가 역산한다. */
+  carb_pct?: unknown;
 }
 
 export interface Derived {
@@ -106,10 +112,18 @@ export function computeDerived(
 
   const ash = resolveAsh(n.ash_pct, ashSource, cooking);
 
-  // NFE 탄수화물: 회분 결정값이 있어야 계산
+  // NFE 탄수화물: 라벨이 직접 쓴 값이 있으면 그것이 실측이다. 없을 때만 역산하고,
+  // 역산은 회분 결정값과 수분이 둘 다 있어야 성립한다 — 한국 등록성분량처럼 수분을
+  // 안 쓰는 형식에서는 역산이 불가능한 대신 NFE가 이미 적혀 있다.
+  const statedCarb = num(n.carb_pct);
   let carb: number | null = null;
   let carbEstimated = false;
-  if ([p, f, fiber, moist].every((v) => v !== null) && ash.value !== null) {
+  if (statedCarb !== null) {
+    carb = statedCarb;
+  } else if (
+    [p, f, fiber, moist].every((v) => v !== null) &&
+    ash.value !== null
+  ) {
     carb = round(100 - (p! + f! + fiber! + moist! + ash.value), 1);
     carbEstimated = ash.estimated;
   }
@@ -298,6 +312,11 @@ const CONFLICT_PATTERNS: Record<NutrientKey, RegExp[]> = {
   ],
   // `\/?`가 `\/`를 포함하므로 패턴 하나로 충분하다.
   kcal_per_kg: [/(\d{1,2}(?:,\d{3})+|\d{3,4})(?:\.\d+)?\s*kcal\s*\/?\s*kg/i],
+  // 한국 등록성분량 표기. NFE는 영문 그대로 쓰이고 "가용무질소물"이 병기되기도 한다.
+  carb_pct: [
+    /NFE[^\d]{0,30}(\d+(?:\.\d+)?)/i,
+    /가용무질소물[^\d]{0,30}(\d+(?:\.\d+)?)/i,
+  ],
 };
 
 export function extractNutrientHints(

@@ -9,6 +9,8 @@ export const nutrientKeySchema = z.enum([
   "calcium_pct",
   "phosphorus_pct",
   "kcal_per_kg",
+  // 한국 등록성분량이 NFE를 직접 쓰는 경우의 실측 탄수화물.
+  "carb_pct",
 ]);
 
 export const evidenceCandidateSchema = z.object({

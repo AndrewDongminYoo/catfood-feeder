@@ -5,6 +5,8 @@ import type { CookingMethod, NutrientInput, Source } from "./domain";
 export type FoodPublicationDraft = {
   readonly ashPct: number | null;
   readonly calciumPct: number | null;
+  /** 저장된 탄수화물. `nutrient_sources.carb_pct`가 실측 태그일 때만 라벨 선언값이다. */
+  readonly carbPct: number | null;
   readonly cookingMethod: CookingMethod | null;
   /** 저장된 P/F/C. `nutrient_sources`가 manufacturer라면 제조사가 선언한 값이다. */
   readonly energyCPct: number | null;
@@ -69,9 +71,15 @@ export type PublishFoodDraftResult = Readonly<
 export function prepareFoodPublication(
   draft: FoodPublicationDraft,
 ): FoodPublicationPreparation {
+  // 라벨이 NFE를 직접 쓴 경우에만 저장된 carb를 실측으로 넘긴다. 계산으로 채워진
+  // 값을 다시 넘기면 역산 결과가 자기 자신을 입력으로 삼아 실측으로 굳어버린다.
+  const statedCarb = isMeasured(draft.nutrientSources.carb_pct)
+    ? draft.carbPct
+    : null;
   const nutrients: NutrientInput = {
     ash_pct: draft.ashPct,
     calcium_pct: draft.calciumPct,
+    carb_pct: statedCarb,
     fat_pct: draft.fatPct,
     fiber_pct: draft.fiberPct,
     kcal_per_kg: draft.kcalPerKg,
@@ -113,7 +121,9 @@ export function prepareFoodPublication(
   const nutrientSources: Record<string, Source> = {
     ...draft.nutrientSources,
   };
-  if (derived.carb_pct !== null) {
+  // 실측 carb는 태그를 그대로 둔다. 여기서 derived로 덮으면 라벨이 쓴 값이
+  // 계산값으로 둔갑해 measured/estimated 구분이 무너진다.
+  if (statedCarb === null && derived.carb_pct !== null) {
     nutrientSources.carb_pct = derived.carb_is_estimated
       ? "estimated"
       : "derived";
@@ -144,6 +154,11 @@ export function prepareFoodPublication(
  * 저장된 P/F/C가 제조사 선언값인지. 세 값이 모두 있고 태그가 manufacturer일 때만
  * 참이며, 그때는 발행이 재계산 대신 이 값을 검증해서 그대로 싣는다.
  */
+/** 라벨에서 온 값인가. derived/estimated는 계산 산물이므로 실측이 아니다. */
+function isMeasured(source: Source | undefined): boolean {
+  return source === "manufacturer" || source === "kr_label";
+}
+
 function hasDeclaredEnergy(draft: FoodPublicationDraft): boolean {
   return (
     draft.nutrientSources.energy_p_pct === "manufacturer" &&
