@@ -41,6 +41,7 @@ export const PROPOSAL_JSON_SCHEMA = {
               "calcium_pct",
               "phosphorus_pct",
               "kcal_per_kg",
+              "carb_pct",
             ],
             type: "string",
           },
@@ -141,6 +142,8 @@ export function buildPrompt(target) {
     "Rules:",
     "- Never infer, average, convert, or estimate a value. No evidence, no entry.",
     "- Percentages as stated on the label; kcal_per_kg in kcal per kilogram.",
+    "- carb_pct is ONLY a carbohydrate the label states itself — Korean 등록성분량",
+    '  writes it as "NFE" or "가용무질소물". Never calculate it yourself.',
     "- Return only the JSON object described by the output schema.",
   ].join("\n");
 }
