@@ -123,6 +123,10 @@ if (missingBrands.length) {
 console.log(`브랜드: 신규 ${missingBrands.length}, 총 ${brandId.size}`);
 
 // 2) foods 행 구성
+// 오븐베이크·동결건조를 이름으로 드러내는 제품. 이것만 조리법 미상으로 남긴다.
+const NON_EXTRUSION =
+  /오븐|베이크|bake|동결|프리즈|freeze|에어드라이|air.?dried|화식|저온/i;
+
 const rows = items.map((i) => {
   return {
     brand_id: brandId.get(i.brand.toLowerCase()),
@@ -130,6 +134,13 @@ const rows = items.map((i) => {
     weight_kg: i.weightKg,
     source: SOURCE,
     external_id: i.externalId,
+    // 위 필터가 이미 건사료만 남겼고 건식 킵블은 익스트루전이다. 이걸 비워두면
+    // resolveAsh의 9.0% 폴백이 막혀, 회분을 표기하지 않는 AAFCO 계열 브랜드가
+    // 통째로 carb null인 빈 껍데기가 된다. 폴백값은 estimated로 태깅돼 나간다.
+    cooking_method:
+      NON_EXTRUSION.test(i.productName) || NON_EXTRUSION.test(i.brand)
+        ? null
+        : "extrusion",
   };
 });
 
