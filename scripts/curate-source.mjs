@@ -12,34 +12,21 @@
 //
 // 필요: ADMIN_WRITE_SECRET (~/.config/catfood-feeder/env), 로컬에 뜬 앱.
 
-import { loadSecrets, SECRETS_FILE } from "./with-secrets.mjs";
+import { fileURLToPath } from "node:url";
+import { SECRETS_FILE, loadSecrets } from "./with-secrets.mjs";
 
-loadSecrets();
+export const BASE_URL =
+  process.env.RESEARCH_BROKER_URL ?? "http://localhost:3000";
 
-const BASE = process.env.RESEARCH_BROKER_URL ?? "http://localhost:3000";
-const secret = process.env.ADMIN_WRITE_SECRET;
-if (!secret) {
-  console.error(`ADMIN_WRITE_SECRET가 ${SECRETS_FILE}에 없습니다.`);
-  process.exit(1);
+export function adminSecret() {
+  const secret = process.env.ADMIN_WRITE_SECRET;
+  if (!secret)
+    throw new Error(`ADMIN_WRITE_SECRET가 ${SECRETS_FILE}에 없습니다.`);
+  return secret;
 }
 
-function arg(name) {
-  const i = process.argv.indexOf(`--${name}`);
-  return i === -1 ? null : process.argv[i + 1];
-}
-
-const foodId = Number(arg("food"));
-const url = arg("url");
-const kind = arg("kind") ?? "manufacturer";
-if (!Number.isInteger(foodId) || foodId <= 0 || !url) {
-  console.error(
-    "usage: node scripts/curate-source.mjs --food <id> --url <url>",
-  );
-  process.exit(1);
-}
-
-async function call(path, body) {
-  const response = await fetch(`${BASE}${path}`, {
+async function call(path, body, secret) {
+  const response = await fetch(`${BASE_URL}${path}`, {
     body: body === undefined ? undefined : JSON.stringify(body),
     headers: { "content-type": "application/json", "x-admin-secret": secret },
     method: "POST",
@@ -53,40 +40,96 @@ async function call(path, body) {
   return payload;
 }
 
-// 수집 실패는 422로 오고 실패 자체가 원장에 남는다(sourceId를 돌려준다).
-const registered = await call(`/api/foods/${foodId}/sources`, {
-  captureMethod: "fetch",
-  kind,
+/**
+ * 한 사료에 출처 하나를 붙여 DRAFT까지 끌고 간다.
+ *
+ * 근거 0건은 성공이 아니라 실패로 돌려준다. 수집은 성공했는데 보관 원문에 성분표가
+ * 없는 경우가 흔하고(탭 패널·이미지 라벨), 이걸 성공으로 세면 "이 사료는 조사됐다"는
+ * 잘못된 결론이 카탈로그 전체에 조용히 퍼진다.
+ */
+export async function curateSource({
+  foodId,
   url,
-});
-const sourceId = registered.source?.id;
-if (!sourceId) throw new Error(`출처 등록 응답에 source.id가 없습니다`);
-console.log(`수집 완료 source=${sourceId} (${registered.contentStatus})`);
+  kind = "manufacturer",
+  secret,
+}) {
+  const registered = await call(
+    `/api/foods/${foodId}/sources`,
+    { captureMethod: "fetch", kind, url },
+    secret,
+  );
+  const sourceId = registered.source?.id;
+  if (!sourceId) throw new Error("출처 등록 응답에 source.id가 없습니다");
 
-const { candidates = [] } = await call(`/api/foods/${foodId}/sources/extract`, {
-  sourceIds: [sourceId],
-});
-if (candidates.length === 0) {
-  // 수집은 됐는데 값이 0개면 보관 원문에 성분표가 없다는 뜻이다. 조용히 넘어가면
-  // "이 사료는 조사됐다"고 오해하게 되므로 실패로 끝낸다.
-  console.error("근거를 갖춘 후보가 없습니다 — 보관 원문에 성분표가 없습니다.");
-  process.exit(3);
-}
-console.log(
-  `추출 ${candidates.length}건: ${candidates.map((c) => c.nutrientKey).join(", ")}`,
-);
+  const { candidates = [] } = await call(
+    `/api/foods/${foodId}/sources/extract`,
+    { sourceIds: [sourceId] },
+    secret,
+  );
+  if (candidates.length === 0) {
+    return {
+      applied: 0,
+      candidates: 0,
+      reason: "no_evidence_in_capture",
+      sourceId,
+    };
+  }
 
-const { results } = await call(`/api/foods/${foodId}/sources/apply`, {
-  evidence: candidates.map(({ excerpt, nutrientKey, sourceId, value }) => ({
-    excerpt,
-    nutrientKey,
+  const { results } = await call(
+    `/api/foods/${foodId}/sources/apply`,
+    {
+      evidence: candidates.map(({ excerpt, nutrientKey, sourceId, value }) => ({
+        excerpt,
+        nutrientKey,
+        sourceId,
+        value,
+      })),
+    },
+    secret,
+  );
+  return {
+    applied: results.filter((r) => r.status === "applied").length,
+    candidates: candidates.length,
+    results,
     sourceId,
-    value,
-  })),
-});
-for (const result of results) {
-  console.log(`  ${result.nutrientKey} = ${result.value} → ${result.status}`);
+  };
 }
 
-const applied = results.filter((r) => r.status === "applied").length;
-console.log(`\nDRAFT 적용 ${applied}/${results.length}. 발행은 어드민이 한다.`);
+async function main() {
+  loadSecrets();
+  const arg = (name) => {
+    const i = process.argv.indexOf(`--${name}`);
+    return i === -1 ? null : process.argv[i + 1];
+  };
+  const foodId = Number(arg("food"));
+  const url = arg("url");
+  if (!Number.isInteger(foodId) || foodId <= 0 || !url) {
+    console.error(
+      "usage: node scripts/curate-source.mjs --food <id> --url <url>",
+    );
+    process.exit(1);
+  }
+
+  const outcome = await curateSource({
+    foodId,
+    kind: arg("kind") ?? "manufacturer",
+    secret: adminSecret(),
+    url,
+  });
+  if (outcome.reason === "no_evidence_in_capture") {
+    console.error(
+      "근거를 갖춘 후보가 없습니다 — 보관 원문에 성분표가 없습니다.",
+    );
+    process.exit(3);
+  }
+  for (const result of outcome.results) {
+    console.log(`  ${result.nutrientKey} = ${result.value} → ${result.status}`);
+  }
+  console.log(
+    `\nDRAFT 적용 ${outcome.applied}/${outcome.candidates}. 발행은 어드민이 한다.`,
+  );
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  await main();
+}
