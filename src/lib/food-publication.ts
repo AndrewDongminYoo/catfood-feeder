@@ -1,5 +1,5 @@
+import { computeDerived, parseManufacturerEnergy, validate } from "./domain";
 import { z } from "zod";
-import { computeDerived, validate } from "./domain";
 import type { CookingMethod, NutrientInput, Source } from "./domain";
 
 export type FoodPublicationDraft = {
@@ -13,6 +13,11 @@ export type FoodPublicationDraft = {
   readonly fatPct: number | null;
   readonly fiberPct: number | null;
   readonly kcalPerKg: number | null;
+  /**
+   * 현재 manufacturer 출처의 보관 원문. source-first 경로는 P/F/C를 컬럼에 남기지
+   * 않으므로(근거 적용은 측정 8개 키만 쓴다), 선언값은 여기서만 발견된다.
+   */
+  readonly manufacturerText: string | null;
   readonly moisturePct: number | null;
   readonly nutrientSources: Readonly<Record<string, Source>>;
   readonly phosphorusPct: number | null;
@@ -88,7 +93,7 @@ export function prepareFoodPublication(
         f: draft.energyFPct,
         p: draft.energyPPct,
       }
-    : undefined;
+    : parseDeclaredEnergyFromSource(draft.manufacturerText);
   const derived = computeDerived(
     nutrients,
     draft.cookingMethod,
@@ -113,10 +118,12 @@ export function prepareFoodPublication(
       ? "estimated"
       : "derived";
   }
-  if (declaredEnergy === undefined && derived.energy_p_pct !== null) {
-    nutrientSources.energy_p_pct = "derived";
-    nutrientSources.energy_f_pct = "derived";
-    nutrientSources.energy_c_pct = "derived";
+  if (derived.energy_p_pct !== null) {
+    const energySource: Source =
+      declaredEnergy === undefined ? "derived" : "manufacturer";
+    nutrientSources.energy_p_pct = energySource;
+    nutrientSources.energy_f_pct = energySource;
+    nutrientSources.energy_c_pct = energySource;
   }
 
   return {
@@ -144,4 +151,23 @@ function hasDeclaredEnergy(draft: FoodPublicationDraft): boolean {
     draft.energyFPct !== null &&
     draft.energyCPct !== null
   );
+}
+
+/**
+ * 보관된 제조사 원문에 P/F/C가 명시돼 있으면 그것을 선언값으로 쓴다. BLUEPRINT의
+ * 2경로 규칙("제조사가 명시하면 그대로")은 `/api/extract` 경로에만 연결돼 있어서,
+ * source-first 경로로 들어온 사료는 명시값이 원문에 있는데도 NFE 역산값이 실렸다.
+ *
+ * 셋 중 하나라도 빠지면 통째로 버린다 — 부분 선언값을 역산값과 섞으면 어느 쪽도
+ * 아닌 숫자가 manufacturer로 태깅된다.
+ */
+function parseDeclaredEnergyFromSource(
+  manufacturerText: string | null,
+): { c: number; f: number; p: number } | undefined {
+  if (manufacturerText === null) return undefined;
+  const parsed = parseManufacturerEnergy(manufacturerText);
+  if (parsed === null) return undefined;
+  const { c, f, p } = parsed;
+  if (c === null || f === null || p === null) return undefined;
+  return { c, f, p };
 }

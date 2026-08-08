@@ -15,6 +15,7 @@ const validDraft: FoodPublicationDraft = {
   fatPct: 18,
   fiberPct: 4,
   kcalPerKg: 3850,
+  manufacturerText: null,
   moisturePct: 10,
   nutrientSources: {
     ash_pct: "kr_label",
@@ -104,6 +105,49 @@ describe("prepareFoodPublication", () => {
         energy_p_pct: "derived",
         protein_pct: "manufacturer",
       });
+    }
+  });
+
+  // source-first 경로는 P/F/C를 컬럼에 남기지 않으므로, 명시값은 보관 원문에서만
+  // 발견된다. 이 연결이 없으면 제조사가 선언한 값이 NFE 역산값으로 덮인다.
+  it("보관된 제조사 원문의 명시 P/F/C를 역산값보다 우선한다", () => {
+    const result = prepareFoodPublication({
+      ...validDraft,
+      manufacturerText:
+        "Metabolizable Energy is 3975 kcal/kg (497 kcal per 250ml cup) " +
+        "from 38% from protein, 21% from carbohydrates and 41% from fat.",
+    });
+
+    expect(result.kind).toBe("ready");
+    if (result.kind === "ready") {
+      // 역산했다면 36.2 / 40.7 / 23.1이 나온다.
+      expect(result.derived).toMatchObject({
+        energyCPct: 21,
+        energyFPct: 41,
+        energyPPct: 38,
+      });
+      expect(result.derived.nutrientSources).toMatchObject({
+        energy_c_pct: "manufacturer",
+        energy_f_pct: "manufacturer",
+        energy_p_pct: "manufacturer",
+      });
+    }
+  });
+
+  it("원문에 P/F/C가 일부만 있으면 통째로 버리고 역산한다", () => {
+    const result = prepareFoodPublication({
+      ...validDraft,
+      manufacturerText: "38% from protein, and the rest is unstated.",
+    });
+
+    expect(result.kind).toBe("ready");
+    if (result.kind === "ready") {
+      expect(result.derived).toMatchObject({
+        energyCPct: 23.1,
+        energyFPct: 40.7,
+        energyPPct: 36.2,
+      });
+      expect(result.derived.nutrientSources.energy_p_pct).toBe("derived");
     }
   });
 

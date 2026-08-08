@@ -102,6 +102,16 @@ export async function POST(
       );
     }
 
+    // 제조사 명시 P/F/C는 source-first 경로에서 컬럼이 아니라 보관 원문에만 남는다.
+    const { data: manufacturerSource } = await supabase
+      .from("food_sources")
+      .select("captured_text")
+      .eq("food_id", foodId.data)
+      .eq("kind", "manufacturer")
+      .eq("fetch_status", "fetched")
+      .eq("is_current", true)
+      .maybeSingle();
+
     const preparation = prepareFoodPublication({
       ashPct: parsedDraft.data.ash_pct,
       calciumPct: parsedDraft.data.calcium_pct,
@@ -112,6 +122,7 @@ export async function POST(
       fatPct: parsedDraft.data.fat_pct,
       fiberPct: parsedDraft.data.fiber_pct,
       kcalPerKg: parsedDraft.data.kcal_per_kg,
+      manufacturerText: manufacturerSource?.captured_text ?? null,
       moisturePct: parsedDraft.data.moisture_pct,
       nutrientSources: parsedDraft.data.nutrient_sources,
       phosphorusPct: parsedDraft.data.phosphorus_pct,
