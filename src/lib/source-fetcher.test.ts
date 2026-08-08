@@ -302,7 +302,7 @@ describe("captureSource", () => {
         resolveHostname: publicResolver,
         fetch: async () =>
           new Response(
-            "<script>hidden()</script><p>Crude protein 37%</p><span hidden>nope</span>",
+            "<script>hidden()</script><p>Crude protein 37%</p><style>p{}</style>",
             { headers: { "content-type": "text/html" } },
           ),
       },
@@ -314,6 +314,30 @@ describe("captureSource", () => {
     });
     if (result.kind === "success") {
       expect(result.contentHash).toMatch(/^[a-f0-9]{64}$/);
+    }
+  });
+
+  // 제조사 제품 페이지는 보증성분표를 탭 패널에 넣고 비활성 탭에 `hidden`을 붙인다.
+  // 이걸 은닉 텍스트로 보고 지우면 캡처는 성공한 채 성분값만 빠진다(ACANA en-CA 실측).
+  it("탭 패널이 hidden이어도 보증성분표를 보존한다", async () => {
+    const result = await captureSource(
+      { url: "https://example.test", kind: "manufacturer" },
+      {
+        resolveHostname: publicResolver,
+        fetch: async () =>
+          new Response(
+            '<div class="tabs"><div class="container"><p>Benefits</p></div>' +
+              '<div class="container" hidden><div class="analysis">' +
+              "<h2>Analytical Constituents</h2><li>Crude protein <span>38 %</span></li>" +
+              "</div></div></div>",
+            { headers: { "content-type": "text/html" } },
+          ),
+      },
+    );
+
+    expect(result).toMatchObject({ kind: "success" });
+    if (result.kind === "success") {
+      expect(result.capturedText).toContain("Crude protein 38 %");
     }
   });
 });

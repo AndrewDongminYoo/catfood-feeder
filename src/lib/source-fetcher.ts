@@ -406,9 +406,15 @@ function extractVisibleText(
   if (contentType === "text/plain") return collapseWhitespace(body);
 
   const $ = load(body);
-  $(
-    "script, style, noscript, template, [hidden], [aria-hidden='true']",
-  ).remove();
+  $("script, style, noscript, template").remove();
+  // `[hidden]` / `[aria-hidden]`은 **지금 표시되지 않는다**는 뜻이지 본문이 아니라는
+  // 뜻이 아니다. 제조사 제품 페이지는 성분표를 탭 패널에 넣고 비활성 탭에 `hidden`을
+  // 붙이므로, 이걸 지우면 정작 필요한 보증성분표만 사라진다 — ACANA Highest Protein
+  // Kitten(en-CA) 실측: 제거 시 4,233자에 성분값 0개, 유지 시 9,112자에 성분표 전체.
+  // 캡처는 성공하는데 데이터만 빠지는 조용한 실패라 더 위험하다.
+  // 남은 위험: 인라인 `display: none`으로 같은 탭을 구현한 사이트는 아래에서 여전히
+  // 잘려나간다. 은닉 텍스트 유입 자체는 근거가 문자 그대로 일치해야 하고 큐레이터가
+  // 수집 원문을 검토한다는 두 겹으로 막힌다.
   $("[style*='display: none'], [style*='visibility: hidden']").remove();
   return collapseWhitespace($("body").text() || $.root().text());
 }
