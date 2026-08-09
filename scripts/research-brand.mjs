@@ -121,6 +121,21 @@ const draftsResponse = await fetch(`${BASE_URL}/api/foods/drafts`, {
 const { foods = [], error } = await draftsResponse.json();
 if (!draftsResponse.ok) throw new Error(`draft 목록 실패: ${error}`);
 
+// 같은 레시피의 다른 중량은 같은 제품이다. 그룹에 이미 조사된 형제가 있으면 그룹
+// 전체를 건너뛴다 — 미조사 행만 보고 min(id)를 고르면, 먼저 조사된 행이 필터에서
+// 빠진 뒤 남은 형제가 새 대상이 되어 같은 제품을 중량 수만큼 다시 조사하게 된다.
+// 실제로 120개 레시피가 그렇게 두 번씩 조사됐다.
+const researched = new Set();
+for (const food of foods) {
+  if (food.brands?.name !== brandName) continue;
+  if (
+    food.protein_pct !== null ||
+    food.food_sources?.some((s) => s.is_current)
+  ) {
+    researched.add(recipeKey(food.product_name));
+  }
+}
+
 const byRecipe = new Map();
 for (const food of foods) {
   if (food.brands?.name !== brandName) continue;
@@ -128,6 +143,7 @@ for (const food of foods) {
   // broker는 현재 출처가 붙은 사료를 거절한다(skeleton만 받는다).
   if (food.food_sources?.some((s) => s.is_current)) continue;
   const key = recipeKey(food.product_name);
+  if (researched.has(key)) continue;
   const existing = byRecipe.get(key);
   if (!existing || food.id < existing.id) byRecipe.set(key, food);
 }
