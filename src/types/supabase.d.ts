@@ -41,6 +41,7 @@ export type Database = {
           homepage_url: string | null;
           id: number;
           importer: string | null;
+          ko_name: string;
           manufacturer: string | null;
           name: string;
         };
@@ -50,6 +51,7 @@ export type Database = {
           homepage_url?: string | null;
           id?: never;
           importer?: string | null;
+          ko_name: string;
           manufacturer?: string | null;
           name: string;
         };
@@ -59,6 +61,7 @@ export type Database = {
           homepage_url?: string | null;
           id?: never;
           importer?: string | null;
+          ko_name?: string;
           manufacturer?: string | null;
           name?: string;
         };

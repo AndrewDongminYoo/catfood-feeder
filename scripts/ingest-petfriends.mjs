@@ -115,7 +115,7 @@ const missingBrands = brands.filter((b) => !brandId.has(b.toLowerCase()));
 if (missingBrands.length) {
   const { data: ins, error } = await supabase
     .from("brands")
-    .insert(missingBrands.map((name) => ({ name })))
+    .insert(missingBrands.map((name) => ({ ko_name: name, name })))
     .select("id, name");
   if (error) throw error;
   for (const b of ins ?? []) brandId.set(b.name.toLowerCase(), b.id);

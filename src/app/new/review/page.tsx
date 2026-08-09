@@ -1,0 +1,27 @@
+import { PublicationReviewClient } from "@/components/publication-review-client";
+import { loadPublicationReview } from "@/lib/publication-review";
+
+export default async function ReviewPage() {
+  // 첫 목록은 서버에서 채운다. 클라이언트가 마운트 후 불러오면 로딩 깜빡임이 생기고,
+  // effect 안의 setState가 연쇄 렌더를 유발한다.
+  const initial = await loadPublicationReview(null);
+
+  return (
+    <main className="wrap">
+      <header className="hd">
+        <h1>발행 검토</h1>
+        <p>
+          브랜드 단위로 근거가 붙은 Draft를 확인하고 발행합니다. 값을 다시
+          입력하지 않으며, 조사와 근거 적용은 <code>/new/research</code>에서
+          합니다.
+        </p>
+      </header>
+      <section className="card">
+        <PublicationReviewClient
+          initialBrands={initial.brands}
+          initialFoods={initial.foods}
+        />
+      </section>
+    </main>
+  );
+}

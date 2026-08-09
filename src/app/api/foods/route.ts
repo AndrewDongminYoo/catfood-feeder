@@ -209,7 +209,9 @@ async function findOrCreateBrand(
 
   const { data, error } = await supabase
     .from("brands")
-    .insert({ name })
+    // ko_name은 국내 표기이자 적재 매칭 키다. 조사로 정규명이 확정되기 전까지는
+    // 들어온 이름이 곧 국내 표기다.
+    .insert({ ko_name: name, name })
     .select("id, name")
     .single();
 
