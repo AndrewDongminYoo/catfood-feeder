@@ -159,16 +159,47 @@ const { data: currentSources } = await supabase
   );
 
 /** 성분표 주변만 잘라 낸다. 원문 전체를 넣으면 프롬프트가 감당이 안 된다. */
-function analysisWindow(text) {
-  const match = LABEL_HINT.exec(text ?? "");
-  if (!match) return null;
-  const start = Math.max(0, match.index - 400);
-  return (text ?? "").slice(start, start + 1600).replace(/\s+/g, " ");
+function analysisWindow(text, excerpts) {
+  const body = text ?? "";
+  // 자르는 위치는 이미 채택된 근거 구절을 기준으로 잡는다. 한 페이지에 여러 제품의
+  // 성분표가 실리는 일이 흔하고(스크럼블즈 495는 한 페이지에 4개), 그때 첫 번째 라벨
+  // 문구는 다른 제품의 블록이다 — 거기를 잘라 주면 에이전트에게 남의 제품 숫자를
+  // 들이미는 셈이 된다. 채택된 근거가 없을 때만 라벨 문구로 되돌아간다.
+  const anchors = (excerpts ?? [])
+    .map((excerpt) => body.indexOf(excerpt))
+    .filter((index) => index >= 0);
+  const anchor =
+    anchors.length > 0
+      ? Math.min(...anchors)
+      : (LABEL_HINT.exec(body)?.index ?? -1);
+  if (anchor < 0) return null;
+  const start = Math.max(0, anchor - 500);
+  return body.slice(start, start + 1800).replace(/\s+/g, " ");
+}
+
+// 이 사료의 근거로 이미 채택된 구절. 어느 블록이 이 제품의 것인지 정확히 가리킨다.
+const { data: acceptedExcerpts } = await supabase
+  .from("food_nutrient_evidence")
+  .select("source_id, excerpt")
+  .eq("is_current", true)
+  .in(
+    "food_id",
+    targets.map((t) => t.id),
+  );
+const excerptsBySource = new Map();
+for (const row of acceptedExcerpts ?? []) {
+  excerptsBySource.set(row.source_id, [
+    ...(excerptsBySource.get(row.source_id) ?? []),
+    row.excerpt,
+  ]);
 }
 
 const windowsByFood = new Map();
 for (const source of currentSources ?? []) {
-  const window = analysisWindow(source.captured_text);
+  const window = analysisWindow(
+    source.captured_text,
+    excerptsBySource.get(source.id),
+  );
   if (window === null) continue;
   windowsByFood.set(source.food_id, [
     ...(windowsByFood.get(source.food_id) ?? []),
