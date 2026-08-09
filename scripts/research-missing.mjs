@@ -180,6 +180,27 @@ async function call(path, body) {
   return payload;
 }
 
+// 이미 근거를 받치고 있는 출처 종류. 같은 종류로 새 출처를 등록하면
+// replaceCurrentFoodSource가 그것을 은퇴시키고, 새 수집이 근거를 못 만들면 기존 근거가
+// 받침 없이 남아 그 사료는 영원히 발행되지 않는다. 힐스 3건이 그렇게 깨졌다.
+const { data: backing } = await supabase
+  .from("food_nutrient_evidence")
+  .select("food_id, food_sources!inner(kind, is_current, fetch_status)")
+  .eq("is_current", true)
+  .in(
+    "food_id",
+    targets.map((t) => t.id),
+  );
+const protectedKinds = new Map();
+for (const row of backing ?? []) {
+  const source = row.food_sources;
+  if (!source?.is_current || source.fetch_status !== "fetched") continue;
+  protectedKinds.set(
+    row.food_id,
+    (protectedKinds.get(row.food_id) ?? new Set()).add(source.kind),
+  );
+}
+
 const byId = new Map(targets.map((t) => [t.id, t]));
 const tally = { failed: 0, filled: 0, rejected: 0, skipped: 0 };
 
@@ -191,10 +212,26 @@ for (const product of products) {
     console.log(`  · ${product.foodId} ${target.product_name} — 찾지 못함`);
     continue;
   }
+  // 근거를 받치는 종류는 건드리지 않는다. 남은 종류가 없으면 건너뛴다 — 값을 하나
+  // 더 얻자고 이미 확보한 근거를 잃는 것은 손해다.
+  const taken = protectedKinds.get(product.foodId) ?? new Set();
+  const kind = taken.has(product.kind)
+    ? product.kind === "manufacturer"
+      ? "kr_label"
+      : "manufacturer"
+    : product.kind;
+  if (taken.has(kind)) {
+    tally.skipped++;
+    console.log(
+      `  · ${product.foodId} ${target.product_name} — 두 종류 모두 근거를 받치는 중`,
+    );
+    continue;
+  }
+
   try {
     const registered = await call(`/api/foods/${product.foodId}/sources`, {
       captureMethod: "fetch",
-      kind: product.kind,
+      kind,
       url: product.url,
     });
     const sourceId = registered.source?.id;
