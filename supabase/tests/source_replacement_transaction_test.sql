@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(15);
+SELECT plan(13);
 
 INSERT INTO public.brands (id, name, manufacturer)
 OVERRIDING SYSTEM VALUE
@@ -10,20 +10,18 @@ VALUES (-93001, 'pgTAP source replacement brand', 'pgTAP manufacturer');
 INSERT INTO public.foods (
   id,
   brand_id,
-  product_name,
-  manufacturer_url
+  product_name
 )
 OVERRIDING SYSTEM VALUE
 VALUES
-  (-93001, -93001, 'changed replacement', 'https://example.test/success-old'),
-  (-93002, -93001, 'failed replacement', 'https://example.test/failure-old'),
+  (-93001, -93001, 'changed replacement'),
+  (-93002, -93001, 'failed replacement'),
   (
     -93003,
     -93001,
-    'unchanged replacement',
-    'https://example.test/unchanged-old'
+    'unchanged replacement'
   ),
-  (-93004, -93001, 'initial replacement', NULL);
+  (-93004, -93001, 'initial replacement');
 
 INSERT INTO public.food_sources (
   id,
@@ -211,16 +209,6 @@ SELECT is(
   'successful replacement inserts the complete current capture'
 );
 
-SELECT is(
-  (
-    SELECT manufacturer_url
-    FROM public.foods
-    WHERE id = -93001
-  ),
-  'https://example.test/success-new',
-  'successful replacement updates the compatibility URL'
-);
-
 -- Given: a current fetched manufacturer source has the same content hash.
 -- When: service_role replaces it with a repeated successful capture.
 -- Then: the RPC reports unchanged and returns the new source ID.
@@ -271,26 +259,30 @@ SELECT ok(
 );
 RESET ROLE;
 
-CREATE FUNCTION pg_temp.reject_source_link_update()
+-- 실패를 어디에 주입하는가: 예전에는 RPC 의 마지막 문장이 foods 의 호환용 URL
+-- 컬럼을 갱신하는 것이어서 거기에 트리거를 걸었다. 그 컬럼이 사라진 뒤로 마지막
+-- 문장은 새 출처의 INSERT 다. 증명하려는 성질은 그대로다 — 강등이 먼저 일어난 뒤
+-- 뒤의 문장이 실패하면 강등까지 함께 되돌아가는가.
+CREATE FUNCTION pg_temp.reject_source_insert()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  IF NEW.manufacturer_url = 'https://example.test/failure-new' THEN
-    RAISE EXCEPTION 'forced source link failure';
+  IF NEW.url = 'https://example.test/failure-new' THEN
+    RAISE EXCEPTION 'forced source insert failure';
   END IF;
   RETURN NEW;
 END;
 $$;
 
-CREATE TRIGGER reject_source_link_update
-BEFORE UPDATE OF manufacturer_url ON public.foods
+CREATE TRIGGER reject_source_insert
+BEFORE INSERT ON public.food_sources
 FOR EACH ROW
-EXECUTE FUNCTION pg_temp.reject_source_link_update();
+EXECUTE FUNCTION pg_temp.reject_source_insert();
 
--- Given: the final compatibility URL update is forced to fail.
+-- Given: the insert of the replacement source is forced to fail.
 -- When: service_role attempts to replace the current source.
--- Then: Postgres rolls back both source writes from the failed RPC statement.
+-- Then: Postgres rolls back the demotion that the same RPC statement had done.
 SET LOCAL ROLE service_role;
 SELECT throws_ok(
   $$
@@ -307,8 +299,8 @@ SELECT throws_ok(
     )
   $$,
   'P0001',
-  'forced source link failure',
-  'a failed compatibility update aborts source replacement'
+  'forced source insert failure',
+  'a failed source insert aborts the whole replacement'
 );
 RESET ROLE;
 
@@ -331,16 +323,6 @@ SELECT is(
   ),
   0::bigint,
   'failed replacement removes the attempted new source'
-);
-
-SELECT is(
-  (
-    SELECT manufacturer_url
-    FROM public.foods
-    WHERE id = -93002
-  ),
-  'https://example.test/failure-old',
-  'failed replacement preserves the compatibility URL'
 );
 
 SELECT is(

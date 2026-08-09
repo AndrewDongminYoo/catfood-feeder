@@ -51,8 +51,6 @@ export const foodPayloadSchema = z
         has_yucca: z.boolean().optional(),
       })
       .default({}),
-    manufacturer_url: z.string().url().nullable().optional(),
-    kr_label_source: z.string().url().nullable().optional(),
     source_conflicts: z.array(sourceConflictSchema).default([]),
   })
   .strict();

@@ -112,8 +112,6 @@ export async function POST(req: NextRequest) {
         has_probiotics: flags.has_probiotics ?? false,
         has_cranberry: flags.has_cranberry ?? false,
         has_yucca: flags.has_yucca ?? false,
-        manufacturer_url: payload.manufacturer_url ?? null,
-        kr_label_source: payload.kr_label_source ?? null,
         source_conflicts: payload.source_conflicts,
         data_verified_at: publishedAt,
         published_at: publishedAt,

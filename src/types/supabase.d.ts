@@ -342,8 +342,6 @@ export type Database = {
           id: number;
           ingredients: Json;
           kcal_per_kg: number | null;
-          kr_label_source: string | null;
-          manufacturer_url: string | null;
           meal_free: boolean;
           moisture_pct: number | null;
           nutrient_sources: Json;
@@ -383,8 +381,6 @@ export type Database = {
           id?: never;
           ingredients?: Json;
           kcal_per_kg?: number | null;
-          kr_label_source?: string | null;
-          manufacturer_url?: string | null;
           meal_free?: boolean;
           moisture_pct?: number | null;
           nutrient_sources?: Json;
@@ -424,8 +420,6 @@ export type Database = {
           id?: never;
           ingredients?: Json;
           kcal_per_kg?: number | null;
-          kr_label_source?: string | null;
-          manufacturer_url?: string | null;
           meal_free?: boolean;
           moisture_pct?: number | null;
           nutrient_sources?: Json;

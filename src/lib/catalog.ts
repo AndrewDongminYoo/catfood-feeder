@@ -75,8 +75,6 @@ export interface FoodWithBrand {
   has_cranberry: boolean;
   has_yucca: boolean;
   caution_ingredients: string[];
-  manufacturer_url: string | null;
-  kr_label_source: string | null;
   data_verified_at: string | null;
   published_at: string | null;
   brands: BrandSummary | null;
