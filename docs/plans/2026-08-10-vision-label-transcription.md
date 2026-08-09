@@ -456,14 +456,14 @@ describe("전사 제안 적재", () => {
     );
   });
 
+  // 스키마가 .strict() 이므로 status 는 형식 오류로 거절된다. 거절을 명시적으로
+  // 단언한다 — mock.calls 를 순회하며 검사하면 호출이 0건일 때 아무것도 확인하지
+  // 않고 통과한다(공허한 통과).
   it("호출자가 상태를 정할 수 없다", async () => {
-    await post({ ...BODY, status: "applied" });
+    const response = await post({ ...BODY, status: "applied" });
 
-    // status 는 스키마에 없으므로 형식 오류로 거절되거나, 통과하더라도
-    // 라우트가 pending_review 를 강제한다. 어느 쪽이든 applied 는 적재되지 않는다.
-    for (const call of mocks.recordFoodResearchRun.mock.calls) {
-      expect(call[0].status).toBe("pending_review");
-    }
+    expect(response.status).toBe(400);
+    expect(mocks.recordFoodResearchRun).not.toHaveBeenCalled();
   });
 
   it("권한이 없으면 아무것도 적재하지 않는다", async () => {
