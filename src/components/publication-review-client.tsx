@@ -157,7 +157,7 @@ export function PublicationReviewClient({
           }}
           value={brandId === null ? "" : String(brandId)}
         >
-          <option value="">브랜드를 고르세요 (전체 {foods.length}건)</option>
+          <option value="">전체 ({foods.length}건)</option>
           {pendingBrands.map((brand) => (
             <option key={brand.id} value={brand.id}>
               {brand.name}
@@ -177,85 +177,81 @@ export function PublicationReviewClient({
         </p>
       )}
 
-      {brandId === null ? (
-        <p className="muted">
-          브랜드를 고르면 그 브랜드의 발행 대기 건만 봅니다. 전체 {foods.length}
-          건을 한 번에 훑는 화면이 아닙니다.
-        </p>
-      ) : (
-        <>
-          <div className="review-actions">
-            <span className="muted">
-              {foods.length}건 · 검토 필요{" "}
-              {foods.filter((f) => !isRoutine(f)).length}건 · 선택{" "}
-              {selected.size}건
-            </span>
-            <button
-              disabled={busy || foods.length === 0}
-              onClick={() =>
-                setSelected(new Set(foods.filter(isRoutine).map((f) => f.id)))
-              }
-            >
-              이상 없는 것 모두 선택
-            </button>
-            <button
-              disabled={busy || selected.size === 0}
-              onClick={() => setSelected(new Set())}
-            >
-              선택 해제
-            </button>
-            <button
-              className="primary"
-              disabled={busy || selected.size === 0}
-              onClick={() => void publishSelected()}
-            >
-              선택 {selected.size}건 발행
-            </button>
-          </div>
+      <div className="review-actions">
+        <span className="muted">
+          {foods.length}건 · 검토 필요{" "}
+          {foods.filter((f) => !isRoutine(f)).length}건 · 선택 {selected.size}건
+        </span>
+        <button
+          disabled={busy || foods.length === 0}
+          onClick={() =>
+            setSelected(new Set(foods.filter(isRoutine).map((f) => f.id)))
+          }
+        >
+          이상 없는 것 모두 선택
+        </button>
+        <button
+          disabled={busy || selected.size === 0}
+          onClick={() => setSelected(new Set())}
+        >
+          선택 해제
+        </button>
+        <button
+          className="primary"
+          disabled={busy || selected.size === 0}
+          onClick={() => void publishSelected()}
+        >
+          선택 {selected.size}건 발행
+        </button>
+      </div>
 
-          <div className="panel">
+      <div className="review-scroll">
+        <table className="review-table">
+          <thead>
+            <tr>
+              <th />
+              <th>제품</th>
+              {COLUMNS.map(([key, label]) => (
+                <th key={key}>{label}</th>
+              ))}
+              <th>탄수</th>
+              <th>근거</th>
+            </tr>
+          </thead>
+          <tbody>
             {foods.map((food) => (
-              <div className="review-row" key={food.id}>
-                <input
-                  aria-label={`${food.productName} 선택`}
-                  checked={selected.has(food.id)}
-                  disabled={busy}
-                  onChange={() => toggle(food.id)}
-                  type="checkbox"
-                />
-                <div className="review-body">
+              <tr
+                className={isRoutine(food) ? undefined : "needs-review"}
+                key={food.id}
+              >
+                <td>
+                  <input
+                    aria-label={`${food.productName} 선택`}
+                    checked={selected.has(food.id)}
+                    disabled={busy}
+                    onChange={() => toggle(food.id)}
+                    type="checkbox"
+                  />
+                </td>
+                <td>
                   <button
+                    className="review-name"
                     onClick={() =>
                       setExpanded(expanded === food.id ? null : food.id)
                     }
                   >
                     {food.productName}
                   </button>
-                  <div className="review-nutrients">
-                    {COLUMNS.map(([key, label]) => (
-                      <span key={key}>
-                        {label} <b>{food.nutrients[key] ?? "—"}</b>
-                        {food.nutrientSources[key] === "estimated" ? "*" : ""}
-                      </span>
-                    ))}
-                    <span>
-                      탄수 <b>{food.carbPct ?? "계산불가"}</b>
-                      {food.carbIsEstimated ? "*" : ""}
-                    </span>
-                  </div>
-                  <div className="review-badges">
-                    <span className="tag">근거 {food.evidenceCount}</span>
-                    {food.conflicts.length > 0 && (
-                      <span className="flag warn">
-                        충돌 {food.conflicts.length}
-                      </span>
-                    )}
-                    {food.carbPct === null && (
-                      <span className="flag warn">탄수 계산불가</span>
-                    )}
-                  </div>
+                  {food.conflicts.length > 0 && (
+                    <div className="review-note">
+                      충돌 {food.conflicts.length}
+                    </div>
+                  )}
+                  {food.carbPct === null && (
+                    <div className="review-note">탄수 계산불가</div>
+                  )}
                   {expanded === food.id && (
-                    <ul className="review-detail muted">
+                    <ul className="review-detail">
                       {food.sources.map((source) => (
                         <li key={source.url}>
                           {source.kind}: {source.url}
@@ -273,13 +269,24 @@ export function PublicationReviewClient({
                       })}
                     </ul>
                   )}
-                </div>
-              </div>
+                </td>
+                {COLUMNS.map(([key]) => (
+                  <td key={key}>
+                    {food.nutrients[key] ?? "—"}
+                    {food.nutrientSources[key] === "estimated" ? "*" : ""}
+                  </td>
+                ))}
+                <td>
+                  {food.carbPct ?? "—"}
+                  {food.carbIsEstimated ? "*" : ""}
+                </td>
+                <td>{food.evidenceCount}</td>
+              </tr>
             ))}
-          </div>
-          <p className="muted">* 표시는 추정값(회분 익스트루전 폴백 등)</p>
-        </>
-      )}
+          </tbody>
+        </table>
+      </div>
+      <p className="muted">* 표시는 추정값(회분 익스트루전 폴백 등)</p>
 
       {log.length > 0 && (
         <div className="panel" role="status">

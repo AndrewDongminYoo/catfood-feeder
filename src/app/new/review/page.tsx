@@ -6,8 +6,10 @@ export default async function ReviewPage() {
   // effect 안의 setState가 연쇄 렌더를 유발한다.
   const initial = await loadPublicationReview(null);
 
+  // 어드민 전용 화면이라 데스크톱 폭을 쓴다. 이 작업은 codex CLI와 함께 돌아가므로
+  // 어차피 데스크톱이고, 모바일 폭에 맞추려 열을 접으면 비교해야 할 수치가 멀어진다.
   return (
-    <main className="wrap">
+    <main className="wide">
       <header className="hd">
         <h1>발행 검토</h1>
         <p>

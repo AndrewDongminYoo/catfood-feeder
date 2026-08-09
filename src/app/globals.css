@@ -822,58 +822,69 @@ pre {
   }
 }
 
-/* 발행 검토 목록 (/new/review).
-   모바일 우선이라 8열 테이블은 성립하지 않는다 — 한 건을 카드 한 장으로 보고,
-   수치는 라벨을 붙여 줄바꿈되게 둔다. */
-.review-row {
-  display: flex;
-  gap: 10px;
-  padding: 12px 0;
-  border-top: 1px solid var(--line);
-}
-.review-row:first-child {
-  border-top: 0;
-}
-.review-row > input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
-  margin-top: 2px;
-  flex: 0 0 auto;
-}
-.review-body {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.review-body > button {
-  display: block;
+/* 발행 검토 (/new/review) — 어드민 전용이라 데스크톱을 기준으로 잡는다.
+   이 화면의 작업은 codex CLI와 함께 돌아가므로 어차피 데스크톱이고, 모바일 폭에
+   맞추려고 열을 접으면 정작 비교해야 할 수치가 서로 멀어진다. */
+.review-table {
   width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.review-table th,
+.review-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+}
+.review-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mut);
+  border-bottom: 2px solid var(--line);
+}
+.review-table th:nth-child(2),
+.review-table td:nth-child(2) {
   text-align: left;
-  font-size: 15px;
+  white-space: normal;
+  width: 34%;
+}
+.review-table td:first-child,
+.review-table th:first-child {
+  width: 32px;
+  text-align: center;
+}
+.review-table tbody tr:hover {
+  background: var(--accent-soft);
+}
+.review-table tr.needs-review td {
+  background: #fffbeb;
+}
+.review-name {
   font-weight: 600;
   padding: 0;
   border: 0;
   background: none;
   color: inherit;
-  word-break: keep-all;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
 }
-.review-nutrients {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 10px;
-  margin-top: 6px;
-  font-size: 12px;
+.review-note {
+  color: #b45309;
+  font-size: 11px;
+}
+.review-detail {
+  font-size: 11px;
   color: var(--mut);
-  font-variant-numeric: tabular-nums;
-}
-.review-nutrients b {
-  color: #292524;
-  font-weight: 600;
-}
-.review-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
+  word-break: break-all;
+  margin: 4px 0 0;
+  padding-left: 14px;
 }
 .review-actions {
   display: flex;
@@ -882,8 +893,7 @@ pre {
   align-items: center;
   margin: 10px 0;
 }
-.review-detail {
-  margin-top: 8px;
-  font-size: 12px;
-  word-break: break-all;
+.review-scroll {
+  max-height: 70vh;
+  overflow: auto;
 }
