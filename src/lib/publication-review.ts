@@ -133,12 +133,27 @@ export async function loadPublicationReview(
     };
   });
 
+  // 브랜드별 건수는 필터와 무관하게 전체에서 센다. 조회 결과로 세면 브랜드를 고르는
+  // 순간 나머지가 모두 0건이 되어 드롭다운에서 사라지고, 다른 브랜드로 바꾸려면
+  // "전체"를 한 번 거쳐야 한다.
+  const { data: allRows, error: allError } = await supabase
+    .from("foods")
+    .select("brand_id, source_conflicts")
+    .is("published_at", null)
+    .not("protein_pct", "is", null);
+  if (allError) throw new Error(allError.message);
+
   const counts = new Map<number, { pending: number; conflicts: number }>();
-  for (const food of foods) {
-    const entry = counts.get(food.brandId) ?? { conflicts: 0, pending: 0 };
+  for (const row of allRows ?? []) {
+    const entry = counts.get(row.brand_id) ?? { conflicts: 0, pending: 0 };
     entry.pending += 1;
-    if (food.conflicts.length > 0) entry.conflicts += 1;
-    counts.set(food.brandId, entry);
+    if (
+      Array.isArray(row.source_conflicts) &&
+      row.source_conflicts.length > 0
+    ) {
+      entry.conflicts += 1;
+    }
+    counts.set(row.brand_id, entry);
   }
 
   return {

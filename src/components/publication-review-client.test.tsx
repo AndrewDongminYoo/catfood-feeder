@@ -97,6 +97,33 @@ describe("PublicationReviewClient", () => {
     expect(screen.getByText("선택 1건 발행")).toBeTruthy();
   });
 
+  it("브랜드를 고른 뒤에도 다른 브랜드가 목록에 남는다", async () => {
+    // 건수를 조회 결과로 세면 필터 중에 나머지가 0건이 되어 목록에서 사라지고,
+    // 브랜드를 바꾸려면 "전체"를 한 번 거쳐야 한다.
+    render(
+      <PublicationReviewClient
+        initialBrands={[
+          ...reviewResponse.brands,
+          {
+            conflicts: 0,
+            country: "Germany",
+            id: 2,
+            koName: "다른",
+            name: "Other",
+            pending: 4,
+          },
+        ]}
+        initialFoods={reviewResponse.foods}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("브랜드"), {
+      target: { value: "1" },
+    });
+
+    expect(screen.getByRole("option", { name: /Other/ })).toBeTruthy();
+  });
+
   it("충돌 값을 펼쳐서 양쪽 수치를 보여준다", async () => {
     render(
       <PublicationReviewClient

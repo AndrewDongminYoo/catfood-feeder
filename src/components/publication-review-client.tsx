@@ -157,7 +157,9 @@ export function PublicationReviewClient({
           }}
           value={brandId === null ? "" : String(brandId)}
         >
-          <option value="">전체 ({foods.length}건)</option>
+          <option value="">
+            전체 ({brands.reduce((sum, brand) => sum + brand.pending, 0)}건)
+          </option>
           {pendingBrands.map((brand) => (
             <option key={brand.id} value={brand.id}>
               {brand.name}
