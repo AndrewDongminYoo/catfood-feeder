@@ -80,9 +80,13 @@ const GAP_SCHEMA = {
           },
           foodId: { type: "integer" },
           kind: { enum: ["manufacturer", "kr_label"], type: "string" },
+          // 이미 가진 출처에서 인용했으면 그 id. 새 페이지를 찾았으면 null 로 두고
+          // url 을 채운다. 둘 다 채우면 sourceId 가 이긴다 — 새 출처를 만들지 않는
+          // 쪽이 항상 안전하다.
+          sourceId: { type: ["integer", "null"] },
           url: { type: ["string", "null"] },
         },
-        required: ["foodId", "url", "kind", "evidence"],
+        required: ["foodId", "url", "kind", "evidence", "sourceId"],
         type: "object",
       },
       type: "array",
@@ -138,6 +142,40 @@ if (DRY) {
   process.exit(0);
 }
 
+// 빠진 값이 이미 현행 출처의 보관 원문에 들어 있는 경우가 많다. 추출 당시 거부됐거나
+// (유럽식 소수점 쉼표가 그랬다) 그때는 찾지 않던 키라서 남아 있을 뿐이다. 새 페이지를
+// 찾기 전에 가진 원문부터 읽는다 — 네트워크도, 새 출처도, 종류 뒤집기도 필요 없다.
+const LABEL_HINT =
+  /(수분|조섬유|조지방|조회분|가용무질소물|무기물|Moisture|Crude\s*(fibre|fiber|fat|ash)|Feuchtigkeit|Rohfaser|Rohfett|Rohasche|Umidit|Fibra|Grassi|Ceneri|Humedad|Inorganic matter|NFE)/i;
+
+const { data: currentSources } = await supabase
+  .from("food_sources")
+  .select("id, food_id, kind, url, captured_text")
+  .eq("is_current", true)
+  .eq("fetch_status", "fetched")
+  .in(
+    "food_id",
+    targets.map((t) => t.id),
+  );
+
+/** 성분표 주변만 잘라 낸다. 원문 전체를 넣으면 프롬프트가 감당이 안 된다. */
+function analysisWindow(text) {
+  const match = LABEL_HINT.exec(text ?? "");
+  if (!match) return null;
+  const start = Math.max(0, match.index - 400);
+  return (text ?? "").slice(start, start + 1600).replace(/\s+/g, " ");
+}
+
+const windowsByFood = new Map();
+for (const source of currentSources ?? []) {
+  const window = analysisWindow(source.captured_text);
+  if (window === null) continue;
+  windowsByFood.set(source.food_id, [
+    ...(windowsByFood.get(source.food_id) ?? []),
+    { kind: source.kind, sourceId: source.id, text: window, url: source.url },
+  ]);
+}
+
 const workdir = await mkdtemp(join(tmpdir(), "research-missing-"));
 let products = [];
 try {
@@ -156,11 +194,22 @@ try {
         foodId: t.id,
         missing: gapsById.get(t.id),
         productName: t.product_name,
+        storedSources: windowsByFood.get(t.id) ?? [],
       })),
     ),
     "",
-    "For each product, find a page stating its `missing` values and quote each one.",
-    "Report ONLY keys listed in that product's `missing`, with one exception:",
+    "FIRST look in `storedSources`. Those are excerpts of pages already captured and",
+    "stored for that exact product, and the missing value is often sitting in them —",
+    "it was skipped when the page was first read, not absent from it. If you find a",
+    "`missing` value there, quote it and set `sourceId` to that entry's sourceId with",
+    "`url` null. That is the preferred answer: it needs no new page and cannot attach",
+    "another product's number.",
+    "",
+    "Only when `storedSources` does not state the value, find a page stating it and",
+    "return `url` with `sourceId` null.",
+    "",
+    "Quote each value you report. Report ONLY keys listed in that product's",
+    "`missing`, with one exception:",
     "- carb_pct — a carbohydrate the label states itself, which Korean 등록성분량",
     "  writes as 'NFE' or '가용무질소물'. This one is always accepted and makes every",
     "  other gap irrelevant, so prefer it when the page states it. Never compute it.",
@@ -248,43 +297,88 @@ for (const row of backing ?? []) {
   );
 }
 
+/**
+ * kr_label 은 한국에서 등록된 성분표라는 뜻이다. 호스트만 보면 모자란다 —
+ * royalcanin.com/kr 과 apac.acana.com/ko-KR 은 .com 이지만 한국 시장 페이지이고,
+ * royalcanin.com/us 는 같은 호스트인데 아니다. 로케일 구간까지 본다.
+ */
+function koreanLabelHost(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname.toLowerCase().endsWith(".kr")) return true;
+    return /\/(kr|ko|ko-kr)(\/|$)/i.test(parsed.pathname);
+  } catch {
+    return false;
+  }
+}
+
 const byId = new Map(targets.map((t) => [t.id, t]));
 const tally = { failed: 0, filled: 0, rejected: 0, skipped: 0 };
+
+/** 이 사료에 지금 붙어 있는 현행 출처 id. 재사용 제안이 진짜인지 확인하는 데 쓴다. */
+const currentSourceIds = new Set((currentSources ?? []).map((s) => s.id));
 
 for (const product of products) {
   const target = byId.get(product.foodId);
   if (!target) continue;
-  if (!product.url || product.evidence.length === 0) {
+  if (product.evidence.length === 0 || (!product.url && !product.sourceId)) {
     tally.skipped++;
     console.log(`  · ${product.foodId} ${target.product_name} — 찾지 못함`);
     continue;
   }
+
+  // 이미 가진 출처에서 인용했다면 아무것도 등록하지 않는다. 새 출처를 만들지 않으면
+  // 종류 뒤집기도, 기존 출처를 밀어내는 일도 애초에 생기지 않는다.
+  const reuseId =
+    product.sourceId &&
+    currentSourceIds.has(product.sourceId) &&
+    (currentSources ?? []).some(
+      (s) => s.id === product.sourceId && s.food_id === product.foodId,
+    )
+      ? product.sourceId
+      : null;
+
   // 근거를 받치는 종류는 건드리지 않는다. 남은 종류가 없으면 건너뛴다 — 값을 하나
   // 더 얻자고 이미 확보한 근거를 잃는 것은 손해다.
-  const taken = protectedKinds.get(product.foodId) ?? new Set();
-  const kind = taken.has(product.kind)
-    ? product.kind === "manufacturer"
-      ? "kr_label"
-      : "manufacturer"
-    : product.kind;
-  if (taken.has(kind)) {
-    tally.skipped++;
-    console.log(
-      `  · ${product.foodId} ${target.product_name} — 두 종류 모두 근거를 받치는 중`,
-    );
-    continue;
+  //
+  // 종류를 뒤집을 때 URL을 본다. 예전에는 제약을 피하려고 무조건 뒤집었고, 그래서
+  // 영문 제조사 페이지가 kr_label 로 등록됐다. 그 태그는 장식이 아니라 도메인 모델의
+  // 축이다 — 카탈로그가 값마다 "국내라벨"이라고 표시하고, detectSourceConflicts 는
+  // manufacturer 와 kr_label 을 서로 독립된 라벨 체계로 보고 대조한다. 같은 영문
+  // 페이지에 두 태그를 붙이면 둘 다 거짓이 된다.
+  let kind = null;
+  if (reuseId === null) {
+    const taken = protectedKinds.get(product.foodId) ?? new Set();
+    kind = koreanLabelHost(product.url) ? product.kind : "manufacturer";
+    if (taken.has(kind)) {
+      kind = kind === "manufacturer" ? "kr_label" : "manufacturer";
+    }
+    if (
+      taken.has(kind) ||
+      (kind === "kr_label" && !koreanLabelHost(product.url))
+    ) {
+      tally.skipped++;
+      console.log(
+        `  · ${product.foodId} ${target.product_name} — 붙일 수 있는 출처 종류가 없음`,
+      );
+      continue;
+    }
   }
 
   try {
-    const registered = await call(`/api/foods/${product.foodId}/sources`, {
-      captureMethod: "fetch",
-      kind,
-      url: product.url,
-    });
-    const sourceId = registered.source?.id;
-    if (!sourceId) throw new Error("source.id 없음");
+    let sourceId = reuseId;
+    if (sourceId === null) {
+      const registered = await call(`/api/foods/${product.foodId}/sources`, {
+        captureMethod: "fetch",
+        kind,
+        url: product.url,
+      });
+      sourceId = registered.source?.id;
+      if (!sourceId) throw new Error("source.id 없음");
+    }
 
-    // 서버가 방금 수집한 원문으로 근거를 검증한다. 구절이 없으면 여기서 거절된다.
+    // 서버가 보관 원문으로 근거를 검증한다. 구절이 없으면 여기서 거절된다 — 재사용
+    // 경로든 새 수집이든 같은 검사를 통과해야 한다.
     const { results } = await call(
       `/api/foods/${product.foodId}/sources/apply`,
       {
