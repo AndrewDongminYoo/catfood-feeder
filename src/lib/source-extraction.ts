@@ -284,6 +284,13 @@ export function validateExtractedEvidence(
     : evidenceBackedCandidates;
 }
 
+/**
+ * 유럽 라벨의 소수점 쉼표("조섬유 2,5 %"). 쉼표 뒤 자릿수가 1~2개면 천 단위 묶음일
+ * 수 없으므로(묶음은 정확히 3자리) 소수점으로 읽는 것 외에 다른 해석이 없다.
+ * "1,500"처럼 3자리인 것은 여기 걸리지 않고 천 단위로 남는다 — 그 둘은 겹치지 않는다.
+ */
+const DECIMAL_COMMA = /^-?\d+,\d{1,2}$/;
+
 function excerptContainsValue(excerpt: string, value: number): boolean {
   const normalizedExcerpt = excerpt.normalize("NFKC").replace(/−/g, "-");
   if (normalizedExcerpt.includes("⁄")) return false;
@@ -300,13 +307,21 @@ function excerptContainsValue(excerpt: string, value: number): boolean {
     numericTokens?.length !== 1 ||
     !numericToken ||
     leadingDecimalFollowsLabel ||
-    !/^-?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)$/.test(
-      numericToken,
+    !(
+      DECIMAL_COMMA.test(numericToken) ||
+      /^-?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)$/.test(
+        numericToken,
+      )
     )
   )
     return false;
+  // 쉼표를 지우는 것과 소수점으로 바꾸는 것은 정반대의 값을 낸다: "2,5"를 지우면
+  // 25가 되어, 유럽 라벨의 섬유 2.5%가 25% 주장을 통과시킨다(25%는 error 플래그도
+  // 없어 실측으로 발행된다). 어느 쪽인지는 토큰 모양이 결정한다.
   const normalizedToken = normalizeDecimalLiteral(
-    numericToken.replaceAll(",", ""),
+    DECIMAL_COMMA.test(numericToken)
+      ? numericToken.replace(",", ".")
+      : numericToken.replaceAll(",", ""),
   );
   const normalizedValue = normalizeDecimalLiteral(String(value));
   return (

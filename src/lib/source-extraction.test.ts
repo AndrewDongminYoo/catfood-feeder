@@ -284,6 +284,28 @@ describe("validateExtractedEvidence", () => {
     },
   );
 
+  // 유럽 라벨은 소수점을 쉼표로 쓴다("Crude Fibre 2,5 %"). 쉼표를 천 단위로만 읽던
+  // 동안 이 구절들은 전부 거절됐고, 그 거절이 "이미지 라벨이라 불가능"으로 잘못
+  // 기록됐다. 반대로 쉼표를 지우면 2,5가 25가 되므로, 두 방향 다 고정한다.
+  // kcal 쪽을 fiber로 쓰면 합계 100 초과 error 에 먼저 걸려, 쉼표 해석과 무관하게
+  // 빈 배열이 나오고 검사가 공허해진다. 키를 사례마다 맞춘다.
+  it.each([
+    ["Crude Fibre 2,5 %", 2.5, "fiber_pct" as const, true],
+    ["Crude Fibre 2,5 %", 25, "fiber_pct" as const, false],
+    ["Rohasche 7,50 %", 7.5, "ash_pct" as const, true],
+    ["Metabolizable energy 1,500 kcal/kg", 1500, "kcal_per_kg" as const, true],
+    ["Metabolizable energy 1,500 kcal/kg", 1.5, "kcal_per_kg" as const, false],
+  ])("소수점 쉼표: %s = %s → %s", (excerpt, value, nutrientKey, accepted) => {
+    const evidence = { excerpt, nutrientKey, sourceId: 11, value };
+
+    const result = validateExtractedEvidence(
+      [evidence],
+      [{ capturedText: excerpt, id: 11, kind: "manufacturer" }],
+    );
+
+    expect(result).toEqual(accepted ? [evidence] : []);
+  });
+
   it("accepts a correctly grouped thousands value", () => {
     const evidence = {
       excerpt: "Metabolizable energy 3,850 kcal/kg",
