@@ -64,10 +64,13 @@ const URL_MAP_SCHEMA = {
  * 수 있으므로 여기서 한 번 더 정규화한다.
  */
 function recipeKey(productName) {
+  // 소매점 표기는 띄어쓰기와 대소문자가 흔들린다 — "탑 마운틴"/"탑마운틴",
+  // "Z/D"/"z/d". 공백·구분기호를 지우고 소문자로 낮춰야 같은 레시피로 묶인다.
+  // 중량은 product_name에서 이미 뗐지만, 재적재분이 달고 올 수 있어 한 번 더 뗀다.
   return productName
     .replace(/[0-9]+(\.[0-9]+)?\s*(kg|g)/gi, "")
-    .replace(/\s+/g, " ")
-    .trim();
+    .replace(/[\s&-]/g, "")
+    .toLowerCase();
 }
 
 const secret = adminSecret();
