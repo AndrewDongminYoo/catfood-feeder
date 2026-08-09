@@ -153,7 +153,7 @@ git commit -m "feat(research): add a pending_review run status for proposals awa
 - Produces:
 
 ```typescript
-export const MAX_IMAGE_BYTES: number; // 8 * 1024 * 1024
+export const MAX_IMAGE_BYTES: number; // 16 * 1024 * 1024
 export type ImageCaptureResult =
   | {
       readonly kind: "success";
@@ -263,9 +263,11 @@ import { createHash } from "node:crypto";
  *
  * 텍스트 수집(`source-fetcher.ts`)과 같은 이유로 가드가 먼저다: 서버가 임의의 URL을
  * 바이트로 받는 자리이므로, 형식과 크기를 확인하기 전에는 아무것도 신뢰하지 않는다.
- * 라벨 이미지는 본문 텍스트보다 크므로 상한은 따로 둔다.
+ * 라벨 이미지는 본문 텍스트보다 훨씬 크다 — 캐츠랑의 상세 이미지는 10.9 MB,
+ * 1000 × 34288 px 였다(실측 2026-08-10). 상한을 그보다 낮게 잡으면 첫 실제 이미지부터
+ * 거부된다.
  */
-export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+export const MAX_IMAGE_BYTES = 16 * 1024 * 1024;
 
 const ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
@@ -636,6 +638,24 @@ git commit -m "feat(research): accept label transcripts as proposals that write 
 
 ### Task 4: 브랜드 단위 전사 스크립트
 
+**검증된 사실(2026-08-10, 캐츠랑 생생닭고기 인도어).** 이 태스크의 설계는 추측이 아니라
+실측 위에 있다.
+
+- 제품 페이지는 열리고 이미지 URL 이 `<img src>` 에 절대 CDN URL 로 있다.
+- 상세 이미지는 **1000 × 34288 px, 10.9 MB** 의 세로 스트립이다. 통째로 첨부하면
+  비전 모델이 긴 변 기준으로 축소해 글자가 뭉갠다 — 6000px 구간을 1400px 로 줄인
+  것만으로도 표가 안 읽혔다. **원본 해상도 타일링이 필수다.**
+- 2패스가 통했다. 35개 타일의 320px 축소본으로 위치를 찾고(t31 등록정보, t32 원료+
+  보장성분, t33 보장성분), 그 세 장만 원본 해상도로 다시 넘겨 전사했다.
+- 전사 결과 8개 값이 원본과 **전부 정확히 일치**했다(조단백 35.0 / 조지방 17.0 /
+  조섬유 3.5 / 조회분 9.0 / 칼슘 1.0 / 인 0.8 / 수분 8.0 / ME 3,870 kcal/kg).
+- 표 제목은 `등록성분량` 이 아니라 **`사료등록성분 Guaranteed Analysis`** 였다.
+  프롬프트는 두 표기를 모두 받아야 한다.
+- 같은 타일에서 `사료의 형태(익스트루전(팽화))` 와 원료 목록(한글·영문)이 함께 나온다.
+  값으로 적용하지는 않되 제안에 실어 둔다 — 원료는 다음 과제다.
+- 함정: 페이지에서 "조단백" 이 텍스트로 잡히는 유일한 자리는 **고객 리뷰**다.
+  이미지 경로는 그 함정을 피하지만, 프롬프트가 포장 아트와 리뷰를 배제해야 한다.
+
 **Files:**
 
 - Create: `scripts/transcribe-brand.mjs`
@@ -679,7 +699,7 @@ const arg = (name) => {
 const brandName = arg("brand");
 const limit = Number(arg("limit") ?? "9");
 const DRY = process.argv.includes("--dry");
-const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 16 * 1024 * 1024;
 const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -718,6 +738,10 @@ const DISCOVERY_SCHEMA = {
 const TRANSCRIPT_SCHEMA = {
   additionalProperties: false,
   properties: {
+    // 값으로 적용하지는 않지만 제안에 실어 둔다. 같은 타일에서 공짜로 나오고,
+    // 원료는 발행 다음 과제다.
+    cookingMethod: { type: ["string", "null"] },
+    ingredients: { type: ["string", "null"] },
     transcript: { type: "string" },
     values: {
       items: {
@@ -749,6 +773,90 @@ const TRANSCRIPT_SCHEMA = {
   required: ["transcript", "values"],
   type: "object",
 };
+
+const LOCATE_SCHEMA = {
+  additionalProperties: false,
+  properties: {
+    slices: {
+      items: {
+        additionalProperties: false,
+        properties: {
+          holds: {
+            items: {
+              enum: ["guaranteed_analysis", "registration_info", "ingredients"],
+              type: "string",
+            },
+            type: "array",
+          },
+          slice: { type: "string" },
+        },
+        required: ["slice", "holds"],
+        type: "object",
+      },
+      type: "array",
+    },
+  },
+  required: ["slices"],
+  type: "object",
+};
+
+/**
+ * 세로로 긴 상세 이미지를 원본 해상도 타일로 자른다.
+ *
+ * 통째로 넘기면 안 되는 이유: 캐츠랑의 이미지는 1000 × 34288 px 였고, 비전 모델이 긴
+ * 변을 기준으로 축소하면 표의 글자가 사라진다. 실측으로 6000px 구간을 1400px 로 줄인
+ * 것만으로 이미 못 읽었다. 겹침을 두는 것은 표가 경계에서 잘리는 것을 막기 위해서다.
+ *
+ * sips 는 macOS 기본 도구다. 다른 이미지 의존성을 들이지 않는다.
+ */
+async function tileImage(imagePath, workdir, prefix) {
+  const probe = await new Promise((resolve, reject) => {
+    const child = spawn("sips", ["-g", "pixelHeight", imagePath], {
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    let out = "";
+    child.stdout.on("data", (chunk) => (out += chunk));
+    child.on("error", reject);
+    child.on("close", () => resolve(out));
+  });
+  const height = Number(/pixelHeight:\s*(\d+)/.exec(probe)?.[1] ?? 0);
+  if (height === 0) return [];
+
+  const TILE = 1200;
+  const STEP = 1000; // 200px 겹침
+  const tiles = [];
+  for (let y = 0; y + 200 < height; y += STEP) {
+    const tileHeight = Math.min(TILE, height - y - 1);
+    if (tileHeight < 200) break;
+    const index = String(tiles.length + 1).padStart(2, "0");
+    const full = join(workdir, `${prefix}-t${index}.jpg`);
+    const small = join(workdir, `${prefix}-t${index}-small.jpg`);
+    await new Promise((resolve) => {
+      spawn(
+        "sips",
+        [
+          "-c",
+          String(tileHeight),
+          "1000",
+          "--cropOffset",
+          String(y),
+          "0",
+          imagePath,
+          "--out",
+          full,
+        ],
+        { stdio: "ignore" },
+      ).on("close", resolve);
+    });
+    await new Promise((resolve) => {
+      spawn("sips", ["-Z", "320", full, "--out", small], {
+        stdio: "ignore",
+      }).on("close", resolve);
+    });
+    tiles.push({ full, name: `t${index}`, small });
+  }
+  return tiles;
+}
 
 async function runCodex(prompt, schema, workdir, images = []) {
   const schemaPath = join(
@@ -901,22 +1009,80 @@ try {
         continue;
       }
 
+      // 1패스: 축소본으로 어느 타일에 표가 있는지만 찾는다. 35장을 원본으로 넘기면
+      // 프롬프트가 감당이 안 되고, 축소본으로는 표를 못 읽지만 "표가 있다"는 알아본다.
+      const tiles = [];
+      for (const [index, image] of downloaded.entries()) {
+        tiles.push(
+          ...(await tileImage(
+            image.path,
+            workdir,
+            `${product.foodId}-${index}`,
+          )),
+        );
+      }
+      if (tiles.length === 0) {
+        tally.failed++;
+        console.log(
+          `  ! ${product.foodId} ${target.product_name} — 타일링 실패`,
+        );
+        continue;
+      }
+
+      const located = await runCodex(
+        [
+          `These are ${String(tiles.length)} consecutive slices of one Korean pet-food`,
+          "detail page, top to bottom, named t01.. in order. They overlap by 200px.",
+          "",
+          "Find the slices holding a TABLE OF PRINTED DATA:",
+          "- guaranteed_analysis — 사료등록성분 / 등록성분량 / 보장성분, listing 조단백,",
+          "  조지방, 조섬유, 조회분, 수분 with percentages",
+          "- registration_info — 사료등록정보 / MAFRA Animal Feed Registration Information",
+          "- ingredients — 사용원료 / Ingredients",
+          "",
+          "Ignore marketing art, product photos, customer reviews, and numbers printed",
+          "on the package artwork. Return only the JSON object described by the schema.",
+        ].join("\n"),
+        LOCATE_SCHEMA,
+        workdir,
+        tiles.map((tile) => tile.small),
+      );
+
+      const wanted = new Set(
+        (located.slices ?? [])
+          .filter((slice) => slice.holds.length > 0)
+          .map((slice) => slice.slice),
+      );
+      const chosen = tiles.filter((tile) => wanted.has(tile.name));
+      if (chosen.length === 0) {
+        tally.skipped++;
+        console.log(
+          `  · ${product.foodId} ${target.product_name} — 성분표를 찾지 못함`,
+        );
+        continue;
+      }
+
+      // 2패스: 고른 타일만 원본 해상도로. 여기서만 글자가 읽힌다.
       const transcript = await runCodex(
         [
           `Product: ${target.product_name}`,
           "",
-          "The attached images are a Korean pet-food detail page. Transcribe the",
-          "registered analysis block (등록성분량 / 보장성분) exactly as printed,",
-          "keeping the Korean labels, the numbers, and the 이상/이하 qualifiers.",
+          "These are native-resolution slices of a Korean pet-food detail page.",
+          "Transcribe, exactly as printed:",
+          "- the guaranteed-analysis table (사료등록성분 / 등록성분량 / 보장성분), keeping",
+          "  the Korean labels, the numbers, and the 이상/이하 qualifiers",
+          "- 사료의 형태 from the registration table, into cookingMethod",
+          "- the 사용원료 / Ingredients list, into ingredients",
           "",
-          "Then list each nutrient you transcribed, with the excerpt copied verbatim",
-          "from your own transcript. Percentages only — never convert units, and",
-          "never infer a value that is not printed.",
+          "Then list each nutrient with an excerpt copied VERBATIM from your own",
+          "transcript. Percentages as printed — never convert units, never infer a value",
+          "that is not printed, and never take a number from the package artwork or from",
+          "a customer review.",
           "Return only the JSON object described by the output schema.",
         ].join("\n"),
         TRANSCRIPT_SCHEMA,
         workdir,
-        downloaded.map((image) => image.path),
+        chosen.map((tile) => tile.full),
       );
 
       if (!transcript.transcript?.trim() || transcript.values.length === 0) {
@@ -1475,4 +1641,13 @@ node scripts/transcribe-brand.mjs --brand "캐츠랑" --limit 9
 # 그다음 /new/transcribe 에서 확인
 ```
 
-제안이 0건이면 codex ① 의 발견이 실패한 것이다. 프롬프트를 고치기 전에 그 브랜드 사이트에서 제품 페이지를 직접 한 번 열어 구조를 확인한다 — 상세 이미지가 `<img>` 가 아니라 CSS 배경이거나 lazy-load 속성 뒤에 있으면 URL 이 본문에 없다.
+캐츠랑에 대해서는 이 흐름이 이미 손으로 검증됐다(계획 위 Task 4 머리말). 남은 불확실성은 **다른 브랜드의 페이지 구조**다.
+
+제안이 0건이면 어느 단계에서 끊겼는지부터 가른다.
+
+- `이미지 찾지 못함` — codex ① 의 발견 실패. 그 브랜드 제품 페이지를 직접 열어 상세 이미지가 `<img src>` 에 있는지 본다. CSS 배경이거나 lazy-load 속성 뒤면 URL 이 본문에 없다.
+- `이미지 수집 실패` — 형식이나 크기. `curl -sI <url>` 로 content-type 과 길이를 확인한다.
+- `타일링 실패` — `sips -g pixelHeight` 가 0을 냈다. 이미지가 JPEG/PNG 가 아닐 수 있다.
+- `성분표를 찾지 못함` — 1패스가 표를 못 골랐다. 축소본(320px)을 직접 열어 표가 보이는지 본다. 보이는데 못 골랐으면 프롬프트 문제이고, 안 보이면 축소 폭을 키운다.
+
+전사 결과는 반드시 원본 타일과 대조한다. 캐츠랑에서는 8개 값이 전부 일치했지만, 그것이 다음 브랜드에서도 성립한다는 보장은 없다 — 확인 화면이 존재하는 이유가 그것이다.
