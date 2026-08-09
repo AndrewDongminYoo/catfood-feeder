@@ -1143,7 +1143,60 @@ console.log(
 );
 ```
 
-- [ ] **Step 2: 구문과 대상 선정을 확인한다**
+- [ ] **Step 2: 발견을 건너뛰는 탈출구를 더한다**
+
+사이트가 아예 열리지 않는 브랜드가 있다(사조동아원·프로베스트, 5건 — 홈페이지가
+`URLError`). 그런 경우 운영자가 이미지 URL 을 직접 건네는 것 외에 길이 없다.
+발견만 건너뛰고 나머지(수집 → 타일 → 2패스 → 적재)는 그대로 태우면 되므로,
+새 화면이 아니라 플래그 하나로 붙인다.
+
+`arg` 정의 아래에 다음을 더한다.
+
+```javascript
+// 발견을 건너뛰는 탈출구. 사이트가 열리지 않는 브랜드는 운영자가 이미지 URL 을
+// 직접 건네는 수밖에 없다. 검증·전사·확인 경로는 브랜드 실행과 완전히 같다.
+const soloFoodId = arg("food") === null ? null : Number(arg("food"));
+const soloImageUrl = arg("image");
+```
+
+그리고 브랜드 조회 앞에 분기를 둔다.
+
+```javascript
+if (soloFoodId !== null) {
+  if (!soloImageUrl) {
+    console.error("--food 를 쓰려면 --image <url> 도 필요합니다.");
+    process.exit(1);
+  }
+  const { data: food } = await supabase
+    .from("foods")
+    .select("id, product_name")
+    .eq("id", soloFoodId)
+    .maybeSingle();
+  if (!food) {
+    console.error(`사료 ${String(soloFoodId)} 를 찾을 수 없습니다.`);
+    process.exit(1);
+  }
+  // 발견 결과를 손으로 만든 것처럼 넘긴다 — 아래 루프는 출처를 구분하지 않는다.
+  discovery = {
+    products: [
+      {
+        foodId: food.id,
+        imageUrls: [soloImageUrl],
+        productPageUrl: soloImageUrl,
+      },
+    ],
+  };
+  targets.push(food);
+}
+```
+
+사용법에 한 줄 더한다.
+
+```javascript
+//   node scripts/transcribe-brand.mjs --food 512 --image "https://.../detail.jpg"
+```
+
+- [ ] **Step 3: 구문과 대상 선정을 확인한다**
 
 ```bash
 node --check scripts/transcribe-brand.mjs
@@ -1152,7 +1205,7 @@ node scripts/transcribe-brand.mjs --brand "캐츠랑" --dry
 
 Expected: `캐츠랑: 전사 대상 9건` 과 9줄의 id·이름.
 
-- [ ] **Step 3: 홈페이지 없는 브랜드가 거절되는지 확인한다**
+- [ ] **Step 4: 홈페이지 없는 브랜드가 거절되는지 확인한다**
 
 ```bash
 node scripts/transcribe-brand.mjs --brand "냥심덕후" --dry
@@ -1160,7 +1213,7 @@ node scripts/transcribe-brand.mjs --brand "냥심덕후" --dry
 
 Expected: `홈페이지가 없어 이미지에 도달할 경로가 없습니다.` 로 종료(exit 1).
 
-- [ ] **Step 4: 커밋한다**
+- [ ] **Step 5: 커밋한다**
 
 ```bash
 trunk check scripts/transcribe-brand.mjs
