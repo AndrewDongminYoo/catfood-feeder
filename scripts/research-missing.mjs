@@ -139,6 +139,10 @@ try {
     "- Return url null and an empty evidence array when you cannot find it. A wrong",
     "  page applies another product's moisture, which is worse than the gap.",
     "- No retailer, marketplace, blog or aggregator pages.",
+    "- HTML pages only. The backend captures text/html and rejects anything else,",
+    "  so a PDF spec sheet is thrown away even when it holds the number — Purina",
+    "  links its analysis as /sites/default/files/...pdf and every one of those was",
+    "  refused. If a brand only publishes a PDF, return url null and say nothing.",
     "- Return only the JSON object described by the output schema.",
   ].join("\n");
 
