@@ -130,7 +130,12 @@ const NON_EXTRUSION =
 const rows = items.map((i) => {
   return {
     brand_id: brandId.get(i.brand.toLowerCase()),
-    product_name: i.productName,
+    // 중량은 weight_kg가 든다. 이름에 남기면 같은 레시피가 포장 수만큼 다른
+    // 제품으로 보이고, 조사도 그만큼 중복된다.
+    product_name: i.productName
+      .replace(/[0-9]+(\.[0-9]+)?\s*(kg|g)/gi, "")
+      .replace(/\s+/g, " ")
+      .trim(),
     weight_kg: i.weightKg,
     source: SOURCE,
     external_id: i.externalId,

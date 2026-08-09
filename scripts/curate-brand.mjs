@@ -58,7 +58,11 @@ const URL_MAP_SCHEMA = {
   type: "object",
 };
 
-/** 무게 변형은 같은 레시피다. 이름에서 무게 토큰을 떼어 레시피 단위로 묶는다. */
+/**
+ * 같은 레시피의 다른 포장 중량은 같은 제품이다. product_name에서는 중량을 이미
+ * 떼어냈지만(중량은 weight_kg가 든다), 재적재로 들어온 이름은 아직 중량을 달고 있을
+ * 수 있으므로 여기서 한 번 더 정규화한다.
+ */
 function recipeKey(productName) {
   return productName
     .replace(/[0-9]+(\.[0-9]+)?\s*(kg|g)/gi, "")
