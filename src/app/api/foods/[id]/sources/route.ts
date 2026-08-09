@@ -113,6 +113,23 @@ export async function POST(
         { status: 400 },
       );
     }
+    // 수동 전사본은 "사람이 라벨을 읽고 옮겨 적었다"는 진술이다. 자동화 자격 증명이
+    // 등록하면 그 진술이 거짓이 되고, 근거 검증도 자기가 써 넣은 글을 자기가 대조하는
+    // 셈이 되어 hallucination 가드가 통째로 무의미해진다. 발행과 같은 이유로 사람
+    // 세션만 허용한다.
+    //
+    // 'fetch'는 막지 않는다. 그쪽은 서버가 URL을 직접 수집한 원문에 대고 구절을
+    // 검증하므로 제안자가 사람이든 스크립트든 경계가 성립한다 — 조사 스크립트가
+    // 의존하는 경로이기도 하다.
+    if (
+      payload.data.captureMethod === "manual" &&
+      (authorization.origin === "automation" || authorization.actorId === null)
+    ) {
+      return NextResponse.json(
+        { error: "자동화 자격 증명으로는 수동 전사본을 등록할 수 없습니다." },
+        { status: 403 },
+      );
+    }
     if (
       payload.data.captureMethod === "manual" &&
       Buffer.byteLength(payload.data.capturedText, "utf8") >
