@@ -24,6 +24,24 @@ import {
 
 const MAX_MANUAL_TEXT_BYTES = 256 * 1024;
 
+const KR_LABEL_REQUIRES_KOREAN =
+  "국내 라벨로 등록하려면 원문에 한글 성분 표기가 있어야 합니다.";
+
+/**
+ * kr_label 은 한국에서 등록된 성분표라는 뜻이지 두 번째 출처 자리가 아니다.
+ *
+ * 예전에는 사료당 종류별 현행 출처가 하나뿐이라, 두 번째 제조사 페이지를 붙이려는
+ * 호출자가 태그를 kr_label 로 뒤집어 빈 자리에 밀어 넣었다. 그렇게 등록된 영문
+ * 페이지가 /foods/[id]에서 값마다 "국내라벨"로 표시됐다. 제약은 풀렸지만 태그를
+ * 호출자 말만 믿을 이유는 없다 — 등록성분량은 한글로 쓰이므로 본문으로 확인한다.
+ *
+ * 호스트로 가르지 않는다: reflexkorea.com 은 .kr 도 /kr 경로도 아닌 진짜 한국
+ * 수입사이고, royalcanin.com 은 같은 호스트 아래 /kr 과 /us 가 함께 있다.
+ */
+function statesKoreanLabel(kind: string, capturedText: string): boolean {
+  return kind !== "kr_label" || /[가-힣]/.test(capturedText);
+}
+
 const sourcePayloadSchema = z.discriminatedUnion("captureMethod", [
   z
     .object({
@@ -148,6 +166,12 @@ export async function POST(
     }
 
     if (payload.data.captureMethod === "manual") {
+      if (!statesKoreanLabel(payload.data.kind, payload.data.capturedText)) {
+        return NextResponse.json(
+          { error: KR_LABEL_REQUIRES_KOREAN },
+          { status: 400 },
+        );
+      }
       const capturedAt = new Date().toISOString();
       const contentHash = hashSourceText(payload.data.capturedText);
       const replacement = await replaceCurrentFoodSource({
@@ -201,6 +225,13 @@ export async function POST(
           sourceId,
         },
         { status: 422 },
+      );
+    }
+
+    if (!statesKoreanLabel(payload.data.kind, captured.capturedText)) {
+      return NextResponse.json(
+        { error: KR_LABEL_REQUIRES_KOREAN },
+        { status: 400 },
       );
     }
 

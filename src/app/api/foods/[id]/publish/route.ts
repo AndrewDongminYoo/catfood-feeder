@@ -112,6 +112,11 @@ export async function POST(
       .eq("kind", "manufacturer")
       .eq("fetch_status", "fetched")
       .eq("is_current", true)
+      // 사료 하나가 제조사 페이지를 여럿 가질 수 있게 된 뒤로 maybeSingle()은 행이
+      // 둘이면 에러가 된다. 이 원문은 P/F/C 선언을 찾는 데만 쓰이므로 가장 먼저
+      // 조사된 것(가장 낮은 id)을 쓴다 — 출처가 하나뿐이던 때와 같은 결과다.
+      .order("id")
+      .limit(1)
       .maybeSingle();
 
     const preparation = prepareFoodPublication({

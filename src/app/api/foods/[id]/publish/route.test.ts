@@ -47,13 +47,19 @@ function createFoodQuery(
   data: unknown,
   error: { message: string } | null = null,
 ) {
+  // 제조사 원문 조회가 .order("id").limit(1) 을 거친다 — 사료 하나가 제조사
+  // 페이지를 여럿 가질 수 있게 된 뒤로 maybeSingle() 만으로는 행이 둘일 때 터진다.
   const query = {
     eq: vi.fn(),
+    limit: vi.fn(),
     maybeSingle: vi.fn().mockResolvedValue({ data, error }),
+    order: vi.fn(),
     select: vi.fn(),
   };
   query.select.mockReturnValue(query);
   query.eq.mockReturnValue(query);
+  query.order.mockReturnValue(query);
+  query.limit.mockReturnValue(query);
   return query;
 }
 

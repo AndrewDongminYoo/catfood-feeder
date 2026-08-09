@@ -117,4 +117,50 @@ describe("출처 등록 경계", () => {
     expect(response.status).toBe(200);
     expect(mocks.captureSource).toHaveBeenCalled();
   });
+
+  // kr_label 은 한국 등록성분량이라는 뜻이지 두 번째 출처 자리가 아니다. 자리가
+  // 없던 시절 호출자들이 영문 제조사 페이지를 이 태그로 밀어 넣었고, 카탈로그는
+  // 그 값을 독자에게 "국내라벨"로 표시했다.
+  it("한글이 없는 원문은 국내 라벨로 등록할 수 없다", async () => {
+    mocks.authorizeCurator.mockResolvedValue(AUTOMATION);
+    mocks.captureSource.mockResolvedValue({
+      capturedAt: "2026-08-10T00:00:00.000Z",
+      capturedText: "Crude protein 32%, Crude ash 7.5%",
+      contentHash: "hash",
+      kind: "success",
+    });
+
+    const response = await post({ ...FETCH_BODY, kind: "kr_label" });
+
+    expect(response.status).toBe(400);
+    expect(mocks.replaceCurrentFoodSource).not.toHaveBeenCalled();
+  });
+
+  it("한글 성분 표기가 있으면 국내 라벨로 등록된다", async () => {
+    mocks.authorizeCurator.mockResolvedValue(AUTOMATION);
+    mocks.captureSource.mockResolvedValue({
+      capturedAt: "2026-08-10T00:00:00.000Z",
+      capturedText: "등록성분량 조단백질 32% 이상, 조회분 7.5% 이하",
+      contentHash: "hash",
+      kind: "success",
+    });
+
+    const response = await post({ ...FETCH_BODY, kind: "kr_label" });
+
+    expect(response.status).toBe(200);
+    expect(mocks.replaceCurrentFoodSource).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "kr_label" }),
+    );
+  });
+
+  it("제조사 출처는 한글이 없어도 등록된다", async () => {
+    mocks.authorizeCurator.mockResolvedValue(AUTOMATION);
+
+    const response = await post(FETCH_BODY);
+
+    expect(response.status).toBe(200);
+    expect(mocks.replaceCurrentFoodSource).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "manufacturer" }),
+    );
+  });
 });

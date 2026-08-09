@@ -311,47 +311,8 @@ async function call(path, body) {
   return payload;
 }
 
-// 이미 근거를 받치고 있는 출처 종류. 같은 종류로 새 출처를 등록하면
-// replaceCurrentFoodSource가 그것을 은퇴시키고, 새 수집이 근거를 못 만들면 기존 근거가
-// 받침 없이 남아 그 사료는 영원히 발행되지 않는다. 힐스 3건이 그렇게 깨졌다.
-const { data: backing } = await supabase
-  .from("food_nutrient_evidence")
-  .select("food_id, food_sources!inner(kind, is_current, fetch_status)")
-  .eq("is_current", true)
-  .in(
-    "food_id",
-    targets.map((t) => t.id),
-  );
-const protectedKinds = new Map();
-for (const row of backing ?? []) {
-  const source = row.food_sources;
-  if (!source?.is_current || source.fetch_status !== "fetched") continue;
-  protectedKinds.set(
-    row.food_id,
-    (protectedKinds.get(row.food_id) ?? new Set()).add(source.kind),
-  );
-}
-
-/**
- * kr_label 은 한국에서 등록된 성분표라는 뜻이다. 호스트만 보면 모자란다 —
- * royalcanin.com/kr 과 apac.acana.com/ko-KR 은 .com 이지만 한국 시장 페이지이고,
- * royalcanin.com/us 는 같은 호스트인데 아니다. 로케일 구간까지 본다.
- */
-function koreanLabelHost(url) {
-  try {
-    const parsed = new URL(url);
-    if (parsed.hostname.toLowerCase().endsWith(".kr")) return true;
-    return /\/(kr|ko|ko-kr)(\/|$)/i.test(parsed.pathname);
-  } catch {
-    return false;
-  }
-}
-
 const byId = new Map(targets.map((t) => [t.id, t]));
 const tally = { failed: 0, filled: 0, rejected: 0, skipped: 0 };
-
-/** 이 사료에 지금 붙어 있는 현행 출처 id. 재사용 제안이 진짜인지 확인하는 데 쓴다. */
-const currentSourceIds = new Set((currentSources ?? []).map((s) => s.id));
 
 for (const product of products) {
   const target = byId.get(product.foodId);
@@ -362,43 +323,23 @@ for (const product of products) {
     continue;
   }
 
-  // 이미 가진 출처에서 인용했다면 아무것도 등록하지 않는다. 새 출처를 만들지 않으면
-  // 종류 뒤집기도, 기존 출처를 밀어내는 일도 애초에 생기지 않는다.
+  // 이미 가진 출처에서 인용했다면 아무것도 등록하지 않는다. 에이전트가 sourceId
+  // 대신 그 출처의 URL 을 돌려준 경우도 같게 다룬다 — 같은 페이지를 다시 수집하면
+  // 이전 캡처를 교체하게 되고, 새 수집이 본문을 잃으면 거기 걸린 근거가 받침을
+  // 잃는다. 힐스 3건이 그렇게 깨졌다.
+  const ownSources = (currentSources ?? []).filter(
+    (source) => source.food_id === product.foodId,
+  );
   const reuseId =
-    product.sourceId &&
-    currentSourceIds.has(product.sourceId) &&
-    (currentSources ?? []).some(
-      (s) => s.id === product.sourceId && s.food_id === product.foodId,
-    )
-      ? product.sourceId
-      : null;
+    ownSources.find((source) => source.id === product.sourceId)?.id ??
+    ownSources.find((source) => source.url === product.url)?.id ??
+    null;
 
-  // 근거를 받치는 종류는 건드리지 않는다. 남은 종류가 없으면 건너뛴다 — 값을 하나
-  // 더 얻자고 이미 확보한 근거를 잃는 것은 손해다.
-  //
-  // 종류를 뒤집을 때 URL을 본다. 예전에는 제약을 피하려고 무조건 뒤집었고, 그래서
-  // 영문 제조사 페이지가 kr_label 로 등록됐다. 그 태그는 장식이 아니라 도메인 모델의
-  // 축이다 — 카탈로그가 값마다 "국내라벨"이라고 표시하고, detectSourceConflicts 는
-  // manufacturer 와 kr_label 을 서로 독립된 라벨 체계로 보고 대조한다. 같은 영문
-  // 페이지에 두 태그를 붙이면 둘 다 거짓이 된다.
-  let kind = null;
-  if (reuseId === null) {
-    const taken = protectedKinds.get(product.foodId) ?? new Set();
-    kind = koreanLabelHost(product.url) ? product.kind : "manufacturer";
-    if (taken.has(kind)) {
-      kind = kind === "manufacturer" ? "kr_label" : "manufacturer";
-    }
-    if (
-      taken.has(kind) ||
-      (kind === "kr_label" && !koreanLabelHost(product.url))
-    ) {
-      tally.skipped++;
-      console.log(
-        `  · ${product.foodId} ${target.product_name} — 붙일 수 있는 출처 종류가 없음`,
-      );
-      continue;
-    }
-  }
+  // 종류는 에이전트가 제안한 것을 그대로 쓴다. 예전에는 사료당 종류별 현행 출처가
+  // 하나뿐이라 자리를 비우려고 태그를 뒤집었고, 그래서 영문 제조사 페이지가
+  // kr_label 로 등록됐다. 이제 제약이 URL 기준이라 자리를 다툴 일이 없고, kr_label
+  // 이 정말 한국 라벨인지는 서버가 본문의 한글로 확인한다.
+  const kind = reuseId === null ? product.kind : null;
 
   try {
     let sourceId = reuseId;
