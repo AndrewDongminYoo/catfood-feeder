@@ -72,6 +72,25 @@ function isDryCatFood(p) {
   return kg != null && kg >= 1.0 && !EXCLUDE.test(p.productName);
 }
 
+/**
+ * 리스팅 이름에서 레시피 이름을 뽑는다. 중량은 weight_kg가 들고, 포장 수량(24ea)도
+ * 레시피가 아니다.
+ *
+ * 중량을 지우고 끝내면 감싸던 기호가 남는다 — "(454g/1.5kg)"는 "(/)"가, "(50g*24ea)"는
+ * "(*24ea)"가 된다. 반대로 꼬리 기호를 몰아서 지우면 "7세+"의 +와 "(민감)"의 닫는
+ * 괄호까지 사라지므로, 고아가 된 것만 지운다.
+ */
+function recipeName(name) {
+  return name
+    .replace(/[0-9]+(\.[0-9]+)?\s*(kg|g)/gi, "")
+    .replace(/\s*\(\s*[*x\u00d7]?\s*[0-9]*\s*ea\s*\)/gi, "")
+    .replace(/\s*\(\s*[/*x\u00d7,+\u00b7\s-]*\s*\)/g, "")
+    .replace(/\s*[*x\u00d7]\s*[0-9]+\s*ea\s*$/gi, "")
+    .replace(/\s+/g, " ")
+    .replace(/[\s/,\u00b7-]+$/g, "")
+    .trim();
+}
+
 // ── 메인 ───────────────────────────────────────────────────────
 const raw = JSON.parse(readFileSync("pet-fritends.json", "utf8"));
 const products = raw
@@ -132,10 +151,7 @@ const rows = items.map((i) => {
     brand_id: brandId.get(i.brand.toLowerCase()),
     // 중량은 weight_kg가 든다. 이름에 남기면 같은 레시피가 포장 수만큼 다른
     // 제품으로 보이고, 조사도 그만큼 중복된다.
-    product_name: i.productName
-      .replace(/[0-9]+(\.[0-9]+)?\s*(kg|g)/gi, "")
-      .replace(/\s+/g, " ")
-      .trim(),
+    product_name: recipeName(i.productName),
     weight_kg: i.weightKg,
     source: SOURCE,
     external_id: i.externalId,
