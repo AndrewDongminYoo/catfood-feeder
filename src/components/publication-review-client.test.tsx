@@ -78,6 +78,12 @@ describe("PublicationReviewClient", () => {
         initialFoods={reviewResponse.foods}
       />,
     );
+    // 브랜드를 고르기 전에는 목록을 그리지 않는다 — 158건을 한 번에 쏟지 않는 것이
+    // 이 화면의 요점이다.
+    expect(screen.queryByText("정상 제품")).toBeNull();
+    fireEvent.change(screen.getByLabelText("브랜드"), {
+      target: { value: "1" },
+    });
     await screen.findByText("정상 제품");
 
     fireEvent.click(screen.getByText("이상 없는 것 모두 선택"));
@@ -104,6 +110,9 @@ describe("PublicationReviewClient", () => {
         initialFoods={reviewResponse.foods}
       />,
     );
+    fireEvent.change(screen.getByLabelText("브랜드"), {
+      target: { value: "1" },
+    });
     fireEvent.click(await screen.findByText("충돌 제품"));
 
     expect(screen.getByText("fiber_pct: 3.4 ↔ 2.3")).toBeTruthy();

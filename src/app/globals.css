@@ -821,3 +821,69 @@ pre {
     @apply font-sans;
   }
 }
+
+/* 발행 검토 목록 (/new/review).
+   모바일 우선이라 8열 테이블은 성립하지 않는다 — 한 건을 카드 한 장으로 보고,
+   수치는 라벨을 붙여 줄바꿈되게 둔다. */
+.review-row {
+  display: flex;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.review-row:first-child {
+  border-top: 0;
+}
+.review-row > input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  flex: 0 0 auto;
+}
+.review-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.review-body > button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  word-break: keep-all;
+}
+.review-nutrients {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--mut);
+  font-variant-numeric: tabular-nums;
+}
+.review-nutrients b {
+  color: #292524;
+  font-weight: 600;
+}
+.review-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 10px 0;
+}
+.review-detail {
+  margin-top: 8px;
+  font-size: 12px;
+  word-break: break-all;
+}
