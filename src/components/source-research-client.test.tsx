@@ -11,7 +11,7 @@ const transcript = "Crude Protein 32%\nCrude Fat 18%";
 const draftResponse = {
   foods: [
     {
-      brands: { name: "Example Brand" },
+      brands: { ko_name: "예시 브랜드", name: "Example Brand" },
       food_sources: [
         {
           captured_at: capturedAt,

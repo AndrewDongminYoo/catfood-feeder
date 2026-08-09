@@ -22,7 +22,9 @@ const sourceSchema = z.object({
   url: z.string(),
 });
 const foodSchema = z.object({
-  brands: z.object({ name: z.string() }).nullable(),
+  brands: z
+    .object({ ko_name: z.string().nullable(), name: z.string() })
+    .nullable(),
   food_sources: z.array(sourceSchema),
   id: z.number(),
   product_name: z.string(),
