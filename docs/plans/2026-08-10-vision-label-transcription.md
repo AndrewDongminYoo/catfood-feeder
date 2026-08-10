@@ -456,14 +456,14 @@ describe("전사 제안 적재", () => {
     );
   });
 
+  // 스키마가 .strict() 이므로 status 는 형식 오류로 거절된다. 거절을 명시적으로
+  // 단언한다 — mock.calls 를 순회하며 검사하면 호출이 0건일 때 아무것도 확인하지
+  // 않고 통과한다(공허한 통과).
   it("호출자가 상태를 정할 수 없다", async () => {
-    await post({ ...BODY, status: "applied" });
+    const response = await post({ ...BODY, status: "applied" });
 
-    // status 는 스키마에 없으므로 형식 오류로 거절되거나, 통과하더라도
-    // 라우트가 pending_review 를 강제한다. 어느 쪽이든 applied 는 적재되지 않는다.
-    for (const call of mocks.recordFoodResearchRun.mock.calls) {
-      expect(call[0].status).toBe("pending_review");
-    }
+    expect(response.status).toBe(400);
+    expect(mocks.recordFoodResearchRun).not.toHaveBeenCalled();
   });
 
   it("권한이 없으면 아무것도 적재하지 않는다", async () => {
@@ -662,7 +662,7 @@ git commit -m "feat(research): accept label transcripts as proposals that write 
 
 **Interfaces:**
 
-- Consumes: Task 2 의 `captureImage` 는 서버 전용이므로 스크립트는 쓰지 않는다. 스크립트는 이미지 URL 을 codex 에 넘기기 위해 직접 받아 임시 파일로 쓰되, 같은 상한(8 MiB)과 같은 content-type 목록을 적용한다. Task 3 의 `POST /api/research/transcripts` 를 호출한다.
+- Consumes: Task 2 의 `captureImage`. 스크립트는 `.mjs` 지만 Node 의 타입 스트리핑이 `../src/lib/image-fetcher.ts` 를 그대로 임포트한다(플래그 없이 동작함을 확인했다). **직접 fetch 하지 않는다** — LLM 이 제안한 URL 을 받는 쪽이 스크립트이고, 운영자 기계에서는 로컬 Supabase 가 `0.0.0.0:54322/54323` 에 열려 있다. SSRF·크기·타임아웃 가드는 그 모듈에 있다. Task 3 의 `POST /api/research/transcripts` 를 호출한다.
 - Produces: `pending_review` run 들. Task 5 가 읽는다.
 
 - [ ] **Step 1: 스크립트를 쓴다**
@@ -683,9 +683,10 @@ git commit -m "feat(research): accept label transcripts as proposals that write 
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { extname, join } from "node:path";
+import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import { captureImage } from "../src/lib/image-fetcher.ts";
 import { BASE_URL, adminSecret } from "./curate-source.mjs";
 import { buildAgentEnv, buildCodexArgs } from "./research-run.mjs";
 import { SECRETS_FILE, loadSecrets } from "./with-secrets.mjs";
@@ -699,8 +700,6 @@ const arg = (name) => {
 const brandName = arg("brand");
 const limit = Number(arg("limit") ?? "9");
 const DRY = process.argv.includes("--dry");
-const MAX_IMAGE_BYTES = 16 * 1024 * 1024;
-const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key =
@@ -889,26 +888,24 @@ async function runCodex(prompt, schema, workdir, images = []) {
   return JSON.parse(await readFile(messagePath, "utf8"));
 }
 
+/**
+ * 이미지를 받아 임시 파일로 쓴다. 수집 자체는 captureImage 가 한다 — 여기서 fetch 를
+ * 다시 쓰면 SSRF·크기·타임아웃 가드를 잃는다. 이 스크립트가 받는 URL 은 LLM 이 제안한
+ * 것이고, 운영자 기계에는 로컬 Supabase 가 0.0.0.0:54322/54323 에 열려 있다.
+ */
 async function downloadImage(imageUrl, workdir, index) {
-  const parsed = new URL(imageUrl);
-  if (parsed.protocol !== "https:") return null;
-  const response = await fetch(parsed, { redirect: "follow" });
-  if (!response.ok) return null;
-  const contentType = (response.headers.get("content-type") ?? "")
-    .split(";")[0]
-    .trim()
-    .toLowerCase();
-  if (!ALLOWED.includes(contentType)) return null;
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  if (bytes.byteLength > MAX_IMAGE_BYTES) return null;
-  const ext = extname(parsed.pathname) || ".jpg";
+  const captured = await captureImage(imageUrl);
+  if (captured.kind === "failure") {
+    console.log(`      이미지 거절 (${captured.code}) ${imageUrl}`);
+    return null;
+  }
+  const ext =
+    { "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp" }[
+      captured.contentType
+    ] ?? ".jpg";
   const path = join(workdir, `label-${index}${ext}`);
-  await writeFile(path, bytes);
-  return {
-    contentHash: createHash("sha256").update(bytes).digest("hex"),
-    path,
-    url: imageUrl,
-  };
+  await writeFile(path, captured.bytes);
+  return { contentHash: captured.contentHash, path, url: imageUrl };
 }
 
 const { data: brand } = await supabase

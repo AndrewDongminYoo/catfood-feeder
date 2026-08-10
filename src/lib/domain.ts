@@ -33,6 +33,12 @@ export const NUTRIENT_FIELDS = [
 
 export type NutrientKey = (typeof NUTRIENT_FIELDS)[number][0];
 
+/** zod `enum` 은 리터럴 배열을 요구한다. 키 목록의 원본은 NUTRIENT_FIELDS 하나로 유지한다. */
+export const NUTRIENT_KEYS = NUTRIENT_FIELDS.map(([key]) => key) as [
+  NutrientKey,
+  ...NutrientKey[],
+];
+
 export const EXTRUSION_ASH_DEFAULT = 9.0; // 익스트루전 사료 회분 폴백값
 
 export function num(v: unknown): number | null {

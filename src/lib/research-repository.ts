@@ -24,7 +24,9 @@ export type ResearchRunStatus =
   | "capture_failed"
   | "claim_conflict"
   | "errored"
-  | "invalid";
+  | "invalid"
+  /** 전사 제안이 운영자의 확인을 기다린다. 값도 출처도 아직 쓰이지 않았다. */
+  | "pending_review";
 
 export class ResearchRepositoryError extends Error {
   readonly name = "ResearchRepositoryError";

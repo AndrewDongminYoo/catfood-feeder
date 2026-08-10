@@ -2,8 +2,8 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { load } from "cheerio";
 import { Agent, type Dispatcher } from "undici";
-import { hashSourceText, isPublicHttpUrl } from "./source-collection";
-import type { SourceKind } from "./source-collection";
+import { hashSourceText, isPublicHttpUrl } from "./source-collection.ts";
+import type { SourceKind } from "./source-collection.ts";
 
 const MAX_REDIRECTS = 3;
 /**
@@ -14,7 +14,7 @@ const MAX_REDIRECTS = 3;
  * 신뢰할 수 없는 URL을 막는 경계는 유지하되, 상한은 실제 페이지 크기에 맞춘다.
  */
 export const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
-const REQUEST_TIMEOUT_MS = 20_000;
+export const REQUEST_TIMEOUT_MS = 20_000;
 
 type CaptureFailureCode =
   | "empty_content"
@@ -46,7 +46,7 @@ type CaptureFailure = {
 
 export type CaptureResult = CaptureSuccess | CaptureFailure;
 
-type FetchDependencies = {
+export type FetchDependencies = {
   readonly createDispatcher?: (
     hostname: string,
     addresses: readonly string[],
@@ -147,7 +147,7 @@ export async function captureSource(
   return { kind: "failure", code: "redirect_limit" };
 }
 
-function createPinnedDispatcher(
+export function createPinnedDispatcher(
   _hostname: string,
   addresses: readonly string[],
 ): Dispatcher {
@@ -174,14 +174,14 @@ function createPinnedDispatcher(
   });
 }
 
-async function resolvePublicHostname(
+export async function resolvePublicHostname(
   hostname: string,
 ): Promise<readonly string[]> {
   const records = await lookup(hostname, { all: true, verbatim: true });
   return records.map((record) => record.address);
 }
 
-async function resolveAddresses(
+export async function resolveAddresses(
   hostname: string,
   resolveHostname: (hostname: string) => Promise<readonly string[]>,
 ): Promise<readonly string[] | null> {
@@ -193,7 +193,7 @@ async function resolveAddresses(
   }
 }
 
-function isUnsafeAddress(address: string): boolean {
+export function isUnsafeAddress(address: string): boolean {
   if (isIP(address) === 4) return isUnsafeIpv4(address);
   if (isIP(address) === 6) return isUnsafeIpv6(address);
   return true;
@@ -367,11 +367,12 @@ function decodeBody(bytes: Uint8Array, charset: string): string {
   }
 }
 
-async function readResponseBody(
+export async function readResponseBody(
   response: Response,
+  maxBytes: number = MAX_RESPONSE_BYTES,
 ): Promise<Uint8Array | null> {
   const contentLength = response.headers.get("content-length");
-  if (contentLength && Number(contentLength) > MAX_RESPONSE_BYTES) {
+  if (contentLength && Number(contentLength) > maxBytes) {
     await cancelResponseBody(response);
     return null;
   }
@@ -385,7 +386,7 @@ async function readResponseBody(
     const { done, value } = await reader.read();
     if (done) break;
     size += value.byteLength;
-    if (size > MAX_RESPONSE_BYTES) {
+    if (size > maxBytes) {
       await reader.cancel();
       return null;
     }
@@ -395,7 +396,7 @@ async function readResponseBody(
   return Buffer.concat(chunks);
 }
 
-async function cancelResponseBody(response: Response): Promise<void> {
+export async function cancelResponseBody(response: Response): Promise<void> {
   await response.body?.cancel();
 }
 

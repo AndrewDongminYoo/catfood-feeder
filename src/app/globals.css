@@ -897,3 +897,16 @@ pre {
   max-height: 70vh;
   overflow: auto;
 }
+
+/* 라벨 전사 확인: 이미지와 전사안을 나란히 둔다. 둘을 번갈아 보면 대조가 안 된다. */
+.transcribe-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.transcribe-grid img {
+  max-width: 100%;
+}
+.transcribe-grid textarea {
+  width: 100%;
+}
