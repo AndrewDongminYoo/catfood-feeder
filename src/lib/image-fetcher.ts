@@ -8,7 +8,7 @@ import {
   REQUEST_TIMEOUT_MS,
   resolveAddresses,
   resolvePublicHostname,
-} from "./source-fetcher";
+} from "./source-fetcher.ts";
 
 /**
  * 상세페이지 이미지 한 장을 받아 온다.

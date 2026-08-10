@@ -2,8 +2,8 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { load } from "cheerio";
 import { Agent, type Dispatcher } from "undici";
-import { hashSourceText, isPublicHttpUrl } from "./source-collection";
-import type { SourceKind } from "./source-collection";
+import { hashSourceText, isPublicHttpUrl } from "./source-collection.ts";
+import type { SourceKind } from "./source-collection.ts";
 
 const MAX_REDIRECTS = 3;
 /**
