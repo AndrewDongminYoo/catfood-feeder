@@ -7,7 +7,7 @@
 //
 // 사용법:
 //   node scripts/transcribe-brand.mjs --brand "캐츠랑" [--limit 9] [--dry]
-//   node scripts/transcribe-brand.mjs --food 512 --image "https://.../detail.jpg"
+//   node scripts/transcribe-brand.mjs --food 512 --image "https://.../a.jpg" "https://.../b.jpg"
 
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -33,7 +33,19 @@ const DRY = process.argv.includes("--dry");
 // 발견을 건너뛰는 탈출구. 사이트가 열리지 않는 브랜드는 운영자가 이미지 URL을
 // 직접 건네는 수밖에 없다. 수집·타일·2패스·적재 경로는 브랜드 실행과 완전히 같다.
 const soloFoodId = arg("food") === null ? null : Number(arg("food"));
-const soloImageUrl = arg("image");
+// 한국 상세페이지는 이미지 여러 장으로 쪼개져 있고 성분표가 어느 장에 있는지는
+// 열어 봐야 안다. 한 장만 받으면 운영자가 17장 중 하나를 찍어 맞혀야 하므로,
+// 후보를 전부 받아 1패스가 고르게 한다.
+const soloImageUrls = (() => {
+  const at = process.argv.indexOf("--image");
+  if (at === -1) return [];
+  const urls = [];
+  for (let i = at + 1; i < process.argv.length; i += 1) {
+    if (process.argv[i].startsWith("--")) break;
+    urls.push(process.argv[i]);
+  }
+  return urls;
+})();
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey =
@@ -268,8 +280,10 @@ let targets = [];
 let discovery;
 
 if (soloFoodId !== null) {
-  if (!soloImageUrl) {
-    console.error("--food 를 쓰려면 --image <url> 도 필요합니다.");
+  if (soloImageUrls.length === 0) {
+    console.error(
+      "--food 를 쓰려면 --image <url...> 도 필요합니다 (여러 장 가능).",
+    );
     process.exit(1);
   }
   const { data: food } = await supabase
@@ -286,8 +300,8 @@ if (soloFoodId !== null) {
     products: [
       {
         foodId: food.id,
-        imageUrls: [soloImageUrl],
-        productPageUrl: soloImageUrl,
+        imageUrls: soloImageUrls,
+        productPageUrl: soloImageUrls[0],
       },
     ],
   };
