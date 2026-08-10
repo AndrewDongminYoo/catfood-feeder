@@ -110,10 +110,11 @@ const TRANSCRIPT_SCHEMA = {
     },
   },
   // OpenAI 구조화 출력의 strict 모드는 additionalProperties:false인 객체의 모든
-  // 프로퍼티가 required에 있어야 한다 — nullable 필드도 "값이 null일 수 있다"는
-  // 것이지 "키가 없어도 된다"는 뜻이 아니다. 비워 두면 codex 호출이 스키마
-  // 검증에서 그대로 거절된다(실측: 다른 스키마로 additionalProperties 누락 시
-  // 동일한 종류의 400 invalid_json_schema를 확인했다).
+  // 프로퍼티가 required에 있어야 한다는 것이 문서화된 계약이다 — nullable 필드도
+  // "값이 null일 수 있다"는 것이지 "키가 없어도 된다"는 뜻이 아니다. (이 required
+  // 규칙 자체는 이 스크립트로 실측하지 않았다. 실측한 것은 같은 strict 검증기가
+  // additionalProperties:false 누락에 400 invalid_json_schema로 거절한다는
+  // 사실뿐이다 — 검증기가 살아있다는 정황 증거로만 삼는다.)
   required: ["transcript", "values", "cookingMethod", "ingredients"],
   type: "object",
 };
