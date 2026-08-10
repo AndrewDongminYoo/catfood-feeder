@@ -8,6 +8,7 @@ import {
   TRANSCRIPT_JSON_BODY_BYTES,
   readJsonBody,
 } from "@/lib/request-body";
+import { isPublicHttpUrl } from "@/lib/source-collection";
 
 /**
  * 이미지 라벨의 전사 제안을 원장에 적는다. **값도 출처도 쓰지 않는다.**
@@ -49,7 +50,27 @@ const requestSchema = z
       )
       .default([]),
   })
-  .strict();
+  .strict()
+  .superRefine((body, ctx) => {
+    // 에이전트가 제출한 URL이다 — javascript:, data:, file:, ftp: 를 그대로
+    // 받으면 안 된다. 형제 라우트(research-proposal.ts)와 같은 판정을 쓴다.
+    if (!isPublicHttpUrl(body.productPageUrl)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Only public HTTPS URLs are accepted",
+        path: ["productPageUrl"],
+      });
+    }
+    for (const [index, image] of body.images.entries()) {
+      if (!isPublicHttpUrl(image.url)) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Only public HTTPS URLs are accepted",
+          path: ["images", index, "url"],
+        });
+      }
+    }
+  });
 
 export async function POST(req: NextRequest) {
   const authorization = authorizeResearchAgent(req);

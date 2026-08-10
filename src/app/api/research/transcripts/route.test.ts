@@ -92,4 +92,24 @@ describe("전사 제안 적재", () => {
     expect(response.status).toBe(400);
     expect(mocks.recordFoodResearchRun).not.toHaveBeenCalled();
   });
+
+  it("productPageUrl 이 https 가 아니면 400 이고 적재하지 않는다", async () => {
+    const response = await post({
+      ...BODY,
+      productPageUrl: "http://example.test/p/1",
+    });
+
+    expect(response.status).toBe(400);
+    expect(mocks.recordFoodResearchRun).not.toHaveBeenCalled();
+  });
+
+  it("이미지 URL 이 공개 https 가 아니면 400 이고 적재하지 않는다", async () => {
+    const response = await post({
+      ...BODY,
+      images: [{ contentHash: "a".repeat(64), url: "javascript:alert(1)" }],
+    });
+
+    expect(response.status).toBe(400);
+    expect(mocks.recordFoodResearchRun).not.toHaveBeenCalled();
+  });
 });
