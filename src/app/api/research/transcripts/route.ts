@@ -48,7 +48,10 @@ const requestSchema = z
           })
           .strict(),
       )
-      .default([]),
+      // 값이 하나도 없는 제안은 승인할 수 없다. 승인 경로는 manual 출처를 먼저
+      // 등록한 뒤 근거를 적용하는데, 근거 라우트는 최소 1건을 요구하므로 400이
+      // 돌아오고 근거 없는 출처만 미아로 남는다.
+      .min(1),
   })
   .strict()
   .superRefine((body, ctx) => {
