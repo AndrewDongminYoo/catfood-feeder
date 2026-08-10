@@ -212,15 +212,14 @@ async function tileImage(imagePath, workdir, prefix) {
   return tiles;
 }
 
-async function runCodex(prompt, schema, workdir, images = []) {
-  const schemaPath = join(
-    workdir,
-    `schema-${createHash("sha256").update(prompt).digest("hex").slice(0, 8)}.json`,
-  );
-  const messagePath = join(
-    workdir,
-    `message-${createHash("sha256").update(prompt).digest("hex").slice(0, 8)}.json`,
-  );
+// key는 파일명 충돌을 막는 용도다. locate 프롬프트는 타일 개수로만 갈리므로,
+// 같은 타일 수를 가진 두 제품은 prompt 해시가 같아진다 — codex가 그 실행에서
+// 메시지 파일을 안 쓰고 0으로 끝나면(드물지만 관측됨) 이전 제품의 조각 목록을
+// 그대로 다시 읽어버린다. 호출마다 사료 id를 넣어 갈라놓는다.
+async function runCodex(prompt, schema, workdir, images = [], key = "shared") {
+  const digest = createHash("sha256").update(prompt).digest("hex").slice(0, 8);
+  const schemaPath = join(workdir, `schema-${key}-${digest}.json`);
+  const messagePath = join(workdir, `message-${key}-${digest}.json`);
   await writeFile(schemaPath, JSON.stringify(schema));
   const args = buildCodexArgs(
     schemaPath,
@@ -315,7 +314,16 @@ if (soloFoodId !== null) {
     .eq("kind", "kr_label")
     .eq("is_current", true)
     .eq("fetch_status", "fetched");
-  const done = new Set((withKrLabel ?? []).map((row) => row.food_id));
+  // 큐를 비우기 전에 같은 브랜드를 다시 돌리면, 아직 /new/transcribe 에서 승인도
+  // 거절도 안 된 사료에 codex 호출을 또 써서 제안이 중복으로 쌓인다.
+  const { data: pendingReview } = await supabase
+    .from("food_research_runs")
+    .select("food_id")
+    .eq("status", "pending_review");
+  const done = new Set([
+    ...(withKrLabel ?? []).map((row) => row.food_id),
+    ...(pendingReview ?? []).map((row) => row.food_id),
+  ]);
 
   const { data: candidates } = await supabase
     .from("foods")
@@ -384,7 +392,7 @@ try {
   for (const product of discovery.products ?? []) {
     const target = targets.find((t) => t.id === product.foodId);
     if (!target) continue;
-    if (!product.productPageUrl || product.imageUrls.length === 0) {
+    if (!product.productPageUrl || (product.imageUrls?.length ?? 0) === 0) {
       tally.skipped++;
       console.log(
         `  · ${product.foodId} ${target.product_name} — 이미지 찾지 못함`,
@@ -447,6 +455,7 @@ try {
         LOCATE_SCHEMA,
         workdir,
         tiles.map((tile) => tile.small),
+        String(product.foodId),
       );
 
       const wanted = new Set(
@@ -484,6 +493,7 @@ try {
         TRANSCRIPT_SCHEMA,
         workdir,
         chosen.map((tile) => tile.full),
+        String(product.foodId),
       );
 
       if (!transcript.transcript?.trim() || transcript.values.length === 0) {
