@@ -118,23 +118,50 @@ for (const i of items.slice(0, 8))
 
 console.log("external_id 컬럼: migration 0003 기준 upsert");
 
-if (DRY) {
-  console.log("\n[DRY RUN] 쓰기 없이 종료.");
-  process.exit(0);
-}
-
 // 1) 브랜드 보장 (manufacturer NULL 기준 정규화 인덱스가 중복 막음)
 // PostgREST는 1000행을 넘기면 잘라서 돌려주고 오류를 내지 않는다 — 잘리면 이미
 // 있는 브랜드를 없는 것으로 보고 다시 만들려 시도한다. 그때는 정규화 인덱스가
 // 막아 조용히 틀리진 않지만(insert가 에러로 죽는다), 페이지네이션이 애초에 그
 // 상황 자체를 없앤다. scripts/select-all.mjs 참고.
 const existingBrands = await selectAll((from, to) =>
-  supabase.from("brands").select("id, name").order("id").range(from, to),
+  supabase
+    .from("brands")
+    .select("id, name, ko_name, in_scope")
+    .order("id")
+    .range(from, to),
 );
-const brandId = new Map(
-  existingBrands.map((b) => [b.name.toLowerCase(), b.id]),
+// 한글명과 정식명을 모두 키로 넣는다. 이 목록은 한글 브랜드명을 주는데, 이전 세션이
+// brands.name 을 정식 영문명으로 바꾸고 한글을 ko_name 으로 분리해서, name 만 보면
+// 107개 중 89개가 "없는 브랜드"로 읽히고 중복 생성된다.
+const brandId = new Map();
+for (const b of existingBrands) {
+  brandId.set(b.name.toLowerCase(), b.id);
+  if (b.ko_name) brandId.set(b.ko_name.toLowerCase(), b.id);
+}
+// 스코프에서 뺀 브랜드는 골격을 다시 만들지 않는다. 이 목록은 소매 목록이라 카탈로그가
+// 싣기로 한 것보다 넓고, 필터가 없으면 다음 실행이 지운 행을 그대로 되살린다.
+const outOfScope = new Set();
+for (const b of existingBrands.filter((brand) => !brand.in_scope)) {
+  outOfScope.add(b.name.toLowerCase());
+  if (b.ko_name) outOfScope.add(b.ko_name.toLowerCase());
+}
+const missingBrands = brands.filter(
+  (b) => !brandId.has(b.toLowerCase()) && !outOfScope.has(b.toLowerCase()),
 );
-const missingBrands = brands.filter((b) => !brandId.has(b.toLowerCase()));
+
+// 미리보기는 스코프를 읽은 뒤에 멈춘다. 그 전에 끊으면 "무엇을 건너뛰는가"가 보이지
+// 않아, 미리보기를 통과한 뒤 실제 실행에서만 드러나는 차이가 생긴다.
+if (DRY) {
+  const skippedByScope = items.filter((i) =>
+    outOfScope.has(i.brand.toLowerCase()),
+  );
+  console.log(
+    `\n스코프 제외 브랜드 ${outOfScope.size}개 / 건너뛸 제품 ${skippedByScope.length}개`,
+  );
+  console.log(`신규 브랜드 예정 ${missingBrands.length}개`);
+  console.log("\n[DRY RUN] 쓰기 없이 종료.");
+  process.exit(0);
+}
 if (missingBrands.length) {
   const { data: ins, error } = await supabase
     .from("brands")
@@ -150,7 +177,12 @@ console.log(`브랜드: 신규 ${missingBrands.length}, 총 ${brandId.size}`);
 const NON_EXTRUSION =
   /오븐|베이크|bake|동결|프리즈|freeze|에어드라이|air.?dried|화식|저온/i;
 
-const rows = items.map((i) => {
+const inScopeItems = items.filter(
+  (i) => !outOfScope.has(i.brand.toLowerCase()),
+);
+const droppedByScope = items.length - inScopeItems.length;
+
+const rows = inScopeItems.map((i) => {
   return {
     brand_id: brandId.get(i.brand.toLowerCase()),
     // 중량은 weight_kg가 든다. 이름에 남기면 같은 레시피가 포장 수만큼 다른
@@ -210,5 +242,6 @@ for (const batch of chunk(fresh, 500)) {
 }
 
 console.log(
-  `\n적재 완료 — foods inserted/upserted: ${inserted}, skipped(existing): ${skipped}`,
+  `\n적재 완료 — foods inserted/upserted: ${inserted}, skipped(existing): ${skipped}` +
+    `, skipped(out of scope): ${droppedByScope}`,
 );
