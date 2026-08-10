@@ -1,0 +1,19 @@
+[sqlfluff]
+# 이 저장소의 SQL은 전부 Postgres다(supabase/migrations, docs/notes). 설정이 없으면
+# sqlfluff는 ansi로 읽고, 그러면 파싱하지 못한 구간을 통째로 건너뛴 뒤 남은 조각에만
+# 규칙을 적용한다 — 검사한 것처럼 보이지만 실제로는 읽지 못한 SQL이다.
+dialect = postgres
+
+# 여기 남은 SQL은 손으로 쓴 마이그레이션과 이미 실행된 일회성 복구 스크립트다.
+# 아래 규칙군은 결함이 아니라 표기 취향이고, 만족시키려면 적용이 끝난 파일을 사후에
+# 고쳐야 한다 — 무엇을 실행했는지의 기록이 바뀐다. 실측 44건(레이아웃 제외 기준) /
+# 547건(전체) 중 결함은 0건이었다.
+#
+#   layout/aliasing/capitalisation — 들여쓰기, 별칭, 리터럴 대소문자
+#   AM05, ST09                     — JOIN을 INNER JOIN으로 쓰라는 것과 피연산자 순서
+#   PG01                           — DROP INDEX에 CONCURRENTLY를 쓰라는 것.
+#                                    마이그레이션은 트랜잭션 안에서 돌고 CONCURRENTLY는
+#                                    트랜잭션 안에서 실행할 수 없으므로 따를 수 없다.
+#
+# 파싱 오류와 나머지 실질 규칙은 그대로 살아 있어서 앞으로 올릴 마이그레이션에 걸린다.
+exclude_rules = layout, aliasing, capitalisation, AM05, ST09, PG01

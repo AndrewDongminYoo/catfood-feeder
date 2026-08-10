@@ -30,6 +30,13 @@ lint:
     - prettier@3.9.6
     - trufflehog@3.95.9
     - yamllint@1.38.0
+  ignore:
+    # docs/notes/*.sql은 유지되는 코드가 아니라 한 번 실행하고 남긴 기록이다(중복 병합,
+    # 출처 최신성 복구 등). 린터를 만족시키려고 사후에 고치면 무엇을 실행했는지의 기록이
+    # 달라진다. 나머지 린터는 그대로 두고 sqlfluff만 뺀다.
+    - linters: [sqlfluff]
+      paths:
+        - docs/notes/**
 actions:
   enabled:
     - trunk-announce
