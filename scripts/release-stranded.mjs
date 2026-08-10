@@ -39,12 +39,17 @@ const supabase = createClient(url, key, {
 });
 const DRY = process.argv.includes("--dry");
 
-const { data: sources, error: sourcesError } = await supabase
-  .from("food_sources")
-  .select("id, food_id, kind, url, failure_code, foods!inner(published_at)")
-  .eq("is_current", true)
-  .is("foods.published_at", null);
-if (sourcesError) throw sourcesError;
+// 이 조회도 완전해야 한다 — 잘리면 좌초 출처 일부가 영영 회수되지 않고, 위에
+// 찍히는 "현재 출처 N건"도 틀린 수가 된다.
+const sources = await selectAll((from, to) =>
+  supabase
+    .from("food_sources")
+    .select("id, food_id, kind, url, failure_code, foods!inner(published_at)")
+    .eq("is_current", true)
+    .is("foods.published_at", null)
+    .order("id")
+    .range(from, to),
+);
 
 // PostgREST caps a plain .select() at 1000 rows with no error — this table crossed
 // that (1501 rows, 2026-08-10) and a bare query here silently missed 501 backed
@@ -60,10 +65,10 @@ const evidence = await selectAll((from, to) =>
 );
 
 const backed = new Set(evidence.map((row) => row.source_id));
-const stranded = (sources ?? []).filter((row) => !backed.has(row.id));
+const stranded = sources.filter((row) => !backed.has(row.id));
 
 console.log(
-  `현재 출처 ${sources?.length ?? 0}건 중 근거 없는 좌초 ${stranded.length}건`,
+  `현재 출처 ${sources.length}건 중 근거 없는 좌초 ${stranded.length}건`,
 );
 if (stranded.length === 0) process.exit(0);
 

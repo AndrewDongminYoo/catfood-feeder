@@ -21,6 +21,7 @@ import { join } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { BASE_URL, adminSecret } from "./curate-source.mjs";
 import { buildAgentEnv, buildCodexArgs } from "./research-run.mjs";
+import { selectAll } from "./select-all.mjs";
 import { SECRETS_FILE, loadSecrets } from "./with-secrets.mjs";
 
 loadSecrets();
@@ -111,17 +112,19 @@ const computeGaps = (food) => {
   return gaps;
 };
 
-let query = supabase
-  .from("foods")
-  .select(
-    "id, product_name, fat_pct, fiber_pct, ash_pct, moisture_pct, carb_pct, cooking_method, brands!inner(name, ko_name)",
-  )
-  .is("published_at", null)
-  .not("protein_pct", "is", null)
-  .order("id");
-if (brandName) query = query.eq("brands.name", brandName);
-const { data: pending, error } = await query;
-if (error) throw error;
+// 완전해야 하는 조회다 — 잘리면 아래 "탄수화물 계산 불가 N건"이 틀린 수가 되고,
+// 잘린 뒤의 사료는 조사 대상에서 조용히 빠진다. scripts/select-all.mjs 참고.
+const pending = await selectAll((from, to) => {
+  let query = supabase
+    .from("foods")
+    .select(
+      "id, product_name, fat_pct, fiber_pct, ash_pct, moisture_pct, carb_pct, cooking_method, brands!inner(name, ko_name)",
+    )
+    .is("published_at", null)
+    .not("protein_pct", "is", null);
+  if (brandName) query = query.eq("brands.name", brandName);
+  return query.order("id").range(from, to);
+});
 
 const gapsById = new Map();
 for (const food of pending) {
