@@ -42,6 +42,13 @@ export function LabelTranscribeClient({
   async function approve(item: PendingTranscript) {
     setBusy(true);
     const capturedText = text[item.runId] ?? item.transcript;
+    // 출처 등록 뒤, 근거 적용이 끝나기 전까지의 모든 실패(9개 초과, validate()의
+    // 배치 거절, 편집으로 어긋난 excerpt 등 원인은 다양하다)는 근거 없는 manual
+    // 출처를 남긴다. release-stranded.mjs는 사료 단위로 오래됨을 판단해 이런
+    // 사료를 정리하지 못한다 — 이미 다른 출처의 근거가 붙어 있으면 그쪽 근거를
+    // 보고 "최신"이라 여긴다. 그래서 이 id를 들고 있다가 실패 로그에 실어 사람이
+    // 직접 지우게 한다.
+    let strandedSourceId: number | null = null;
     try {
       const registered = await fetch(
         `/api/foods/${String(item.foodId)}/sources`,
@@ -64,6 +71,7 @@ export function LabelTranscribeClient({
 
       const sourceId = (source as { source?: { id?: number } }).source?.id;
       if (typeof sourceId !== "number") throw new Error("source.id 없음");
+      strandedSourceId = sourceId;
 
       const applied = await fetch(
         `/api/foods/${String(item.foodId)}/sources/apply`,
@@ -80,14 +88,20 @@ export function LabelTranscribeClient({
         throw new Error(
           (result as { error?: string }).error ?? "근거 적용 실패",
         );
+      strandedSourceId = null; // 근거가 붙었다 — 더는 미아 출처가 아니다.
 
       await closeRun(item.runId, "applied");
       setLog((lines) => [...lines, `✓ ${item.productName}`]);
       await reload();
     } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "실패";
+      const strandedNote =
+        strandedSourceId === null
+          ? ""
+          : ` — 출처 #${strandedSourceId}는 등록됐지만 근거는 비었습니다. 직접 정리하세요.`;
       setLog((lines) => [
         ...lines,
-        `✗ ${item.productName} — ${error instanceof Error ? error.message : "실패"}`,
+        `✗ ${item.productName} — ${message}${strandedNote}`,
       ]);
     }
     setBusy(false);
