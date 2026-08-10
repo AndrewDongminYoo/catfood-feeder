@@ -70,6 +70,21 @@ const requestSchema = z
         });
       }
     }
+    // 프롬프트가 찾는 표(사료등록성분/등록성분량/보장성분)는 한 페이지에 여러 번
+    // 인쇄되는 경우가 흔해 모델이 같은 nutrientKey를 두 번 낼 수 있다. 여기서
+    // 막지 않으면 validateExtractedEvidence가 뒤엣것을 조용히 버리고, apply가
+    // 그 길이 불일치를 400으로 되돌려 이미 등록된 manual 출처를 미아로 남긴다.
+    const nutrientKeys = new Set<string>();
+    for (const [index, value] of body.values.entries()) {
+      if (nutrientKeys.has(value.nutrientKey)) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Each nutrient key may appear at most once",
+          path: ["values", index, "nutrientKey"],
+        });
+      }
+      nutrientKeys.add(value.nutrientKey);
+    }
   });
 
 export async function POST(req: NextRequest) {

@@ -112,4 +112,25 @@ describe("전사 제안 적재", () => {
     expect(response.status).toBe(400);
     expect(mocks.recordFoodResearchRun).not.toHaveBeenCalled();
   });
+
+  // 등록성분량 표가 한 페이지에 두 번 인쇄돼 같은 nutrientKey 가 중복 제안되면
+  // validateExtractedEvidence 가 뒤엣것을 조용히 버리고, apply 의 길이 검사가
+  // 그 차이를 400으로 되돌려 이미 등록된 manual 출처를 미아로 남긴다. 적재
+  // 단계에서 막는다.
+  it("같은 nutrientKey 가 두 번 제안되면 400 이고 적재하지 않는다", async () => {
+    const response = await post({
+      ...BODY,
+      values: [
+        ...BODY.values,
+        {
+          excerpt: "조단백질 30.0% 이상",
+          nutrientKey: "protein_pct",
+          value: 30,
+        },
+      ],
+    });
+
+    expect(response.status).toBe(400);
+    expect(mocks.recordFoodResearchRun).not.toHaveBeenCalled();
+  });
 });
