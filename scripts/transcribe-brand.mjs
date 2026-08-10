@@ -18,6 +18,7 @@ import { createClient } from "@supabase/supabase-js";
 import { captureImage } from "../src/lib/image-fetcher.ts";
 import { BASE_URL } from "./curate-source.mjs";
 import { buildAgentEnv, buildCodexArgs } from "./research-run.mjs";
+import { selectAll } from "./select-all.mjs";
 import { SECRETS_FILE, loadSecrets } from "./with-secrets.mjs";
 
 loadSecrets();
@@ -308,21 +309,32 @@ if (soloFoodId !== null) {
   // 비어 있는 국내 행이 9건 있고(ANF·퓨어네이쳐 등), 그쪽도 이 경로로 풀린다. 그래서
   // "protein 이 비었는가"가 아니라 "kr_label 출처가 아직 없는가"로 고른다 — 이미 국내
   // 라벨을 붙인 행은 다시 제안하지 않는다.
-  const { data: withKrLabel } = await supabase
-    .from("food_sources")
-    .select("food_id")
-    .eq("kind", "kr_label")
-    .eq("is_current", true)
-    .eq("fetch_status", "fetched");
+  // 두 조회 모두 완전해야 한다 — PostgREST는 1000행을 넘기면 잘라서 돌려주고 오류를
+  // 내지 않는다. 조용히 잘리면 done이 일부만 채워져, 이미 처리된 사료를 다시 대상으로
+  // 골라 codex 호출과 제안 중복을 부른다. scripts/select-all.mjs 참고.
+  const withKrLabel = await selectAll((from, to) =>
+    supabase
+      .from("food_sources")
+      .select("food_id")
+      .eq("kind", "kr_label")
+      .eq("is_current", true)
+      .eq("fetch_status", "fetched")
+      .order("id")
+      .range(from, to),
+  );
   // 큐를 비우기 전에 같은 브랜드를 다시 돌리면, 아직 /new/transcribe 에서 승인도
   // 거절도 안 된 사료에 codex 호출을 또 써서 제안이 중복으로 쌓인다.
-  const { data: pendingReview } = await supabase
-    .from("food_research_runs")
-    .select("food_id")
-    .eq("status", "pending_review");
+  const pendingReview = await selectAll((from, to) =>
+    supabase
+      .from("food_research_runs")
+      .select("food_id")
+      .eq("status", "pending_review")
+      .order("id")
+      .range(from, to),
+  );
   const done = new Set([
-    ...(withKrLabel ?? []).map((row) => row.food_id),
-    ...(pendingReview ?? []).map((row) => row.food_id),
+    ...withKrLabel.map((row) => row.food_id),
+    ...pendingReview.map((row) => row.food_id),
   ]);
 
   const { data: candidates } = await supabase

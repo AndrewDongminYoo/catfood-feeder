@@ -15,6 +15,7 @@
 
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
+import { selectAll } from "./select-all.mjs";
 import { SECRETS_FILE, loadSecrets } from "./with-secrets.mjs";
 
 const DRY = process.argv.includes("--dry");
@@ -123,12 +124,15 @@ if (DRY) {
 }
 
 // 1) 브랜드 보장 (manufacturer NULL 기준 정규화 인덱스가 중복 막음)
-const { data: existingBrands, error: be } = await supabase
-  .from("brands")
-  .select("id, name");
-if (be) throw be;
+// PostgREST는 1000행을 넘기면 잘라서 돌려주고 오류를 내지 않는다 — 잘리면 이미
+// 있는 브랜드를 없는 것으로 보고 다시 만들려 시도한다. 그때는 정규화 인덱스가
+// 막아 조용히 틀리진 않지만(insert가 에러로 죽는다), 페이지네이션이 애초에 그
+// 상황 자체를 없앤다. scripts/select-all.mjs 참고.
+const existingBrands = await selectAll((from, to) =>
+  supabase.from("brands").select("id, name").order("id").range(from, to),
+);
 const brandId = new Map(
-  (existingBrands ?? []).map((b) => [b.name.toLowerCase(), b.id]),
+  existingBrands.map((b) => [b.name.toLowerCase(), b.id]),
 );
 const missingBrands = brands.filter((b) => !brandId.has(b.toLowerCase()));
 if (missingBrands.length) {
@@ -172,14 +176,19 @@ const chunk = (arr, n) =>
     arr.slice(k * n, k * n + n),
   );
 
-const { data: legacyRows, error: legacyError } = await supabase
-  .from("foods")
-  .select("brand_id, product_name")
-  .is("source", null)
-  .is("external_id", null);
-if (legacyError) throw legacyError;
+// 완전해야 한다 — 잘리면 이미 손으로 큐레이션된 사료를 legacyKeys가 못 보고,
+// 아래 필터가 그걸 다시 골격으로 적재해 중복 행을 만든다. scripts/select-all.mjs 참고.
+const legacyRows = await selectAll((from, to) =>
+  supabase
+    .from("foods")
+    .select("brand_id, product_name")
+    .is("source", null)
+    .is("external_id", null)
+    .order("id")
+    .range(from, to),
+);
 const legacyKeys = new Set(
-  (legacyRows ?? []).map((row) => `${row.brand_id}\u0000${row.product_name}`),
+  legacyRows.map((row) => `${row.brand_id}\u0000${row.product_name}`),
 );
 const fresh = rows.filter((row) => {
   const key = `${row.brand_id}\u0000${row.product_name}`;
