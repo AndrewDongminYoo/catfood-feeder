@@ -14,9 +14,11 @@ import {
   getCurrentFetchedFoodSources,
 } from "@/lib/source-repository";
 
+// domain.ts의 영양소 키는 9개다(단백/지방/섬유/회분/수분/칼슘/인/kcal + carb_pct).
+// carb_pct가 나중에 추가됐을 때 이 상한은 함께 올라가지 않아 8에 머물러 있었다.
 const requestSchema = z
   .object({
-    evidence: z.array(evidenceCandidateSchema).min(1).max(8),
+    evidence: z.array(evidenceCandidateSchema).min(1).max(9),
   })
   .strict();
 
