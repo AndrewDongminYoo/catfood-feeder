@@ -3,6 +3,7 @@ import { authorizeCurator } from "@/lib/admin-auth";
 import {
   NUTRIENT_FIELDS,
   computeDerived,
+  isMeasured,
   resolveAsh,
   validate,
 } from "@/lib/domain";
@@ -44,6 +45,12 @@ export async function POST(req: NextRequest) {
       suppliedAshSource,
       cookingMethod,
     );
+    // 라벨이 NFE를 직접 쓴 경우에만 저장된 carb를 실측으로 계산에 넘긴다.
+    // food-publication.ts와 같은 판정이다 — 계산으로 채워진 값을 되돌려 넣으면
+    // 역산 결과가 자기 자신을 입력으로 삼아 실측으로 굳는다.
+    const statedCarb = isMeasured(payload.nutrient_sources.carb_pct)
+      ? (payload.carb_pct ?? null)
+      : null;
     const nutrients = {
       protein_pct: payload.protein_pct ?? null,
       fat_pct: payload.fat_pct ?? null,
@@ -53,9 +60,12 @@ export async function POST(req: NextRequest) {
       calcium_pct: payload.calcium_pct ?? null,
       phosphorus_pct: payload.phosphorus_pct ?? null,
       kcal_per_kg: payload.kcal_per_kg ?? null,
+      carb_pct: statedCarb,
     };
+    // 출처 검사만은 걸러내기 전의 원본 입력을 봐야 한다. 걸러낸 값을 넘기면 태그
+    // 없이 들어온 carb가 null로 보여 검사를 통과하고, 출처 없는 숫자가 저장된다.
     const missingSources = missingNutrientSources(
-      nutrients,
+      { ...nutrients, carb_pct: payload.carb_pct ?? null },
       payload.nutrient_sources,
     );
     if (missingSources.length > 0) {
@@ -171,7 +181,9 @@ function derivedNutrientSources(
 ): Record<string, Source> {
   const nutrientSources = { ...suppliedSources };
   if (ashIsEstimated) nutrientSources.ash_pct = "estimated";
-  if (derived.carb_pct !== null) {
+  // 실측 carb는 태그를 그대로 둔다. 여기서 derived로 덮으면 라벨이 쓴 값이
+  // 계산값으로 둔갑해 measured/estimated 구분이 무너진다.
+  if (!isMeasured(suppliedSources.carb_pct) && derived.carb_pct !== null) {
     nutrientSources.carb_pct = derived.carb_is_estimated
       ? "estimated"
       : "derived";

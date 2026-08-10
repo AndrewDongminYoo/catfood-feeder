@@ -6,6 +6,7 @@ import {
   NUTRIENT_FIELDS,
   computeDerived,
   detectUnbackedSources,
+  isMeasured,
   resolveAsh,
   validate,
   num,
@@ -184,7 +185,9 @@ export default function NewFoodPage() {
       sources.energy_f_pct = "derived";
       sources.energy_c_pct = "derived";
     }
-    if (derived.carb_pct !== null)
+    // 큐레이터가 등록성분량의 NFE를 직접 입력했다면 그 태그(kr_label)가 이긴다.
+    // 덮어쓰면 라벨이 쓴 실측값이 계산값으로 둔갑한다 — 서버도 같은 판정을 쓴다.
+    if (!isMeasured(sources.carb_pct) && derived.carb_pct !== null)
       sources.carb_pct = derived.carb_is_estimated ? "estimated" : "derived";
 
     const payload = {

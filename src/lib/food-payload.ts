@@ -28,6 +28,10 @@ export const foodPayloadSchema = z
     calcium_pct: finiteNumberSchema,
     phosphorus_pct: finiteNumberSchema,
     kcal_per_kg: finiteNumberSchema,
+    // 한국 등록성분량은 NFE를 직접 쓴다. `/new`는 NUTRIENT_FIELDS로 본문을 만들므로
+    // 이 키가 빠지면 strict()가 모든 저장을 400으로 되돌린다 — 어느 필드가 문제인지
+    // 큐레이터에게는 보이지 않는다. `food-payload.test.ts`가 키 집합 일치를 고정한다.
+    carb_pct: finiteNumberSchema,
     // parseManufacturerEnergy는 "X% from protein" 문구가 없으면 null을 반환하고,
     // 클라이언트는 그 null을 그대로 직렬화해 보낸다. optional()은 undefined만 받으므로
     // 해당 문구가 없는 라벨(대부분의 비-ACANA 제품)은 저장 자체가 불가능했다.

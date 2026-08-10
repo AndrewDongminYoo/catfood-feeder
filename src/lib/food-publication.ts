@@ -1,4 +1,9 @@
-import { computeDerived, parseManufacturerEnergy, validate } from "./domain";
+import {
+  computeDerived,
+  isMeasured,
+  parseManufacturerEnergy,
+  validate,
+} from "./domain";
 import { z } from "zod";
 import type { CookingMethod, NutrientInput, Source } from "./domain";
 
@@ -154,11 +159,6 @@ export function prepareFoodPublication(
  * 저장된 P/F/C가 제조사 선언값인지. 세 값이 모두 있고 태그가 manufacturer일 때만
  * 참이며, 그때는 발행이 재계산 대신 이 값을 검증해서 그대로 싣는다.
  */
-/** 라벨에서 온 값인가. derived/estimated는 계산 산물이므로 실측이 아니다. */
-function isMeasured(source: Source | undefined): boolean {
-  return source === "manufacturer" || source === "kr_label";
-}
-
 function hasDeclaredEnergy(draft: FoodPublicationDraft): boolean {
   return (
     draft.nutrientSources.energy_p_pct === "manufacturer" &&

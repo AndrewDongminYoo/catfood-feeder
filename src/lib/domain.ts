@@ -8,6 +8,17 @@ export const SOURCE_VALUES = [
 ] as const;
 export type Source = (typeof SOURCE_VALUES)[number];
 
+/**
+ * 라벨에서 온 값인가. derived/estimated는 계산 산물이므로 실측이 아니다.
+ *
+ * carb_pct처럼 실측일 수도 계산값일 수도 있는 키는, 저장된 숫자를 다시 계산에
+ * 넣기 전에 반드시 이 판정을 거쳐야 한다 — 역산값을 실측으로 넘기면 자기 자신을
+ * 입력으로 삼아 estimated 표시가 사라진다.
+ */
+export function isMeasured(source: Source | null | undefined): boolean {
+  return source === "manufacturer" || source === "kr_label";
+}
+
 export const COOKING_METHOD_VALUES = [
   "extrusion",
   "baked",
