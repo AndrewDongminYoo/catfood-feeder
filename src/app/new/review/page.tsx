@@ -1,6 +1,11 @@
 import { PublicationReviewClient } from "@/components/publication-review-client";
 import { loadPublicationReview } from "@/lib/publication-review";
 
+// loadPublicationReview는 supabase-js를 직접 호출해 Next의 fetch 캐시를 거치지
+// 않는다 — 정적 페이지로 남으면 발행 큐가 빌드 시점 스냅샷에 얼어붙어, 그 뒤에
+// 근거가 붙은 Draft가 재배포 전까지 화면에 나타나지 않는다. 요청마다 새로 읽는다.
+export const dynamic = "force-dynamic";
+
 export default async function ReviewPage() {
   // 첫 목록은 서버에서 채운다. 클라이언트가 마운트 후 불러오면 로딩 깜빡임이 생기고,
   // effect 안의 setState가 연쇄 렌더를 유발한다.

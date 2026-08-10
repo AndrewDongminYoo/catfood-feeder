@@ -1,5 +1,6 @@
-import { computeDerived } from "./domain";
+import { computeDerived, isMeasured } from "./domain";
 import type { CookingMethod, Source } from "./domain";
+import { selectAll } from "../../scripts/select-all.mjs";
 import { createAdminClient } from "./supabase/admin";
 
 /**
@@ -68,26 +69,39 @@ export async function loadPublicationReview(
   const sourceByFood = new Map<number, { kind: string; url: string }[]>();
 
   if (foodIds.length > 0) {
-    const [{ data: evidence }, { data: sources }] = await Promise.all([
-      supabase
-        .from("food_nutrient_evidence")
-        .select("food_id")
-        .eq("is_current", true)
-        .in("food_id", foodIds),
-      supabase
-        .from("food_sources")
-        .select("food_id, kind, url")
-        .eq("is_current", true)
-        .eq("fetch_status", "fetched")
-        .in("food_id", foodIds),
+    // 근거는 사료 하나당 성분 키 수만큼 쌓인다(현재 9개). PostgREST는 1000행에서
+    // 오류 없이 잘라내므로, 잘리는 순간 그 뒤 사료의 근거 수가 0으로 보이고 화면은
+    // 그걸 "근거 없음"으로 읽는다. 완전함이 판단을 좌우하는 조회라 페이지로 넘긴다.
+    const [evidence, sources] = await Promise.all([
+      selectAll(
+        async (from, to) =>
+          await supabase
+            .from("food_nutrient_evidence")
+            .select("food_id")
+            .eq("is_current", true)
+            .in("food_id", foodIds)
+            .order("id")
+            .range(from, to),
+      ) as Promise<{ food_id: number }[]>,
+      selectAll(
+        async (from, to) =>
+          await supabase
+            .from("food_sources")
+            .select("food_id, kind, url")
+            .eq("is_current", true)
+            .eq("fetch_status", "fetched")
+            .in("food_id", foodIds)
+            .order("id")
+            .range(from, to),
+      ) as Promise<{ food_id: number; kind: string; url: string }[]>,
     ]);
-    for (const row of evidence ?? []) {
+    for (const row of evidence) {
       evidenceByFood.set(
         row.food_id,
         (evidenceByFood.get(row.food_id) ?? 0) + 1,
       );
     }
-    for (const row of sources ?? []) {
+    for (const row of sources) {
       sourceByFood.set(row.food_id, [
         ...(sourceByFood.get(row.food_id) ?? []),
         { kind: row.kind, url: row.url },
@@ -102,8 +116,15 @@ export async function loadPublicationReview(
     >;
     // 발행이 쓰는 것과 같은 계산이다. 회분 폴백(익스트루전 9.0% estimated)이 여기에도
     // 걸리므로, 회분을 표기하지 않는 라벨이 계산 불가로 잘못 보이지 않는다.
+    //
+    // 저장된 carb도 발행과 같은 판정을 거친다. 그냥 넘기면 역산으로 채워진 값이
+    // 라벨 선언값으로 읽혀 estimated 표시가 사라지고, 검토 화면은 발행이 추정으로
+    // 표시할 사료를 실측으로 보여준다.
     const derived = computeDerived(
-      food,
+      {
+        ...food,
+        carb_pct: isMeasured(nutrientSources.carb_pct) ? food.carb_pct : null,
+      },
       food.cooking_method as CookingMethod | null,
       nutrientSources.ash_pct ?? null,
     );
