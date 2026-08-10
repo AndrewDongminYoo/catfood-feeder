@@ -52,6 +52,9 @@ export async function loadPendingTranscripts(): Promise<
       typeof proposal?.transcript !== "string" ||
       typeof captures?.productPageUrl !== "string"
     ) {
+      // 조용히 버리면 화면에도 안 뜨고 운영자도 모른다 — 다음 브랜드 실행이 같은
+      // 사료를 다시 전사해 codex 비용을 또 쓴다.
+      console.warn(`pending_review run ${String(row.id)} 형식이 어긋나 건너뜀`);
       return [];
     }
     return [
