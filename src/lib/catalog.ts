@@ -118,11 +118,28 @@ export async function getFood(id: number) {
   return foods.find((food) => food.id === id) ?? null;
 }
 
+export function orderComparisonFoods(
+  foods: readonly FoodWithBrand[],
+  ids: readonly number[],
+): FoodWithBrand[] {
+  const foodsById = new Map(foods.map((food) => [food.id, food]));
+  const selectedIds = new Set<number>();
+  const selected: FoodWithBrand[] = [];
+
+  for (const id of ids) {
+    if (selectedIds.has(id)) continue;
+    selectedIds.add(id);
+    const food = foodsById.get(id);
+    if (food) selected.push(food);
+  }
+
+  return selected;
+}
+
 export async function getComparisonFoods(ids: number[]) {
   if (ids.length === 0) return [];
   const foods = await getFoods();
-  const wanted = new Set(ids);
-  return foods.filter((food) => wanted.has(food.id));
+  return orderComparisonFoods(foods, ids);
 }
 
 export const getRecalls = cache(async (): Promise<RecallSummary[]> => {
