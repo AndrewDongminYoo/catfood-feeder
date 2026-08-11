@@ -642,6 +642,112 @@ button:active:not(:disabled),
 .data-table.compact {
   grid-template-columns: 1fr;
 }
+.dossier-grid {
+  display: grid;
+  gap: 14px;
+}
+.dossier-grid .dossier-section {
+  margin-bottom: 0;
+}
+.dossier-facts {
+  display: grid;
+  gap: 8px;
+}
+.dossier-fact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  background: var(--bg);
+}
+.dossier-fact > div > span {
+  display: block;
+  color: var(--mut);
+  font-size: 11px;
+}
+.dossier-fact > div > strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 15px;
+}
+.evidence-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border: 1px solid currentcolor;
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+.evidence-state[data-tone="measured"] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.evidence-state[data-tone="estimated"] {
+  color: var(--warn);
+  background: var(--warn-bg);
+}
+.evidence-state[data-tone="derived"] {
+  color: #6d28d9;
+  background: #f5f3ff;
+}
+.evidence-state[data-tone="unknown"] {
+  color: var(--mut);
+  background: var(--card);
+}
+.learning-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--mut);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.dossier-section > .learning-note {
+  margin: 12px 0 0;
+}
+.evidence-list,
+.unknown-list ul {
+  display: grid;
+  gap: 7px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.evidence-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: var(--tap);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.evidence-list li:last-child {
+  border-bottom: 0;
+}
+.unknown-list {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--warn-line);
+  border-radius: var(--r-control);
+  background: var(--warn-bg);
+}
+.unknown-list strong {
+  color: var(--warn);
+  font-size: 13px;
+}
+.unknown-list ul {
+  margin-top: 6px;
+  color: #44403c;
+  font-size: 12px;
+}
 .dcell {
   background: var(--bg);
   border-radius: var(--r-control);
@@ -775,6 +881,9 @@ pre {
   }
   .derived > :last-child:nth-child(odd) {
     grid-column: auto;
+  }
+  .dossier-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
