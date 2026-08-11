@@ -1,5 +1,6 @@
 import type { FoodWithBrand } from "@/lib/catalog";
-import { nutritionFacts } from "@/lib/catalog-presentation";
+import { type EvidenceTone, nutritionFacts } from "@/lib/catalog-presentation";
+import { RecallHistory } from "./recall-history";
 
 export function FoodDossier({ food }: { food: FoodWithBrand }) {
   const facts = nutritionFacts(food);
@@ -9,6 +10,10 @@ export function FoodDossier({ food }: { food: FoodWithBrand }) {
     <div className="dossier-grid">
       <section className="card dossier-section">
         <h2>균형을 읽는 법</h2>
+        <p className="learning-note">
+          표기값은 보증성분의 최소/최대값을 포함할 수 있어 실제 함량이나 정밀한
+          점값을 뜻하지 않습니다.
+        </p>
         <div className="dossier-facts">
           {facts.map((fact) => (
             <div className="dossier-fact" key={fact.key}>
@@ -72,19 +77,7 @@ export function FoodDossier({ food }: { food: FoodWithBrand }) {
 
       <section className="card dossier-section">
         <h2>리콜 이력의 범위</h2>
-        {(food.recalls ?? []).length === 0 ? (
-          <p className="muted">연결된 리콜 이력이 없습니다.</p>
-        ) : (
-          <div className="recall-list">
-            {(food.recalls ?? []).map((recall) => (
-              <a href={recall.source_url} key={recall.id}>
-                <strong>{recall.classification ?? "분류 미기록"}</strong>
-                <span>{recall.reason ?? recall.recalling_firm}</span>
-                <em>{recall.recall_date ?? "날짜 미기록"}</em>
-              </a>
-            ))}
-          </div>
-        )}
+        <RecallHistory recalls={food.recalls ?? []} />
         <p className="notice">
           이 목록은 연결된 공개 리콜 이력의 범위만 보여 줍니다. 실시간 경보가
           아니며 연결된 기록이 없더라도 국내 리콜 이력이 없다는 뜻은 아닙니다.
@@ -94,13 +87,7 @@ export function FoodDossier({ food }: { food: FoodWithBrand }) {
   );
 }
 
-function EvidenceState({
-  label,
-  tone,
-}: {
-  label: string;
-  tone: "measured" | "estimated" | "derived" | "unknown";
-}) {
+function EvidenceState({ label, tone }: { label: string; tone: EvidenceTone }) {
   return (
     <span className="evidence-state" data-tone={tone}>
       {label}

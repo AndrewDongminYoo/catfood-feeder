@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { FoodWithBrand } from "@/lib/catalog";
-import { nutritionFacts } from "@/lib/catalog-presentation";
+import { type EvidenceTone, nutritionFacts } from "@/lib/catalog-presentation";
+import { RecallHistory } from "./recall-history";
 
 export function FoodComparison({ foods }: { foods: readonly FoodWithBrand[] }) {
   if (foods.length !== 2) {
@@ -16,7 +17,7 @@ export function FoodComparison({ foods }: { foods: readonly FoodWithBrand[] }) {
     food,
   }));
   const needsEvidenceNote = factsByFood.some(({ facts }) =>
-    facts.some((fact) => fact.evidence.tone !== "measured"),
+    facts.some((fact) => fact.evidence.tone !== "declared"),
   );
 
   return (
@@ -56,6 +57,10 @@ export function FoodComparison({ foods }: { foods: readonly FoodWithBrand[] }) {
       <section className="comparison-notes">
         <h3>함께 볼 점</h3>
         <ul>
+          <li>
+            표기값은 보증성분의 최소/최대값을 포함할 수 있어 실제 함량이나
+            정밀한 점값을 뜻하지 않습니다.
+          </li>
           <li>열량 구성은 생애주기와 신체 상태를 함께 고려해 읽으세요.</li>
           <li>Ca:P는 높고 낮음보다 비율 자체를 확인할 지표입니다.</li>
           {needsEvidenceNote && (
@@ -77,13 +82,10 @@ export function FoodComparison({ foods }: { foods: readonly FoodWithBrand[] }) {
               ))}
               {food.ingredients.length === 0 && <span>원재료 미기록</span>}
             </div>
+            <RecallHistory recalls={food.recalls ?? []} />
             <p className="learning-note">
-              {(food.recalls?.length ?? 0) === 0
-                ? "연결된 리콜 이력이 없습니다."
-                : `연결된 리콜 이력 ${food.recalls?.length}건이 있습니다.`}
-              {
-                " 연결된 기록은 공개 이력의 범위이며 실시간 경보가 아닙니다. 연결된 기록이 없더라도 국내 리콜 이력이 없다는 뜻은 아닙니다."
-              }
+              연결된 기록은 공개 이력의 범위이며 실시간 경보가 아닙니다. 연결된
+              기록이 없더라도 국내 리콜 이력이 없다는 뜻은 아닙니다.
             </p>
           </article>
         ))}
@@ -92,13 +94,7 @@ export function FoodComparison({ foods }: { foods: readonly FoodWithBrand[] }) {
   );
 }
 
-function EvidenceState({
-  label,
-  tone,
-}: {
-  label: string;
-  tone: "measured" | "estimated" | "derived" | "unknown";
-}) {
+function EvidenceState({ label, tone }: { label: string; tone: EvidenceTone }) {
   return (
     <span className="evidence-state" data-tone={tone}>
       {label}

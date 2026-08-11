@@ -38,4 +38,36 @@ describe("FoodComparison", () => {
 
     expect(screen.getByText(/두 제품을 선택하세요/)).toBeTruthy();
   });
+
+  it("각 제품의 리콜 근거를 건수로만 축약하지 않는다", () => {
+    render(
+      <FoodComparison
+        foods={[
+          {
+            ...acana,
+            recalls: [
+              {
+                affected_lots: "LOT-142",
+                brand_id: acana.brand_id,
+                classification: "Class II",
+                external_id: null,
+                food_id: acana.id,
+                id: 142,
+                reason: "Labeling issue",
+                recall_date: "2026-08-11",
+                recalling_firm: "Example Firm",
+                region: "US",
+                source: "openFDA Food Enforcement",
+                source_url: "https://example.test/recall/142",
+              },
+            ],
+          },
+          secondFood,
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("출처: openFDA Food Enforcement")).toBeTruthy();
+    expect(screen.getByText("대상 로트: LOT-142")).toBeTruthy();
+  });
 });

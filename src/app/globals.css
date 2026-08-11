@@ -73,6 +73,23 @@ body {
   font-family: var(--app-font-sans);
   -webkit-font-smoothing: antialiased;
 }
+.public-navigation {
+  display: flex;
+  gap: 4px;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 8px 14px 0;
+}
+.public-navigation a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 8px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
 
 /* 모바일 우선: 단일 컬럼, 좁은 패딩, 큰 터치 타깃 */
 .wrap {
@@ -758,7 +775,7 @@ button:active:not(:disabled),
   line-height: 1;
   white-space: nowrap;
 }
-.evidence-state[data-tone="measured"] {
+.evidence-state[data-tone="declared"] {
   color: var(--accent);
   background: var(--accent-soft);
 }

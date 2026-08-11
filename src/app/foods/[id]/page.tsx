@@ -23,6 +23,11 @@ export default async function FoodDetailPage({
         </p>
         <h1>{food.product_name}</h1>
         <p>{food.brands?.name ?? "브랜드 미기록"} · 성분, 원재료, 근거 상태</p>
+        <p>
+          <Link href={`/foods?compare=${food.id}` as Route}>
+            이 제품을 기준으로 다른 사료 비교하기
+          </Link>
+        </p>
       </header>
       <FoodDossier food={food} />
     </main>

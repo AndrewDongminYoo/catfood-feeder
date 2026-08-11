@@ -6,14 +6,25 @@ import { useMemo, useState } from "react";
 import type { FoodWithBrand } from "@/lib/catalog";
 import { formatKcalValue, formatPct } from "@/lib/format";
 
-export function CatalogClient({ foods }: { foods: FoodWithBrand[] }) {
+export function CatalogClient({
+  foods,
+  initialSelectedId,
+}: {
+  foods: FoodWithBrand[];
+  initialSelectedId?: number;
+}) {
   const [query, setQuery] = useState("");
   const [grainFree, setGrainFree] = useState(false);
   const [highProtein, setHighProtein] = useState(false);
   const [normalCaP, setNormalCaP] = useState(false);
   const [cookingMethod, setCookingMethod] = useState("");
   const [sort, setSort] = useState("name");
-  const [selected, setSelected] = useState<number[]>([]);
+  const [selected, setSelected] = useState<number[]>(() =>
+    initialSelectedId !== undefined &&
+    foods.some((food) => food.id === initialSelectedId)
+      ? [initialSelectedId]
+      : [],
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

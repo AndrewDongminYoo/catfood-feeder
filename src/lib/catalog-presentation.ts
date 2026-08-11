@@ -2,10 +2,10 @@ import type { FoodWithBrand, NutrientSourceKey } from "@/lib/catalog";
 import type { Source } from "@/lib/domain";
 import { formatKcal, formatPct, formatRatio } from "@/lib/format";
 
-export type EvidenceTone = "measured" | "estimated" | "derived" | "unknown";
+export type EvidenceTone = "declared" | "estimated" | "derived" | "unknown";
 
 export type EvidenceState = {
-  label: "제조사 근거" | "국내 라벨 근거" | "추정값" | "계산값" | "미기록";
+  label: "제조사 표기" | "국내 라벨 표기" | "추정값" | "계산값" | "미기록";
   tone: EvidenceTone;
 };
 
@@ -29,9 +29,9 @@ export function evidenceState(
 
   switch (source) {
     case "manufacturer":
-      return { label: "제조사 근거", tone: "measured" };
+      return { label: "제조사 표기", tone: "declared" };
     case "kr_label":
-      return { label: "국내 라벨 근거", tone: "measured" };
+      return { label: "국내 라벨 표기", tone: "declared" };
     case "estimated":
       return { label: "추정값", tone: "estimated" };
     case "derived":

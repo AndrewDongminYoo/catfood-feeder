@@ -3,8 +3,20 @@ import { getFoods } from "@/lib/catalog";
 
 export const revalidate = 3600;
 
-export default async function FoodsPage() {
+export default async function FoodsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ compare?: string }>;
+}) {
   const foods = await getFoods();
+  const { compare } = await searchParams;
+  const parsedCompareId = Number(compare);
+  const initialSelectedId =
+    compare?.trim() !== "" &&
+    Number.isSafeInteger(parsedCompareId) &&
+    parsedCompareId >= 0
+      ? parsedCompareId
+      : undefined;
 
   return (
     <main className="wide">
@@ -15,7 +27,7 @@ export default async function FoodsPage() {
           제품의 차이를 확인할 수 있습니다.
         </p>
       </header>
-      <CatalogClient foods={foods} />
+      <CatalogClient foods={foods} initialSelectedId={initialSelectedId} />
     </main>
   );
 }

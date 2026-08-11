@@ -55,4 +55,16 @@ describe("CatalogClient", () => {
         .getAttribute("href"),
     ).toBe("/compare?ids=0,1");
   });
+
+  it("상세 화면에서 넘긴 선택 제품을 유지해 두 번째 제품만 고르게 한다", () => {
+    render(<CatalogClient foods={[acana, otherFood]} initialSelectedId={0} />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "비교 선택" })[0]);
+
+    expect(
+      screen
+        .getByRole("link", { name: "선택한 두 제품 비교" })
+        .getAttribute("href"),
+    ).toBe("/compare?ids=0,1");
+  });
 });

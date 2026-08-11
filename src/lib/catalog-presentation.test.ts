@@ -5,12 +5,12 @@ import { evidenceState, nutritionFacts } from "./catalog-presentation";
 describe("catalog presentation", () => {
   it("출처 종류와 비어 있는 값을 서로 다른 텍스트 상태로 표시한다", () => {
     expect(evidenceState("manufacturer", 36)).toEqual({
-      label: "제조사 근거",
-      tone: "measured",
+      label: "제조사 표기",
+      tone: "declared",
     });
     expect(evidenceState("kr_label", 9)).toEqual({
-      label: "국내 라벨 근거",
-      tone: "measured",
+      label: "국내 라벨 표기",
+      tone: "declared",
     });
     expect(evidenceState("estimated", 23)).toEqual({
       label: "추정값",
@@ -41,7 +41,7 @@ describe("catalog presentation", () => {
       "ca_p_ratio",
     ]);
     expect(facts).toContainEqual({
-      evidence: { label: "제조사 근거", tone: "measured" },
+      evidence: { label: "제조사 표기", tone: "declared" },
       key: "protein_pct",
       label: "단백질",
       note: null,
