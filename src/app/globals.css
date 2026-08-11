@@ -120,6 +120,49 @@ body {
   align-items: center;
   margin-bottom: 16px;
 }
+.catalog-search {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-surface);
+  background: var(--card);
+}
+.catalog-search label {
+  margin: 0;
+  color: var(--ink);
+  font-size: 15px;
+}
+.catalog-filters {
+  border-bottom: 1px solid var(--line);
+}
+.catalog-filters summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.catalog-filter-content {
+  display: grid;
+  gap: 10px;
+  padding: 0 0 12px;
+}
+.catalog-results {
+  display: grid;
+  gap: 12px;
+}
+.catalog-results-header h2 {
+  margin: 0;
+  font-size: 16px;
+}
+.catalog-results-header p {
+  margin: 4px 0 0;
+  color: var(--mut);
+  font-size: 13px;
+}
 .panel {
   background: var(--card);
   border: 1px solid var(--line);
@@ -191,7 +234,8 @@ body {
   color: inherit;
 }
 .home-link strong,
-.food-card h2 {
+.food-card h2,
+.food-card h3 {
   display: block;
   margin: 0 0 6px;
   font-size: 17px;
@@ -212,7 +256,8 @@ body {
 .food-card > button {
   margin-top: auto;
 }
-.food-card h2 a {
+.food-card h2 a,
+.food-card h3 a {
   color: inherit;
   text-decoration: none;
 }
