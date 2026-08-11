@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { FoodComparison } from "@/components/food-comparison";
 import { getComparisonFoods } from "@/lib/catalog";
+import { parseComparisonIds } from "@/lib/comparison-query";
 
 export default async function ComparePage({
   searchParams,
@@ -9,11 +10,7 @@ export default async function ComparePage({
   searchParams: Promise<{ ids?: string }>;
 }) {
   const { ids } = await searchParams;
-  const parsedIds = (ids ?? "")
-    .split(",")
-    .map((id) => Number(id))
-    .filter(Boolean)
-    .slice(0, 2);
+  const parsedIds = parseComparisonIds(ids);
   // ids가 없으면 아무것도 고르지 않는다. 예전에는 카탈로그 상위 2개로 폴백해서
   // 사용자가 선택하지 않은 제품을 비교 결과처럼 보여줬다.
   const selected =
