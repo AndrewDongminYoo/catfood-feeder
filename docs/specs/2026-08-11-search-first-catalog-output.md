@@ -4,7 +4,11 @@
 
 Design approved on 2026-08-11.
 
-Implementation planning is pending specification review.
+Implemented on 2026-08-11.
+
+Automated tests, typecheck, lint, production build, Trunk, and local server-rendered route checks passed.
+
+Interactive browser automation was unavailable in this environment, so visual and keyboard smoke verification remains pending.
 
 ## Goal
 
