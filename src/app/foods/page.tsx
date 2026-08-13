@@ -6,13 +6,14 @@ export const revalidate = 3600;
 export default async function FoodsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ compare?: string }>;
+  searchParams: Promise<{ compare?: string | string[] }>;
 }) {
   const foods = await getFoods();
   const { compare } = await searchParams;
-  const parsedCompareId = Number(compare);
+  const normalizedCompare = Array.isArray(compare) ? compare[0] : compare;
+  const parsedCompareId = Number(normalizedCompare);
   const initialSelectedId =
-    compare?.trim() !== "" &&
+    normalizedCompare?.trim() !== "" &&
     Number.isSafeInteger(parsedCompareId) &&
     parsedCompareId >= 0
       ? parsedCompareId
