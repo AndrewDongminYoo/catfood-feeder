@@ -1,8 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
-import { isSupabaseConfigured, type FoodWithBrand } from "@/lib/catalog";
+import {
+  attachRecallScopes,
+  isSupabaseConfigured,
+  type FoodWithBrand,
+  type RecallRecord,
+  type RecallSummary,
+} from "@/lib/catalog";
 
 export interface FeedingFood {
   id: number;
+  brand_id: number;
   product_name: string;
   protein_pct: number | null;
   fat_pct: number | null;
@@ -11,8 +18,8 @@ export interface FeedingFood {
   energy_p_pct: number | null;
   energy_f_pct: number | null;
   energy_c_pct: number | null;
-  brands: { name: string } | null;
-  recalls?: { id: number; reason: string | null }[];
+  brands: { id: number; name: string } | null;
+  recalls: RecallSummary[];
 }
 
 export interface FeedingLog {
@@ -37,9 +44,29 @@ export interface FeedingInsight {
   messages: string[];
 }
 
+type FeedingFoodRecord = Omit<FeedingFood, "recalls"> & {
+  recalls?: RecallRecord[];
+};
+
+type FeedingLogRecord = Omit<FeedingLog, "foods"> & {
+  foods: FeedingFoodRecord | null;
+};
+
+type CatProfileRecord = Omit<CatProfile, "feeding_logs"> & {
+  feeding_logs: FeedingLogRecord[];
+};
+
+const FEEDING_LOAD_ERROR = "급여 기록을 불러오지 못했습니다.";
+
 export async function getFeedingDashboard() {
   if (!isSupabaseConfigured()) {
-    return { user: null, cats: [], insights: [], configured: false };
+    return {
+      user: null,
+      cats: [],
+      insights: [],
+      configured: false,
+      error: null,
+    };
   }
 
   const supabase = await createClient();
@@ -47,7 +74,14 @@ export async function getFeedingDashboard() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return { user: null, cats: [], insights: [], configured: true };
+  if (!user)
+    return {
+      user: null,
+      cats: [],
+      insights: [],
+      configured: true,
+      error: null,
+    };
 
   const { data, error } = await supabase
     .from("cats")
@@ -63,6 +97,7 @@ export async function getFeedingDashboard() {
         note,
         foods (
           id,
+          brand_id,
           product_name,
           protein_pct,
           fat_pct,
@@ -71,8 +106,8 @@ export async function getFeedingDashboard() {
           energy_p_pct,
           energy_f_pct,
           energy_c_pct,
-          brands (name),
-          recalls (id, reason)
+          brands (id, name),
+          recalls (id, brand_id, food_id, source, source_url, external_id, recalling_firm, reason, classification, affected_lots, recall_date, region)
         )
       )
     `,
@@ -81,17 +116,67 @@ export async function getFeedingDashboard() {
 
   if (error) {
     console.error("Failed to load feeding dashboard", error);
-    return { user, cats: [], insights: [], configured: true };
+    return {
+      user,
+      cats: [],
+      insights: [],
+      configured: true,
+      error: FEEDING_LOAD_ERROR,
+    };
   }
 
-  const cats = ((data ?? []) as unknown as CatProfile[]).map((cat) => ({
-    ...cat,
-    feeding_logs: [...(cat.feeding_logs ?? [])].sort((a, b) =>
-      b.started_on.localeCompare(a.started_on),
+  const catRecords = (data ?? []) as unknown as CatProfileRecord[];
+  const foodRecords = catRecords.flatMap((cat) =>
+    (cat.feeding_logs ?? []).flatMap((feedingLog) =>
+      feedingLog.foods ? [feedingLog.foods] : [],
     ),
+  );
+  const brandIds = [...new Set(foodRecords.map((food) => food.brand_id))];
+  let brandRecalls: RecallRecord[] = [];
+
+  if (brandIds.length > 0) {
+    const { data: brandRecallData, error: brandRecallError } = await supabase
+      .from("recalls")
+      .select(
+        "id, brand_id, food_id, source, source_url, external_id, recalling_firm, reason, classification, affected_lots, recall_date, region",
+      )
+      .is("food_id", null)
+      .in("brand_id", brandIds)
+      .order("recall_date", { ascending: false, nullsFirst: false });
+
+    if (brandRecallError) {
+      console.error("Failed to load feeding recalls", brandRecallError);
+      return {
+        user,
+        cats: [],
+        insights: [],
+        configured: true,
+        error: FEEDING_LOAD_ERROR,
+      };
+    }
+
+    brandRecalls = (brandRecallData ?? []) as unknown as RecallRecord[];
+  }
+
+  const scopedFoods = attachRecallScopes(foodRecords, brandRecalls);
+  let foodIndex = 0;
+  const cats: CatProfile[] = catRecords.map((cat) => ({
+    ...cat,
+    feeding_logs: [...(cat.feeding_logs ?? [])]
+      .map((feedingLog) => ({
+        ...feedingLog,
+        foods: feedingLog.foods ? (scopedFoods[foodIndex++] ?? null) : null,
+      }))
+      .sort((a, b) => b.started_on.localeCompare(a.started_on)),
   }));
 
-  return { user, cats, insights: buildFeedingInsights(cats), configured: true };
+  return {
+    user,
+    cats,
+    insights: buildFeedingInsights(cats),
+    configured: true,
+    error: null,
+  };
 }
 
 export function buildFeedingInsights(cats: CatProfile[]): FeedingInsight[] {
@@ -123,12 +208,25 @@ export function buildFeedingInsights(cats: CatProfile[]): FeedingInsight[] {
     const current = cat.feeding_logs.find((log) => !log.ended_on && log.foods);
     const recalls = current?.foods?.recalls ?? [];
     if (current?.foods && recalls.length > 0) {
-      insights.push({
-        catName: cat.name,
-        fromFood: displayFoodName(current.foods),
-        toFood: displayFoodName(current.foods),
-        messages: ["현재 급여 중인 제품에 연결된 리콜 이력이 있습니다."],
-      });
+      const messages: string[] = [];
+      if (recalls.some((recall) => recall.scope === "product")) {
+        messages.push(
+          "현재 급여 중인 제품에 연결된 리콜 이력이 있습니다. 대상 로트를 원문에서 확인하세요.",
+        );
+      }
+      if (recalls.some((recall) => recall.scope === "brand")) {
+        messages.push(
+          "현재 급여 중인 제품의 브랜드 범위 리콜 이력이 있습니다. 이 제품·로트의 해당 여부는 확인되지 않았습니다.",
+        );
+      }
+      if (messages.length > 0) {
+        insights.push({
+          catName: cat.name,
+          fromFood: displayFoodName(current.foods),
+          toFood: displayFoodName(current.foods),
+          messages,
+        });
+      }
     }
   }
 
