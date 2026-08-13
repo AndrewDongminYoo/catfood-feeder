@@ -205,7 +205,14 @@ export function validate(n: NutrientInput, d: Derived): Flag[] {
       flags.push({ level: "error", msg: `${label} ${value} — 음수 입력 불가` });
     }
   }
-  const sum = ["protein_pct", "fat_pct", "fiber_pct", "ash_pct", "moisture_pct"]
+  const sum = [
+    "protein_pct",
+    "fat_pct",
+    "fiber_pct",
+    "ash_pct",
+    "moisture_pct",
+    "carb_pct",
+  ]
     .map((k) => num((n as Record<string, unknown>)[k]))
     .filter((v): v is number => v !== null)
     .reduce((a, b) => a + b, 0);
