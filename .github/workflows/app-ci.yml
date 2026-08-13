@@ -1,0 +1,63 @@
+name: app-ci
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/app-ci.yml
+      - src/**
+      - scripts/**
+      - public/**
+      - .env.example
+      - components.json
+      - eslint.config.mjs
+      - next.config.ts
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - postcss.config.ts
+      - tsconfig.json
+      - vercel.json
+      - vitest.config.ts
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/app-ci.yml
+      - src/**
+      - scripts/**
+      - public/**
+      - .env.example
+      - components.json
+      - eslint.config.mjs
+      - next.config.ts
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - postcss.config.ts
+      - tsconfig.json
+      - vercel.json
+      - vitest.config.ts
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Test
+        run: pnpm test
+      - name: Build
+        run: pnpm build
