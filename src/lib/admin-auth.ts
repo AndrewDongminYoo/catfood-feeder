@@ -14,6 +14,15 @@ export type CuratorAuthorization =
       readonly message: string;
     };
 
+export type HumanCuratorAuthorization =
+  | {
+      readonly kind: "authorized";
+      readonly actorId: string;
+      readonly origin: "human";
+      readonly rateLimitKey: string;
+    }
+  | Extract<CuratorAuthorization, { kind: "denied" }>;
+
 export async function authorizeCurator(
   request: Request,
 ): Promise<CuratorAuthorization> {
@@ -26,6 +35,10 @@ export async function authorizeCurator(
     };
   }
 
+  return authorizeHumanCurator();
+}
+
+export async function authorizeHumanCurator(): Promise<HumanCuratorAuthorization> {
   const allowedEmails = configuredAdminEmails();
   if (allowedEmails.length === 0) {
     return {

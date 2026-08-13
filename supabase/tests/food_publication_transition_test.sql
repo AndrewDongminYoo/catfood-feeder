@@ -65,9 +65,9 @@ SELECT is(
 INSERT INTO auth.users (id)
 VALUES ('00000000-0000-0000-0000-000000093001'::uuid);
 
-INSERT INTO public.brands (id, name, manufacturer)
+INSERT INTO public.brands (id, name, ko_name, manufacturer)
 OVERRIDING SYSTEM VALUE
-VALUES (-93001, 'pgTAP transition brand', 'pgTAP manufacturer');
+VALUES (-93001, 'pgTAP transition brand', 'pgTAP transition brand', 'pgTAP manufacturer');
 
 INSERT INTO public.foods (
   id,

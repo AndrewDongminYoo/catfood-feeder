@@ -3,9 +3,9 @@ CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 SELECT plan(13);
 
-INSERT INTO public.brands (id, name, manufacturer)
+INSERT INTO public.brands (id, name, ko_name, manufacturer)
 OVERRIDING SYSTEM VALUE
-VALUES (-93001, 'pgTAP source replacement brand', 'pgTAP manufacturer');
+VALUES (-93001, 'pgTAP source replacement brand', 'pgTAP source replacement brand', 'pgTAP manufacturer');
 
 INSERT INTO public.foods (
   id,
@@ -167,7 +167,7 @@ SELECT ok(
     FROM public.replace_current_food_source(
       -93001,
       'manufacturer',
-      'https://example.test/success-new',
+      'https://example.test/success-old',
       'fetch',
       '2026-07-22 12:00:00+00'::timestamptz,
       'success-new',
@@ -196,7 +196,7 @@ SELECT is(
     FROM public.food_sources
     WHERE food_id = -93001
       AND kind = 'manufacturer'
-      AND url = 'https://example.test/success-new'
+      AND url = 'https://example.test/success-old'
       AND capture_method = 'fetch'
       AND fetch_status = 'fetched'
       AND captured_at = '2026-07-22 12:00:00+00'::timestamptz
@@ -221,7 +221,7 @@ SELECT ok(
     FROM public.replace_current_food_source(
       -93003,
       'manufacturer',
-      'https://example.test/unchanged-new',
+      'https://example.test/unchanged-old',
       'manual',
       '2026-07-23 12:00:00+00'::timestamptz,
       'unchanged-hash',

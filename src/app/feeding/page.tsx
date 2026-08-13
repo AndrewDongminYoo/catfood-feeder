@@ -1,14 +1,13 @@
 import Link from "next/link";
 import { AuthForm } from "@/components/auth-form";
 import { FeedingForm } from "@/components/feeding-form";
+import { FeedingLogEditor } from "@/components/feeding-log-editor";
 import { getFoods } from "@/lib/catalog";
 import { getFeedingDashboard } from "@/lib/feeding";
 
 export default async function FeedingPage() {
-  const [{ user, cats, insights, configured }, foods] = await Promise.all([
-    getFeedingDashboard(),
-    getFoods(),
-  ]);
+  const [{ user, cats, insights, configured, error }, foods] =
+    await Promise.all([getFeedingDashboard(), getFoods()]);
 
   return (
     <main className="wide">
@@ -32,6 +31,14 @@ export default async function FeedingPage() {
       ) : !user ? (
         <section className="card">
           <AuthForm />
+        </section>
+      ) : error ? (
+        <section className="card" role="alert">
+          <h2>급여 기록을 표시할 수 없습니다</h2>
+          <p className="muted">{error}</p>
+          <Link className="ghost" href="/feeding">
+            다시 시도
+          </Link>
         </section>
       ) : (
         <>
@@ -71,6 +78,7 @@ export default async function FeedingPage() {
                       <span>
                         {log.started_on} - {log.ended_on ?? "현재"}
                       </span>
+                      <FeedingLogEditor foods={foods} log={log} />
                     </div>
                   ))}
                   {cat.feeding_logs.length === 0 && <span>기록 없음</span>}

@@ -257,7 +257,7 @@ BEGIN
 
   RETURN v_result;
 END;
-$function$
+$function$;
 
 -- 근거 테이블의 키 목록도 같이 넓힌다. RPC 허용 목록만 고치면 INSERT가 제약에서
 -- 막혀 적용 전체가 500으로 끝난다.

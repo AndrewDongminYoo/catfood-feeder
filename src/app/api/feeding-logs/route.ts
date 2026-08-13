@@ -46,14 +46,46 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (payload.ended_on == null) {
+      const { data, error } = await supabase.rpc("switch_current_feeding", {
+        p_cat_id: payload.cat_id,
+        p_food_id: payload.food_id,
+        p_started_on: payload.started_on,
+        ...(payload.note == null ? {} : { p_note: payload.note }),
+      });
+
+      if (error) {
+        console.error("feeding log switch failed", error);
+        if (error.code === "22023") {
+          return NextResponse.json(
+            { error: "급여 기간이 기존 기록과 충돌합니다." },
+            { status: 409 },
+          );
+        }
+        return NextResponse.json(
+          { error: "급여 기록 저장에 실패했습니다." },
+          { status: 500 },
+        );
+      }
+
+      if (data == null) {
+        return NextResponse.json(
+          { error: "급여 기록 저장에 실패했습니다." },
+          { status: 500 },
+        );
+      }
+
+      return NextResponse.json({ feeding_log: { id: data } });
+    }
+
     const { data, error } = await supabase
       .from("feeding_logs")
       .insert({
         cat_id: payload.cat_id,
         food_id: payload.food_id,
         started_on: payload.started_on,
-        ended_on: payload.ended_on || null,
-        note: payload.note || null,
+        ended_on: payload.ended_on,
+        note: payload.note ?? null,
       })
       .select("id")
       .single();

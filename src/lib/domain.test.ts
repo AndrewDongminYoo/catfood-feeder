@@ -46,6 +46,37 @@ describe("validate 보장성분 합계", () => {
     expect(flags).toHaveLength(1);
     expect(flags[0].level).toBe("error");
   });
+
+  it("명시 NFE를 포함한 합계가 100%를 넘으면 차단한다", () => {
+    const flags = sumErrors({
+      protein_pct: 40,
+      fat_pct: 30,
+      fiber_pct: 10,
+      ash_pct: 10,
+      moisture_pct: 0,
+      carb_pct: 20,
+    });
+
+    expect(flags).toHaveLength(1);
+    expect(flags[0]).toMatchObject({ level: "error" });
+    expect(flags[0].msg).toContain("110%");
+  });
+
+  it("명시 NFE가 없으면 음수 파생 NFE로 합계 오류를 상쇄하지 않는다", () => {
+    const flags = validate(
+      {
+        protein_pct: 40,
+        fat_pct: 30,
+        fiber_pct: 10,
+        ash_pct: 15,
+        moisture_pct: 10,
+      },
+      { ...NEUTRAL, carb_pct: -5 },
+    ).filter((flag) => flag.msg.includes("합계"));
+
+    expect(flags).toHaveLength(1);
+    expect(flags[0].msg).toContain("105%");
+  });
 });
 
 describe("num 절단 방지", () => {

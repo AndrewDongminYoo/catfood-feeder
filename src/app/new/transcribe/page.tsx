@@ -1,5 +1,7 @@
 import { LabelTranscribeClient } from "@/components/label-transcribe-client";
+import { authorizeHumanCurator } from "@/lib/admin-auth";
 import { loadPendingTranscripts } from "@/lib/label-transcripts";
+import { notFound, redirect } from "next/navigation";
 
 // loadPendingTranscripts는 supabase-js를 직접 호출해 Next의 fetch 캐시를 거치지
 // 않는다 — 정적 페이지로 남으면 이 큐가 빌드 시점 스냅샷에 얼어붙어, 그 뒤에 올라온
@@ -7,6 +9,14 @@ import { loadPendingTranscripts } from "@/lib/label-transcripts";
 export const dynamic = "force-dynamic";
 
 export default async function TranscribePage() {
+  const authorization = await authorizeHumanCurator();
+  if (authorization.kind === "denied") {
+    if (authorization.status === 401) {
+      redirect(`/auth/login?next=${encodeURIComponent("/new/transcribe")}`);
+    }
+    notFound();
+  }
+
   const initial = await loadPendingTranscripts();
 
   return (

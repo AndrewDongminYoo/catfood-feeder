@@ -3,9 +3,9 @@ CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 SELECT plan(11);
 
-INSERT INTO public.brands (id, name, manufacturer)
+INSERT INTO public.brands (id, name, ko_name, manufacturer)
 OVERRIDING SYSTEM VALUE
-VALUES (-91001, 'pgTAP provenance brand', 'pgTAP manufacturer');
+VALUES (-91001, 'pgTAP provenance brand', 'pgTAP provenance brand', 'pgTAP manufacturer');
 
 INSERT INTO public.foods (
   id,
