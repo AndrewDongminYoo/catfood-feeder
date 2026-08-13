@@ -1,11 +1,11 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(9);
+SELECT plan(11);
 
-INSERT INTO public.brands (id, name, manufacturer)
+INSERT INTO public.brands (id, name, ko_name, manufacturer)
 OVERRIDING SYSTEM VALUE
-VALUES (-93001, 'pgTAP research brand', 'pgTAP manufacturer');
+VALUES (-93001, 'pgTAP research brand', 'pgTAP research brand', 'pgTAP manufacturer');
 
 INSERT INTO public.foods (id, brand_id, product_name)
 OVERRIDING SYSTEM VALUE
@@ -93,6 +93,18 @@ SELECT is(
   has_table_privilege('service_role', 'public.food_research_runs', 'INSERT'),
   true,
   'service_role can append to the research ledger'
+);
+
+SELECT is(
+  has_column_privilege('service_role', 'public.food_research_runs', 'status', 'UPDATE'),
+  true,
+  'service_role can update transcript status'
+);
+
+SELECT is(
+  has_column_privilege('service_role', 'public.food_research_runs', 'proposal', 'UPDATE'),
+  false,
+  'service_role cannot rewrite a research proposal'
 );
 
 -- 권한이 없어서 막히는 것과 RLS가 막는 것은 다르다. 테이블 권한을 트랜잭션

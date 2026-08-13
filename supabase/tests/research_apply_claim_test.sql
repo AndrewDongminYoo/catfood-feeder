@@ -4,8 +4,8 @@ SET LOCAL search_path = public, extensions;
 SELECT plan(8);
 
 INSERT INTO auth.users (id) VALUES ('00000000-0000-0000-0000-000000095001'::uuid);
-INSERT INTO public.brands (id, name) OVERRIDING SYSTEM VALUE
-VALUES (-95001, 'pgTAP apply-claim brand');
+INSERT INTO public.brands (id, name, ko_name) OVERRIDING SYSTEM VALUE
+VALUES (-95001, 'pgTAP apply-claim brand', 'pgTAP apply-claim brand');
 INSERT INTO public.foods (id, brand_id, product_name) OVERRIDING SYSTEM VALUE
 VALUES (-95001, -95001, 'pgTAP apply-claim food');
 

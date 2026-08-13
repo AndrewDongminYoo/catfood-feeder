@@ -6,9 +6,9 @@ SELECT plan(11);
 INSERT INTO auth.users (id)
 VALUES ('00000000-0000-0000-0000-000000094001'::uuid);
 
-INSERT INTO public.brands (id, name, manufacturer)
+INSERT INTO public.brands (id, name, ko_name, manufacturer)
 OVERRIDING SYSTEM VALUE
-VALUES (-94001, 'pgTAP claim brand', 'pgTAP manufacturer');
+VALUES (-94001, 'pgTAP claim brand', 'pgTAP claim brand', 'pgTAP manufacturer');
 
 INSERT INTO public.foods (id, brand_id, product_name)
 OVERRIDING SYSTEM VALUE

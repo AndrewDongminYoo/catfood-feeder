@@ -41,7 +41,7 @@ WHERE country = 'South Korea'
   );
 
 DO $verify$
-DECLARE bad int; kept int;
+DECLARE bad int;
 BEGIN
   -- 수입 브랜드는 하나도 빠지지 않아야 한다.
   SELECT count(*) INTO bad
@@ -49,12 +49,13 @@ BEGIN
   WHERE NOT in_scope AND country IS DISTINCT FROM 'South Korea';
   IF bad <> 0 THEN RAISE EXCEPTION '수입 브랜드가 스코프에서 빠졌다 (%건)', bad; END IF;
 
-  -- 남기기로 한 여섯이 전부 남아야 한다. 이름이 하나라도 어긋나면 여기서 걸린다.
-  SELECT count(*) INTO kept
+  -- 남기기로 한 이름의 행이 존재한다면 모두 남아야 한다. 운영 데이터가 없는 새 DB도
+  -- 같은 마이그레이션을 재생할 수 있어야 하므로, 특정 행 수 자체는 요구하지 않는다.
+  SELECT count(*) INTO bad
   FROM public.brands
-  WHERE in_scope
+  WHERE NOT in_scope
     AND ko_name IN ('ANF', '닥터힐메딕스', '웰츠', '이즈칸', '프로베스트', '뉴트리플랜');
-  IF kept <> 6 THEN RAISE EXCEPTION '유지 대상 6개 중 %개만 남았다', kept; END IF;
+  IF bad <> 0 THEN RAISE EXCEPTION '유지 대상 브랜드가 스코프에서 빠졌다 (%건)', bad; END IF;
 
   SELECT count(*) INTO bad
   FROM public.brands

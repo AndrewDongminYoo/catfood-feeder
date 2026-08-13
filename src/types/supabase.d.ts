@@ -41,6 +41,7 @@ export type Database = {
           homepage_url: string | null;
           id: number;
           importer: string | null;
+          in_scope: boolean;
           ko_name: string;
           manufacturer: string | null;
           name: string;
@@ -51,6 +52,7 @@ export type Database = {
           homepage_url?: string | null;
           id?: never;
           importer?: string | null;
+          in_scope?: boolean;
           ko_name: string;
           manufacturer?: string | null;
           name: string;
@@ -61,6 +63,7 @@ export type Database = {
           homepage_url?: string | null;
           id?: never;
           importer?: string | null;
+          in_scope?: boolean;
           ko_name?: string;
           manufacturer?: string | null;
           name?: string;
@@ -563,6 +566,7 @@ export type Database = {
         Args: { p_limit: number; p_subject: string; p_window_seconds: number };
         Returns: number;
       };
+      excerpt_token_numeric: { Args: { token: string }; Returns: number };
       publish_food_draft: {
         Args: {
           p_actor_id: string;
