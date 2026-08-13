@@ -1,7 +1,9 @@
-import { cache } from "react";
-import { createClient } from "@/lib/supabase/server";
+import { unstable_cache } from "next/cache";
 import { SAMPLE_FOODS } from "@/lib/fixtures";
+import { createPublicClient } from "@/lib/supabase/public";
 import type { CookingMethod, NutrientKey, Source } from "@/lib/domain";
+import type { Database } from "@/types/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface BrandSummary {
   id: number;
@@ -30,6 +32,18 @@ export interface RecallSummary {
   affected_lots: string | null;
   recall_date: string | null;
   region: string | null;
+  scope: RecallScope;
+}
+
+export type RecallScope = "product" | "brand" | "unlinked";
+export type RecallRecord = Omit<RecallSummary, "scope">;
+
+export function classifyRecallScope(
+  recall: Pick<RecallRecord, "brand_id" | "food_id">,
+): RecallScope {
+  if (recall.food_id !== null) return "product";
+  if (recall.brand_id !== null) return "brand";
+  return "unlinked";
 }
 
 /** `foods.nutrient_sources`에 출처 태그가 붙는 필드. 보장성분 + 파생 열량비. */
@@ -82,16 +96,52 @@ export interface FoodWithBrand {
   prices?: PriceSummary[];
 }
 
+export type FoodRecord = Omit<FoodWithBrand, "recalls"> & {
+  recalls?: RecallRecord[];
+};
+
+export interface RecallCarrier {
+  brand_id: number;
+  recalls?: RecallRecord[];
+}
+
+export type WithScopedRecalls<T extends RecallCarrier> = Omit<T, "recalls"> & {
+  recalls: RecallSummary[];
+};
+
+export function attachRecallScopes<T extends RecallCarrier>(
+  foods: readonly T[],
+  brandRecalls: readonly RecallRecord[],
+): WithScopedRecalls<T>[] {
+  return foods.map((food) => {
+    const recalledById = new Map<number, RecallSummary>();
+    for (const recall of food.recalls ?? []) {
+      recalledById.set(recall.id, { ...recall, scope: "product" });
+    }
+    for (const recall of brandRecalls) {
+      if (recall.food_id !== null || recall.brand_id !== food.brand_id)
+        continue;
+      recalledById.set(recall.id, { ...recall, scope: "brand" });
+    }
+
+    return {
+      ...food,
+      recalls: [...recalledById.values()].sort((left, right) =>
+        (right.recall_date ?? "").localeCompare(left.recall_date ?? ""),
+      ),
+    };
+  });
+}
+
 export function isSupabaseConfigured() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   return !!url && !!key && !url.includes("xxxx") && key.length > 10;
 }
 
-export const getFoods = cache(async (): Promise<FoodWithBrand[]> => {
-  if (!isSupabaseConfigured()) return SAMPLE_FOODS;
-
-  const supabase = await createClient();
+export async function loadPublicFoods(
+  supabase: SupabaseClient<Database>,
+): Promise<FoodWithBrand[]> {
   const { data, error } = await supabase
     .from("foods")
     .select(
@@ -102,16 +152,70 @@ export const getFoods = cache(async (): Promise<FoodWithBrand[]> => {
     `,
     )
     .not("published_at", "is", null)
-    .not("protein_pct", "is", null)
     .order("product_name", { ascending: true });
 
-  if (error) {
+  if (error) throw error;
+
+  const foods = (data ?? []) as unknown as FoodRecord[];
+  const brandIds = [...new Set(foods.map((food) => food.brand_id))];
+  if (brandIds.length === 0) return [];
+
+  const { data: brandRecallData, error: brandRecallError } = await supabase
+    .from("recalls")
+    .select(
+      "id, brand_id, food_id, source, source_url, external_id, recalling_firm, reason, classification, affected_lots, recall_date, region",
+    )
+    .is("food_id", null)
+    .in("brand_id", brandIds)
+    .order("recall_date", { ascending: false, nullsFirst: false });
+
+  if (brandRecallError) throw brandRecallError;
+
+  return attachRecallScopes(
+    foods,
+    (brandRecallData ?? []) as unknown as RecallRecord[],
+  );
+}
+
+export async function loadPublicRecalls(
+  supabase: SupabaseClient<Database>,
+): Promise<RecallSummary[]> {
+  const { data, error } = await supabase
+    .from("recalls")
+    .select("*")
+    .order("recall_date", { ascending: false, nullsFirst: false })
+    .limit(100);
+
+  if (error) throw error;
+
+  return ((data ?? []) as RecallRecord[]).map((recall) => ({
+    ...recall,
+    scope: classifyRecallScope(recall),
+  }));
+}
+
+const loadCachedPublicFoods = unstable_cache(
+  async () => loadPublicFoods(createPublicClient()),
+  ["public-foods"],
+  { revalidate: 3600, tags: ["public-foods"] },
+);
+
+const loadCachedPublicRecalls = unstable_cache(
+  async () => loadPublicRecalls(createPublicClient()),
+  ["public-recalls"],
+  { revalidate: 3600, tags: ["public-recalls"] },
+);
+
+export async function getFoods(): Promise<FoodWithBrand[]> {
+  if (!isSupabaseConfigured()) return SAMPLE_FOODS;
+
+  try {
+    return await loadCachedPublicFoods();
+  } catch (error) {
     console.error("Failed to load foods", error);
     return [];
   }
-
-  return (data ?? []) as unknown as FoodWithBrand[];
-});
+}
 
 export async function getFood(id: number) {
   const foods = await getFoods();
@@ -142,21 +246,14 @@ export async function getComparisonFoods(ids: number[]) {
   return orderComparisonFoods(foods, ids);
 }
 
-export const getRecalls = cache(async (): Promise<RecallSummary[]> => {
+export async function getRecalls(): Promise<RecallSummary[]> {
   if (!isSupabaseConfigured())
     return SAMPLE_FOODS.flatMap((food) => food.recalls ?? []);
 
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("recalls")
-    .select("*")
-    .order("recall_date", { ascending: false, nullsFirst: false })
-    .limit(100);
-
-  if (error) {
+  try {
+    return await loadCachedPublicRecalls();
+  } catch (error) {
     console.error("Failed to load recalls", error);
     return [];
   }
-
-  return (data ?? []) as RecallSummary[];
-});
+}

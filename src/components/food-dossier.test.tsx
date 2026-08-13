@@ -78,6 +78,7 @@ describe("FoodDossier", () => {
               recall_date: "2026-08-11",
               recalling_firm: "Example Firm",
               region: "US",
+              scope: "product",
               source: "openFDA Food Enforcement",
               source_url: "https://example.test/recall/141",
             },
@@ -88,5 +89,41 @@ describe("FoodDossier", () => {
 
     expect(screen.getByText("출처: openFDA Food Enforcement")).toBeTruthy();
     expect(screen.getByText("대상 로트: LOT-141")).toBeTruthy();
+    expect(screen.getByText("제품 연결 이력")).toBeTruthy();
+    expect(
+      screen.queryByText("이 제품·로트의 해당 여부는 확인되지 않았습니다."),
+    ).toBeNull();
+  });
+
+  it("브랜드 범위 이력을 제품 리콜로 단정하지 않는다", () => {
+    render(
+      <FoodDossier
+        food={{
+          ...acana,
+          recalls: [
+            {
+              affected_lots: "BRAND-LOT",
+              brand_id: acana.brand_id,
+              classification: "Class II",
+              external_id: null,
+              food_id: null,
+              id: 143,
+              reason: "Brand-scoped issue",
+              recall_date: "2026-08-12",
+              recalling_firm: "Example Firm",
+              region: "US",
+              scope: "brand",
+              source: "openFDA Food Enforcement",
+              source_url: "https://example.test/recall/143",
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("브랜드 범위 이력")).toBeTruthy();
+    expect(
+      screen.getByText("이 제품·로트의 해당 여부는 확인되지 않았습니다."),
+    ).toBeTruthy();
   });
 });

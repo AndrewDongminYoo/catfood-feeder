@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RecallHistory } from "@/components/recall-history";
 import { getRecalls } from "@/lib/catalog";
 
 export const revalidate = 3600;
@@ -21,20 +22,10 @@ export default async function RecallsPage() {
           Enforcement Reports는 분류 후 상태가 갱신되지 않을 수 있습니다.
         </p>
       </section>
-      <section className="recall-list">
-        {recalls.map((recall) => (
-          <a href={recall.source_url} key={recall.id}>
-            <strong>{recall.classification ?? recall.source}</strong>
-            <span>
-              {recall.reason ?? recall.recalling_firm ?? "사유 미기록"}
-            </span>
-            <em>{recall.recall_date ?? "날짜 미기록"}</em>
-          </a>
-        ))}
-        {recalls.length === 0 && (
-          <div className="empty">동기화된 리콜 이력이 없습니다.</div>
-        )}
-      </section>
+      <RecallHistory
+        emptyMessage="동기화된 리콜 이력이 없습니다."
+        recalls={recalls}
+      />
     </main>
   );
 }

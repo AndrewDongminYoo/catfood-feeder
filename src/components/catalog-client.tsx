@@ -196,7 +196,11 @@ export function CatalogClient({
                 {food.grain_free && <span>grain free</span>}
                 {food.has_probiotics && <span>probiotics</span>}
                 {food.cooking_method && <span>{food.cooking_method}</span>}
-                {(food.recalls?.length ?? 0) > 0 && <span>recall history</span>}
+                {food.recalls?.some((recall) => recall.scope === "brand") ? (
+                  <span>브랜드 범위 리콜 이력</span>
+                ) : (
+                  (food.recalls?.length ?? 0) > 0 && <span>recall history</span>
+                )}
               </div>
               <button
                 aria-pressed={selected.includes(food.id)}

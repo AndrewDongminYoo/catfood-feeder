@@ -67,4 +67,17 @@ describe("CatalogClient", () => {
         .getAttribute("href"),
     ).toBe("/compare?ids=0,1");
   });
+
+  it("단백질이 미기록인 공개 제품도 링크와 알 수 없는 값으로 보여 준다", () => {
+    const partialFood = { ...acana, protein_pct: null };
+
+    render(<CatalogClient foods={[partialFood]} />);
+
+    expect(
+      screen.getByRole("link", { name: partialFood.product_name }),
+    ).toBeTruthy();
+    expect(screen.getByText("단백질").parentElement?.textContent).toContain(
+      "—",
+    );
+  });
 });
