@@ -595,6 +595,15 @@ export type Database = {
           source_id: number;
         }[];
       };
+      switch_current_feeding: {
+        Args: {
+          p_cat_id: number;
+          p_food_id: number;
+          p_note?: string;
+          p_started_on: string;
+        };
+        Returns: number;
+      };
     };
     Enums: {
       cooking_method: "extrusion" | "baked" | "freeze_dried" | "dried";
