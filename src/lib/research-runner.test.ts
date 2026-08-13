@@ -1,4 +1,6 @@
 import { spawn } from "node:child_process";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -6,6 +8,7 @@ import {
   buildAgentEnv,
   buildCodexArgs,
   buildPrompt,
+  stageCodexHome,
 } from "../../scripts/research-run.mjs";
 import { researchProposalSchema } from "./research-proposal";
 
@@ -34,11 +37,35 @@ describe("research runner subprocess contract", () => {
     expect(JSON.stringify(env)).not.toContain("anthropic");
   });
 
-  it("points HOME at the empty workdir while keeping codex auth in CODEX_HOME", () => {
+  it("does not reveal the operator home through CODEX_HOME", () => {
     const env = buildAgentEnv({ HOME: "/Users/someone" }, "/tmp/workdir");
 
     expect(env.HOME).toBe("/tmp/workdir");
-    expect(env.CODEX_HOME).toBe("/Users/someone/.codex");
+    expect(env.CODEX_HOME).toBe("/tmp/workdir/.codex");
+    expect(JSON.stringify(env)).not.toContain("/Users/someone");
+  });
+
+  it("stages only Codex authentication inside the isolated workdir", async () => {
+    const root = await mkdtemp(join(tmpdir(), "research-runner-test-"));
+    const operatorCodexHome = join(root, "operator-codex");
+    const workdir = join(root, "workdir");
+
+    try {
+      await stageCodexHome(
+        { CODEX_HOME: operatorCodexHome },
+        workdir,
+        async (source, destination) => {
+          expect(source).toBe(join(operatorCodexHome, "auth.json"));
+          await writeFile(destination, '{"token":"credential"}');
+        },
+      );
+
+      expect(await readFile(join(workdir, ".codex", "auth.json"), "utf8")).toBe(
+        '{"token":"credential"}',
+      );
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
   });
 
   it("runs codex read-only, ephemeral, and without user config", () => {

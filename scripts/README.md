@@ -11,7 +11,8 @@ A missing file is tolerated so platform-provided environments (Vercel) still bui
 
 The reason is the research runner: its `codex` child runs under a read-only sandbox, and read-only restricts writes, not reads.
 An agent following instructions injected into a product page would look for a dotenv file at the repository root first, so there is nothing there to find.
-This shrinks the exposure; it is not a boundary.
+The runner also copies only `auth.json` into an ephemeral `CODEX_HOME`; it never gives the child the operator's real home path, from which the fixed secrets path could be derived.
+These measures shrink the exposure; they are not a same-UID filesystem boundary.
 The boundary is a separate OS account or a container, which stays the next hardening step.
 `src/lib/research-boundary.test.ts` pins that no package script reads an in-repo dotenv file.
 
@@ -52,7 +53,7 @@ Optional: `RESEARCH_BROKER_URL` (default `http://localhost:3000`), `RESEARCH_AGE
 What holds the boundary:
 
 - `RESEARCH_AGENT_SECRET` opens **only** `/api/research/*`. No admin or publish route accepts it, and `src/lib/research-boundary.test.ts` pins that.
-- The child `codex exec` process gets an allowlisted environment (`PATH`, `HOME` → an empty temp dir, `CODEX_HOME`, `LANG`, `TMPDIR`) and runs `--sandbox read-only --ephemeral --ignore-user-config` outside the repo. It never sees the broker secret or any Supabase key.
+- The child `codex exec` process gets an allowlisted environment (`PATH`, `HOME` and `CODEX_HOME` → an empty temp dir, `LANG`, `TMPDIR`) and runs `--sandbox read-only --ephemeral --ignore-user-config` outside the repo. Only Codex's `auth.json` is staged into that temporary home; the child never receives the operator's real home path, broker secret, or any Supabase key.
 - The target must be a **skeleton** draft: unpublished _and_ carrying no current source. An agent URL must never displace a curator's captured source. The broker checks this before fetching, and both the replacement RPC and the evidence-apply RPC re-check it inside their own row locks — capture and apply are separate transactions, so a curator registering a source in between must be caught at both points. A curator who claims the food mid-run wins the race and the run ends as `claim_conflict` having written no nutrient value.
 - Prior runs' proposed URLs are returned by `GET /api/research/foods/[id]` and go into the prompt as "already tried", so a re-run does not spend a research call on the same dead end.
 - Every proposal for a real target is appended to `food_research_runs`, including one refused by the envelope schema (`status: invalid`), so the next run does not re-research the same dead end. Only a request that fails the envelope's own shape, or names a food that is not a skeleton, is refused without a ledger row.

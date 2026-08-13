@@ -6,7 +6,14 @@
 // 자식은 공개 웹을 조사해 JSON Schema에 맞는 제안 봉투만 돌려주며, 데이터베이스에
 // 직접 닿지 않는다.
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -77,17 +84,30 @@ export const PROPOSAL_JSON_SCHEMA = {
 /**
  * 자식 프로세스 환경 allowlist.
  *
- * broker 비밀과 Supabase 키는 넘기지 않는다. HOME은 빈 작업 디렉터리를 가리키고,
- * codex 인증은 `--ignore-user-config`에서도 계속 쓰이는 CODEX_HOME에서만 온다.
+ * broker 비밀과 Supabase 키는 넘기지 않는다. HOME과 CODEX_HOME 모두 빈 작업
+ * 디렉터리 아래를 가리키므로 운영자 홈 경로도 자식에게 드러나지 않는다.
  */
 export function buildAgentEnv(parentEnv, workdir) {
   return {
-    CODEX_HOME: parentEnv.CODEX_HOME ?? join(parentEnv.HOME ?? "", ".codex"),
+    CODEX_HOME: join(workdir, ".codex"),
     HOME: workdir,
     LANG: parentEnv.LANG ?? "en_US.UTF-8",
     PATH: parentEnv.PATH ?? "",
     TMPDIR: workdir,
   };
+}
+
+/** 실제 홈 경로를 자식에게 노출하지 않고 Codex 로그인 정보만 임시 홈에 복사한다. */
+export async function stageCodexHome(
+  parentEnv,
+  workdir,
+  copy = copyFile,
+) {
+  const sourceHome =
+    parentEnv.CODEX_HOME ?? join(parentEnv.HOME ?? "", ".codex");
+  const isolatedHome = join(workdir, ".codex");
+  await mkdir(isolatedHome, { recursive: true });
+  await copy(join(sourceHome, "auth.json"), join(isolatedHome, "auth.json"));
 }
 
 export function buildCodexArgs(schemaPath, messagePath, model) {
@@ -206,6 +226,7 @@ async function main() {
   const target = await fetchTarget(brokerUrl, secret, foodId);
   const workdir = await mkdtemp(join(tmpdir(), "catfood-research-"));
   try {
+    await stageCodexHome(process.env, workdir);
     const schemaPath = join(workdir, "schema.json");
     const messagePath = join(workdir, "message.json");
     await writeFile(schemaPath, JSON.stringify(PROPOSAL_JSON_SCHEMA));
