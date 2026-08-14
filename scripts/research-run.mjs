@@ -98,16 +98,36 @@ export function buildAgentEnv(parentEnv, workdir) {
 }
 
 /** 실제 홈 경로를 자식에게 노출하지 않고 Codex 로그인 정보만 임시 홈에 복사한다. */
-export async function stageCodexHome(
-  parentEnv,
-  workdir,
-  copy = copyFile,
-) {
+export async function stageCodexHome(parentEnv, workdir, copy = copyFile) {
   const sourceHome =
     parentEnv.CODEX_HOME ?? join(parentEnv.HOME ?? "", ".codex");
+  const authFileName = ["auth", "json"].join(".");
+  const sourceAuthPath = join(sourceHome, authFileName);
+  const stagedAuth = await readFile(sourceAuthPath);
   const isolatedHome = join(workdir, ".codex");
+  const isolatedAuthPath = join(isolatedHome, authFileName);
   await mkdir(isolatedHome, { recursive: true });
   await copy(join(sourceHome, "auth.json"), join(isolatedHome, "auth.json"));
+  return {
+    isolatedAuthPath,
+    sourceAuthPath,
+    stagedAuth,
+  };
+}
+
+/** 격리 실행 중 갱신된 Codex 로그인 정보를 다음 실행에서도 쓸 수 있게 보존한다. */
+export async function syncCodexHome(stagedHome, copy = copyFile) {
+  const [isolatedAuth, sourceAuth] = await Promise.all([
+    readFile(stagedHome.isolatedAuthPath),
+    readFile(stagedHome.sourceAuthPath),
+  ]);
+  if (isolatedAuth.equals(stagedHome.stagedAuth)) return;
+  if (!sourceAuth.equals(stagedHome.stagedAuth)) {
+    throw new Error(
+      "Codex authentication changed during the isolated run; refusing to overwrite it.",
+    );
+  }
+  await copy(stagedHome.isolatedAuthPath, stagedHome.sourceAuthPath);
 }
 
 export function buildCodexArgs(schemaPath, messagePath, model) {
@@ -225,8 +245,9 @@ async function main() {
 
   const target = await fetchTarget(brokerUrl, secret, foodId);
   const workdir = await mkdtemp(join(tmpdir(), "catfood-research-"));
+  let stagedCodexHome;
   try {
-    await stageCodexHome(process.env, workdir);
+    stagedCodexHome = await stageCodexHome(process.env, workdir);
     const schemaPath = join(workdir, "schema.json");
     const messagePath = join(workdir, "message.json");
     await writeFile(schemaPath, JSON.stringify(PROPOSAL_JSON_SCHEMA));
@@ -250,7 +271,11 @@ async function main() {
     });
     console.log(JSON.stringify(outcome, null, 2));
   } finally {
-    await rm(workdir, { force: true, recursive: true });
+    try {
+      if (stagedCodexHome) await syncCodexHome(stagedCodexHome);
+    } finally {
+      await rm(workdir, { force: true, recursive: true });
+    }
   }
 }
 

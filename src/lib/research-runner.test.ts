@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -9,8 +9,31 @@ import {
   buildCodexArgs,
   buildPrompt,
   stageCodexHome,
+  syncCodexHome,
 } from "../../scripts/research-run.mjs";
 import { researchProposalSchema } from "./research-proposal";
+
+async function createStagedAuthFixture() {
+  const root = await mkdtemp(join(tmpdir(), "research-runner-test-"));
+  const operatorCodexHome = join(root, "operator-codex");
+  const workdir = join(root, "workdir");
+  const authFileName = ["auth", "json"].join(".");
+  const sourceAuth = join(operatorCodexHome, authFileName);
+
+  await mkdir(operatorCodexHome, { recursive: true });
+  await writeFile(sourceAuth, '{"token":"old"}', { mode: 0o600 });
+  const staged = await stageCodexHome(
+    { CODEX_HOME: operatorCodexHome },
+    workdir,
+  );
+
+  return {
+    isolatedAuth: join(workdir, ".codex", authFileName),
+    root,
+    sourceAuth,
+    staged,
+  };
+}
 
 describe("research runner subprocess contract", () => {
   it("passes no secret or database credential to the child", () => {
@@ -51,6 +74,11 @@ describe("research runner subprocess contract", () => {
     const workdir = join(root, "workdir");
 
     try {
+      await mkdir(operatorCodexHome, { recursive: true });
+      await writeFile(
+        join(operatorCodexHome, ["auth", "json"].join(".")),
+        '{"token":"credential"}',
+      );
       await stageCodexHome(
         { CODEX_HOME: operatorCodexHome },
         workdir,
@@ -65,6 +93,40 @@ describe("research runner subprocess contract", () => {
       );
     } finally {
       await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("preserves refreshed Codex authentication for the next run", async () => {
+    const fixture = await createStagedAuthFixture();
+
+    try {
+      await writeFile(fixture.isolatedAuth, '{"token":"new"}');
+
+      await syncCodexHome(fixture.staged);
+
+      expect(await readFile(fixture.sourceAuth, "utf8")).toBe(
+        '{"token":"new"}',
+      );
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
+  it("does not overwrite authentication changed during the isolated run", async () => {
+    const fixture = await createStagedAuthFixture();
+
+    try {
+      await writeFile(fixture.isolatedAuth, '{"token":"isolated"}');
+      await writeFile(fixture.sourceAuth, '{"token":"operator"}');
+
+      await expect(syncCodexHome(fixture.staged)).rejects.toThrow(
+        "Codex authentication changed during the isolated run",
+      );
+      expect(await readFile(fixture.sourceAuth, "utf8")).toBe(
+        '{"token":"operator"}',
+      );
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
     }
   });
 
