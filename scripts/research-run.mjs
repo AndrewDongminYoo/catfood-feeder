@@ -280,6 +280,8 @@ export function buildCodexArgs(schemaPath, messagePath, model) {
     "--color",
     "never",
     "-c",
+    'cli_auth_credentials_store="file"',
+    "-c",
     'web_search="live"',
     "-m",
     model,

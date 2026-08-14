@@ -347,6 +347,7 @@ describe("research runner subprocess contract", () => {
     expect(args).toContain("--ephemeral");
     expect(args).toContain("--ignore-user-config");
     expect(args.join(" ")).toContain("--sandbox read-only");
+    expect(args).toContain('cli_auth_credentials_store="file"');
     expect(args).not.toContain("--dangerously-bypass-approvals-and-sandbox");
     expect(args.join(" ")).toContain("--output-schema /tmp/s.json");
     expect(args.join(" ")).toContain("--output-last-message /tmp/m.json");
