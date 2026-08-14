@@ -183,9 +183,17 @@ export function selectResearchTempRoot({
   systemTemp,
   tempDevice,
 }) {
+  if (!home) {
+    throw new Error("cannot isolate Codex credentials when HOME is unknown");
+  }
+  if (isWithin(home, systemTemp)) {
+    throw new Error(
+      "cannot isolate Codex credentials when TMPDIR is inside the operator home",
+    );
+  }
   if (sourceDevice === tempDevice) return systemTemp;
 
-  if (!home || isWithin(home, sourcePath)) {
+  if (isWithin(home, sourcePath)) {
     throw new Error(
       "cannot isolate Codex credentials across filesystems without exposing the operator home; set TMPDIR to the credential filesystem",
     );
@@ -219,18 +227,20 @@ export async function createResearchWorkdir(parentEnv) {
   }
 
   const systemTemp = tmpdir();
-  const [resolvedSourceAuth, resolvedHome, systemTempStat] = await Promise.all([
-    realpath(sourceAuth),
-    parentEnv.HOME
-      ? realpath(parentEnv.HOME).catch(() => resolve(parentEnv.HOME))
-      : undefined,
-    stat(systemTemp),
-  ]);
+  const [resolvedSourceAuth, resolvedHome, resolvedSystemTemp, systemTempStat] =
+    await Promise.all([
+      realpath(sourceAuth),
+      parentEnv.HOME
+        ? realpath(parentEnv.HOME).catch(() => resolve(parentEnv.HOME))
+        : undefined,
+      realpath(systemTemp),
+      stat(systemTemp),
+    ]);
   const tempRoot = selectResearchTempRoot({
     home: resolvedHome,
     sourceDevice: sourceAuthStat.dev,
     sourcePath: resolvedSourceAuth,
-    systemTemp,
+    systemTemp: resolvedSystemTemp,
     tempDevice: systemTempStat.dev,
   });
 

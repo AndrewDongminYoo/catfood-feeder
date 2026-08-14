@@ -116,6 +116,18 @@ describe("research runner subprocess contract", () => {
     ).toBe("/Volumes/encrypted/credentials");
   });
 
+  it("rejects a system temp directory inside the operator home", () => {
+    expect(() =>
+      selectResearchTempRoot({
+        home: "/Users/someone",
+        sourceDevice: 1,
+        sourcePath: "/Users/someone/.codex",
+        systemTemp: "/Users/someone/tmp",
+        tempDevice: 1,
+      }),
+    ).toThrow("TMPDIR is inside the operator home");
+  });
+
   it("rejects cross-filesystem staging that would reveal the home", () => {
     expect(() =>
       selectResearchTempRoot({
@@ -137,7 +149,7 @@ describe("research runner subprocess contract", () => {
         systemTemp: "/private/tmp",
         tempDevice: 1,
       }),
-    ).toThrow("cannot isolate Codex credentials across filesystems");
+    ).toThrow("cannot isolate Codex credentials when HOME is unknown");
   });
 
   it("treats dot-prefixed credential paths as inside HOME", () => {
