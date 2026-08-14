@@ -97,11 +97,23 @@ describe("research runner subprocess contract", () => {
       selectResearchTempRoot({
         home: "/Users/someone",
         sourceDevice: 2,
-        sourceHome: "/Volumes/codex-auth/codex-home",
+        sourcePath: "/Volumes/codex-auth/codex-home",
         systemTemp: "/private/tmp",
         tempDevice: 1,
       }),
     ).toBe("/Volumes/codex-auth");
+  });
+
+  it("uses the resolved credential target directory when devices differ", () => {
+    expect(
+      selectResearchTempRoot({
+        home: "/Users/someone",
+        sourceDevice: 2,
+        sourcePath: "/Volumes/encrypted/credentials/codex-auth",
+        systemTemp: "/private/tmp",
+        tempDevice: 1,
+      }),
+    ).toBe("/Volumes/encrypted/credentials");
   });
 
   it("rejects cross-filesystem staging that would reveal the home", () => {
@@ -109,7 +121,7 @@ describe("research runner subprocess contract", () => {
       selectResearchTempRoot({
         home: "/Users/someone",
         sourceDevice: 2,
-        sourceHome: "/Users/someone/.codex",
+        sourcePath: "/Users/someone/.codex",
         systemTemp: "/private/tmp",
         tempDevice: 1,
       }),
@@ -121,7 +133,7 @@ describe("research runner subprocess contract", () => {
       selectResearchTempRoot({
         home: undefined,
         sourceDevice: 2,
-        sourceHome: "/Users/someone/.codex",
+        sourcePath: "/Users/someone/.codex",
         systemTemp: "/private/tmp",
         tempDevice: 1,
       }),
@@ -133,7 +145,7 @@ describe("research runner subprocess contract", () => {
       selectResearchTempRoot({
         home: "/Users/someone",
         sourceDevice: 2,
-        sourceHome: "/Users/someone/..codex",
+        sourcePath: "/Users/someone/..codex",
         systemTemp: "/private/tmp",
         tempDevice: 1,
       }),
