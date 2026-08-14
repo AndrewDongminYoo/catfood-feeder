@@ -12,6 +12,7 @@ A missing file is tolerated so platform-provided environments (Vercel) still bui
 The reason is the research runner: its `codex` child runs under a read-only sandbox, and read-only restricts writes, not reads.
 An agent following instructions injected into a product page would look for a dotenv file at the repository root first, so there is nothing there to find.
 The runner also copies only `auth.json` into an ephemeral `CODEX_HOME`; it never gives the child the operator's real home path, from which the fixed secrets path could be derived.
+The staged file is a hard link to the same inode rather than a byte copy, so CLI token refreshes persist without a compare-and-replace step.
 These measures shrink the exposure; they are not a same-UID filesystem boundary.
 The boundary is a separate OS account or a container, which stays the next hardening step.
 `src/lib/research-boundary.test.ts` pins that no package script reads an in-repo dotenv file.

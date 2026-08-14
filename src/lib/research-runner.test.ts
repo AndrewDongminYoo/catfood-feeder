@@ -9,7 +9,6 @@ import {
   buildCodexArgs,
   buildPrompt,
   stageCodexHome,
-  syncCodexHome,
 } from "../../scripts/research-run.mjs";
 import { researchProposalSchema } from "./research-proposal";
 
@@ -22,16 +21,12 @@ async function createStagedAuthFixture() {
 
   await mkdir(operatorCodexHome, { recursive: true });
   await writeFile(sourceAuth, '{"token":"old"}', { mode: 0o600 });
-  const staged = await stageCodexHome(
-    { CODEX_HOME: operatorCodexHome },
-    workdir,
-  );
+  await stageCodexHome({ CODEX_HOME: operatorCodexHome }, workdir);
 
   return {
     isolatedAuth: join(workdir, ".codex", authFileName),
     root,
     sourceAuth,
-    staged,
   };
 }
 
@@ -96,13 +91,11 @@ describe("research runner subprocess contract", () => {
     }
   });
 
-  it("preserves refreshed Codex authentication for the next run", async () => {
+  it("shares isolated Codex authentication updates with the source", async () => {
     const fixture = await createStagedAuthFixture();
 
     try {
       await writeFile(fixture.isolatedAuth, '{"token":"new"}');
-
-      await syncCodexHome(fixture.staged);
 
       expect(await readFile(fixture.sourceAuth, "utf8")).toBe(
         '{"token":"new"}',
@@ -112,17 +105,13 @@ describe("research runner subprocess contract", () => {
     }
   });
 
-  it("does not overwrite authentication changed during the isolated run", async () => {
+  it("observes source authentication updates during the isolated run", async () => {
     const fixture = await createStagedAuthFixture();
 
     try {
-      await writeFile(fixture.isolatedAuth, '{"token":"isolated"}');
       await writeFile(fixture.sourceAuth, '{"token":"operator"}');
 
-      await expect(syncCodexHome(fixture.staged)).rejects.toThrow(
-        "Codex authentication changed during the isolated run",
-      );
-      expect(await readFile(fixture.sourceAuth, "utf8")).toBe(
+      expect(await readFile(fixture.isolatedAuth, "utf8")).toBe(
         '{"token":"operator"}',
       );
     } finally {
