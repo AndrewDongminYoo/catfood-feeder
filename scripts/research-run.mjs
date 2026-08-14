@@ -6,9 +6,31 @@
 // 자식은 공개 웹을 조사해 JSON Schema에 맞는 제안 봉투만 돌려주며, 데이터베이스에
 // 직접 닿지 않는다.
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import {
+  access,
+  chmod,
+  copyFile,
+  link,
+  mkdir,
+  mkdtemp,
+  open,
+  readFile,
+  realpath,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import {
+  delimiter,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
 import { fileURLToPath } from "node:url";
 import { SECRETS_FILE, loadSecrets } from "./with-secrets.mjs";
 
@@ -78,17 +100,174 @@ export const PROPOSAL_JSON_SCHEMA = {
 /**
  * 자식 프로세스 환경 allowlist.
  *
- * broker 비밀과 Supabase 키는 넘기지 않는다. HOME은 빈 작업 디렉터리를 가리키고,
- * codex 인증은 `--ignore-user-config`에서도 계속 쓰이는 CODEX_HOME에서만 온다.
+ * broker 비밀과 Supabase 키는 넘기지 않는다. HOME과 CODEX_HOME 모두 빈 작업
+ * 디렉터리 아래를 가리키므로 운영자 홈 경로도 자식에게 드러나지 않는다.
  */
 export function buildAgentEnv(parentEnv, workdir) {
   return {
-    CODEX_HOME: parentEnv.CODEX_HOME ?? join(parentEnv.HOME ?? "", ".codex"),
+    CODEX_HOME: join(workdir, ".codex"),
     HOME: workdir,
     LANG: parentEnv.LANG ?? "en_US.UTF-8",
-    PATH: parentEnv.PATH ?? "",
+    PATH: [join(workdir, "bin"), "/usr/bin", "/bin", "/usr/sbin", "/sbin"].join(
+      delimiter,
+    ),
     TMPDIR: workdir,
   };
+}
+
+async function findCodexExecutable(pathValue) {
+  for (const directory of (pathValue ?? "").split(delimiter)) {
+    if (!directory) continue;
+    const candidate = join(directory, "codex");
+    try {
+      await access(candidate, constants.X_OK);
+      return realpath(candidate);
+    } catch (error) {
+      if (error?.code === "EACCES" || error?.code === "ENOENT") continue;
+      throw error;
+    }
+  }
+
+  throw new Error("research runner could not find an executable codex in PATH");
+}
+
+export async function stageCodexExecutable(
+  parentEnv,
+  workdir,
+  createLink = link,
+  copyExecutable = copyFile,
+) {
+  const source = await findCodexExecutable(parentEnv.PATH);
+  const sourceFile = await open(source, "r");
+  const signature = Buffer.alloc(2);
+  try {
+    await sourceFile.read(signature, 0, signature.length, 0);
+  } finally {
+    await sourceFile.close();
+  }
+  if (signature.toString() === "#!") {
+    throw new Error(
+      "research runner requires a standalone Codex executable; script-based launchers cannot be isolated safely",
+    );
+  }
+
+  const isolatedBin = join(workdir, "bin");
+  const destination = join(isolatedBin, "codex");
+  await mkdir(isolatedBin, { mode: 0o700, recursive: true });
+
+  try {
+    await createLink(source, destination);
+  } catch (error) {
+    if (!["EXDEV", "EPERM", "ENOTSUP", "EOPNOTSUPP"].includes(error?.code)) {
+      throw error;
+    }
+    await copyExecutable(source, destination, constants.COPYFILE_FICLONE);
+    await chmod(destination, 0o700);
+  }
+}
+
+function isWithin(root, target) {
+  if (!root) return false;
+  const pathFromRoot = relative(resolve(root), resolve(target));
+  return (
+    pathFromRoot === "" ||
+    (pathFromRoot !== ".." &&
+      !pathFromRoot.startsWith(`..${sep}`) &&
+      !isAbsolute(pathFromRoot))
+  );
+}
+
+export function selectResearchTempRoot({
+  home,
+  sourceDevice,
+  sourcePath,
+  systemTemp,
+  tempDevice,
+}) {
+  if (!home) {
+    throw new Error("cannot isolate Codex credentials when HOME is unknown");
+  }
+  if (isWithin(home, systemTemp)) {
+    throw new Error(
+      "cannot isolate Codex credentials when TMPDIR is inside the operator home",
+    );
+  }
+  if (sourceDevice === tempDevice) return systemTemp;
+
+  if (isWithin(home, sourcePath)) {
+    throw new Error(
+      "cannot isolate Codex credentials across filesystems without exposing the operator home; set TMPDIR to the credential filesystem",
+    );
+  }
+
+  return dirname(sourcePath);
+}
+
+export async function createResearchWorkdir(parentEnv) {
+  const sourceHome =
+    parentEnv.CODEX_HOME ?? join(parentEnv.HOME ?? "", ".codex");
+  const sourceAuth = join(sourceHome, ["auth", "json"].join("."));
+  let sourceAuthStat;
+
+  try {
+    sourceAuthStat = await stat(sourceAuth);
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      throw new Error(
+        `research runner requires file-based Codex credentials at ${sourceAuth}`,
+        { cause: error },
+      );
+    }
+    throw error;
+  }
+
+  if (!sourceAuthStat.isFile()) {
+    throw new Error(
+      `research runner requires file-based Codex credentials at ${sourceAuth}`,
+    );
+  }
+
+  const systemTemp = tmpdir();
+  const [resolvedSourceAuth, resolvedHome, resolvedSystemTemp, systemTempStat] =
+    await Promise.all([
+      realpath(sourceAuth),
+      parentEnv.HOME
+        ? realpath(parentEnv.HOME).catch(() => resolve(parentEnv.HOME))
+        : undefined,
+      realpath(systemTemp),
+      stat(systemTemp),
+    ]);
+  const tempRoot = selectResearchTempRoot({
+    home: resolvedHome,
+    sourceDevice: sourceAuthStat.dev,
+    sourcePath: resolvedSourceAuth,
+    systemTemp: resolvedSystemTemp,
+    tempDevice: systemTempStat.dev,
+  });
+
+  return mkdtemp(join(tempRoot, "catfood-research-"));
+}
+
+/** 실제 홈 경로를 노출하지 않고 Codex 로그인 파일만 임시 홈에 하드 링크한다. */
+export async function stageCodexHome(parentEnv, workdir, createLink = link) {
+  const sourceHome =
+    parentEnv.CODEX_HOME ?? join(parentEnv.HOME ?? "", ".codex");
+  const copy = async (source, destination) => {
+    try {
+      await createLink(await realpath(source), destination);
+    } catch (error) {
+      if (["EXDEV", "ENOTSUP", "EOPNOTSUPP", "EPERM"].includes(error?.code)) {
+        throw new Error(
+          "research runner requires hard-link support for Codex credentials; place CODEX_HOME and TMPDIR on a hard-link-capable filesystem",
+          { cause: error },
+        );
+      }
+      throw error;
+    }
+  };
+  const isolatedHome = join(workdir, ".codex");
+  await mkdir(isolatedHome, { recursive: true });
+  await copy(join(sourceHome, "auth.json"), join(isolatedHome, "auth.json"));
 }
 
 export function buildCodexArgs(schemaPath, messagePath, model) {
@@ -101,6 +280,8 @@ export function buildCodexArgs(schemaPath, messagePath, model) {
     "--skip-git-repo-check",
     "--color",
     "never",
+    "-c",
+    'cli_auth_credentials_store="file"',
     "-c",
     'web_search="live"',
     "-m",
@@ -211,8 +392,10 @@ async function main() {
   const model = process.env.RESEARCH_AGENT_MODEL ?? "gpt-5.6-terra";
 
   const target = await fetchTarget(brokerUrl, secret, foodId);
-  const workdir = await mkdtemp(join(tmpdir(), "catfood-research-"));
+  const workdir = await createResearchWorkdir(process.env);
   try {
+    await stageCodexExecutable(process.env, workdir);
+    await stageCodexHome(process.env, workdir);
     const schemaPath = join(workdir, "schema.json");
     const messagePath = join(workdir, "message.json");
     await writeFile(schemaPath, JSON.stringify(PROPOSAL_JSON_SCHEMA));
