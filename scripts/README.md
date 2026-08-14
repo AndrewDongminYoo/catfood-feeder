@@ -13,6 +13,11 @@ The reason is the research runner: its `codex` child runs under a read-only sand
 An agent following instructions injected into a product page would look for a dotenv file at the repository root first, so there is nothing there to find.
 The runner also copies only `auth.json` into an ephemeral `CODEX_HOME`; it never gives the child the operator's real home path, from which the fixed secrets path could be derived.
 The staged file is a hard link to the same inode rather than a byte copy, so CLI token refreshes persist without a compare-and-replace step.
+The runner also stages the resolved `codex` executable under the workdir and gives the child only that directory plus system binary directories in `PATH`, so home-scoped package-manager paths do not disclose the operator's home.
+This runner therefore requires Codex's file credential store; a keyring-only login is rejected with an explicit error because an isolated `CODEX_HOME` hashes to a different keyring entry.
+When a custom `CODEX_HOME` is on another filesystem, the runner creates its ephemeral workdir beside that custom home so the hard link remains valid.
+That fallback keeps the real `HOME` hidden, but the child can discover and read the sibling custom `CODEX_HOME`; use a `TMPDIR` on the credential filesystem when that residual exposure is unacceptable.
+It refuses that fallback when the credential home is inside the operator's real `HOME`; in that layout, set `TMPDIR` to the credential filesystem instead of exposing the home path.
 These measures shrink the exposure; they are not a same-UID filesystem boundary.
 The boundary is a separate OS account or a container, which stays the next hardening step.
 `src/lib/research-boundary.test.ts` pins that no package script reads an in-repo dotenv file.
@@ -48,13 +53,13 @@ pnpm dev                                  # the broker runs inside the app
 pnpm research:run --food 123              # research one skeleton draft
 ```
 
-Requires `RESEARCH_AGENT_SECRET` in `$HOME/.config/catfood-feeder/env` and a logged-in `codex` CLI.
+Requires `RESEARCH_AGENT_SECRET` in `$HOME/.config/catfood-feeder/env`, a standalone `codex` executable, and a CLI login using `cli_auth_credentials_store = "file"`.
 Optional: `RESEARCH_BROKER_URL` (default `http://localhost:3000`), `RESEARCH_AGENT_MODEL` (default `gpt-5.6-terra`).
 
 What holds the boundary:
 
 - `RESEARCH_AGENT_SECRET` opens **only** `/api/research/*`. No admin or publish route accepts it, and `src/lib/research-boundary.test.ts` pins that.
-- The child `codex exec` process gets an allowlisted environment (`PATH`, `HOME` and `CODEX_HOME` → an empty temp dir, `LANG`, `TMPDIR`) and runs `--sandbox read-only --ephemeral --ignore-user-config` outside the repo. Only Codex's `auth.json` is staged into that temporary home; the child never receives the operator's real home path, broker secret, or any Supabase key.
+- The child `codex exec` process gets an allowlisted environment (`PATH` → a staged Codex executable plus system binary directories, `HOME` and `CODEX_HOME` → an empty temp dir, `LANG`, `TMPDIR`) and runs `--sandbox read-only --ephemeral --ignore-user-config` outside the repo. Only Codex's `auth.json` is staged into that temporary home; the child never receives the operator's real home path, broker secret, or any Supabase key.
 - The target must be a **skeleton** draft: unpublished _and_ carrying no current source. An agent URL must never displace a curator's captured source. The broker checks this before fetching, and both the replacement RPC and the evidence-apply RPC re-check it inside their own row locks — capture and apply are separate transactions, so a curator registering a source in between must be caught at both points. A curator who claims the food mid-run wins the race and the run ends as `claim_conflict` having written no nutrient value.
 - Prior runs' proposed URLs are returned by `GET /api/research/foods/[id]` and go into the prompt as "already tried", so a re-run does not spend a research call on the same dead end.
 - Every proposal for a real target is appended to `food_research_runs`, including one refused by the envelope schema (`status: invalid`), so the next run does not re-research the same dead end. Only a request that fails the envelope's own shape, or names a food that is not a skeleton, is refused without a ledger row.

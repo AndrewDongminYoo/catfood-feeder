@@ -1,5 +1,13 @@
 import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -8,6 +16,9 @@ import {
   buildAgentEnv,
   buildCodexArgs,
   buildPrompt,
+  createResearchWorkdir,
+  selectResearchTempRoot,
+  stageCodexExecutable,
   stageCodexHome,
 } from "../../scripts/research-run.mjs";
 import { researchProposalSchema } from "./research-proposal";
@@ -36,7 +47,7 @@ describe("research runner subprocess contract", () => {
       {
         ANTHROPIC_API_KEY: "anthropic",
         HOME: "/Users/someone",
-        PATH: "/usr/bin",
+        PATH: "/Users/someone/.local/bin:/usr/bin",
         RESEARCH_AGENT_SECRET: "broker-secret",
         SUPABASE_SECRET_KEY: "supabase",
       },
@@ -53,6 +64,8 @@ describe("research runner subprocess contract", () => {
     expect(JSON.stringify(env)).not.toContain("broker-secret");
     expect(JSON.stringify(env)).not.toContain("supabase");
     expect(JSON.stringify(env)).not.toContain("anthropic");
+    expect(env.PATH).toBe("/tmp/workdir/bin:/usr/bin:/bin:/usr/sbin:/sbin");
+    expect(env.PATH).not.toContain("/Users/someone");
   });
 
   it("does not reveal the operator home through CODEX_HOME", () => {
@@ -63,13 +76,149 @@ describe("research runner subprocess contract", () => {
     expect(JSON.stringify(env)).not.toContain("/Users/someone");
   });
 
+  it("rejects Codex credential stores without a file", async () => {
+    const root = await mkdtemp(join(tmpdir(), "research-runner-test-"));
+    let operatorCodexHome = join(root, "operator-codex");
+
+    try {
+      await mkdir(operatorCodexHome, { recursive: true });
+      operatorCodexHome = await realpath(operatorCodexHome);
+
+      await expect(
+        createResearchWorkdir({ CODEX_HOME: operatorCodexHome, HOME: root }),
+      ).rejects.toThrow("requires file-based Codex credentials");
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("uses the custom CODEX_HOME filesystem when system temp differs", () => {
+    expect(
+      selectResearchTempRoot({
+        home: "/Users/someone",
+        sourceDevice: 2,
+        sourceHome: "/Volumes/codex-auth/codex-home",
+        systemTemp: "/private/tmp",
+        tempDevice: 1,
+      }),
+    ).toBe("/Volumes/codex-auth");
+  });
+
+  it("rejects cross-filesystem staging that would reveal the home", () => {
+    expect(() =>
+      selectResearchTempRoot({
+        home: "/Users/someone",
+        sourceDevice: 2,
+        sourceHome: "/Users/someone/.codex",
+        systemTemp: "/private/tmp",
+        tempDevice: 1,
+      }),
+    ).toThrow("cannot isolate Codex credentials across filesystems");
+  });
+
+  it("rejects cross-filesystem staging when HOME is unknown", () => {
+    expect(() =>
+      selectResearchTempRoot({
+        home: undefined,
+        sourceDevice: 2,
+        sourceHome: "/Users/someone/.codex",
+        systemTemp: "/private/tmp",
+        tempDevice: 1,
+      }),
+    ).toThrow("cannot isolate Codex credentials across filesystems");
+  });
+
+  it("treats dot-prefixed credential paths as inside HOME", () => {
+    expect(() =>
+      selectResearchTempRoot({
+        home: "/Users/someone",
+        sourceDevice: 2,
+        sourceHome: "/Users/someone/..codex",
+        systemTemp: "/private/tmp",
+        tempDevice: 1,
+      }),
+    ).toThrow("cannot isolate Codex credentials across filesystems");
+  });
+
+  it("stages the Codex executable without its original path", async () => {
+    const root = await mkdtemp(join(tmpdir(), "research-runner-test-"));
+    const operatorBin = join(root, "operator-bin");
+    const workdir = join(root, "workdir");
+
+    try {
+      await mkdir(operatorBin, { recursive: true });
+      await writeFile(join(operatorBin, "codex"), "executable", {
+        mode: 0o700,
+      });
+      await stageCodexExecutable({ PATH: operatorBin }, workdir);
+
+      expect(await readFile(join(workdir, "bin", "codex"), "utf8")).toBe(
+        "executable",
+      );
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("rejects a script-based Codex launcher explicitly", async () => {
+    const root = await mkdtemp(join(tmpdir(), "research-runner-test-"));
+    const operatorBin = join(root, "operator-bin");
+    const workdir = join(root, "workdir");
+
+    try {
+      await mkdir(operatorBin, { recursive: true });
+      await writeFile(join(operatorBin, "codex"), "#!/usr/bin/env node\n", {
+        mode: 0o700,
+      });
+
+      await expect(
+        stageCodexExecutable({ PATH: operatorBin }, workdir),
+      ).rejects.toThrow("standalone Codex executable");
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("copies the Codex executable when hard links are unsupported", async () => {
+    const root = await mkdtemp(join(tmpdir(), "research-runner-test-"));
+    const operatorBin = join(root, "operator-bin");
+    const workdir = join(root, "workdir");
+    let createLinkCalled = false;
+
+    try {
+      await mkdir(operatorBin, { recursive: true });
+      await writeFile(join(operatorBin, "codex"), "executable", {
+        mode: 0o700,
+      });
+      await stageCodexExecutable(
+        { PATH: operatorBin },
+        workdir,
+        async () => {
+          createLinkCalled = true;
+          throw Object.assign(new Error("unsupported"), { code: "EPERM" });
+        },
+        async (source, destination) => {
+          await writeFile(destination, await readFile(source));
+        },
+      );
+
+      expect(await readFile(join(workdir, "bin", "codex"), "utf8")).toBe(
+        "executable",
+      );
+      expect(createLinkCalled).toBe(true);
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
   it("stages only Codex authentication inside the isolated workdir", async () => {
     const root = await mkdtemp(join(tmpdir(), "research-runner-test-"));
-    const operatorCodexHome = join(root, "operator-codex");
+    let operatorCodexHome = join(root, "operator-codex");
     const workdir = join(root, "workdir");
 
     try {
       await mkdir(operatorCodexHome, { recursive: true });
+      operatorCodexHome = await realpath(operatorCodexHome);
       await writeFile(
         join(operatorCodexHome, ["auth", "json"].join(".")),
         '{"token":"credential"}',
@@ -102,6 +251,55 @@ describe("research runner subprocess contract", () => {
       );
     } finally {
       await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
+  it("resolves a credential symlink before staging", async () => {
+    const root = await mkdtemp(join(tmpdir(), "research-runner-test-"));
+    const operatorCodexHome = join(root, "operator-codex");
+    const credentialTarget = join(root, "credential-target");
+    const workdir = join(root, "workdir");
+
+    try {
+      await mkdir(operatorCodexHome, { recursive: true });
+      await writeFile(credentialTarget, '{"token":"credential"}');
+      const canonicalCredentialTarget = await realpath(credentialTarget);
+      await symlink(
+        credentialTarget,
+        join(operatorCodexHome, ["auth", "json"].join(".")),
+      );
+      await stageCodexHome(
+        { CODEX_HOME: operatorCodexHome },
+        workdir,
+        async (source, destination) => {
+          expect(source).toBe(canonicalCredentialTarget);
+          await writeFile(destination, '{"token":"credential"}');
+        },
+      );
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("reports unsupported hard links as a credential staging error", async () => {
+    const root = await mkdtemp(join(tmpdir(), "research-runner-test-"));
+    const operatorCodexHome = join(root, "operator-codex");
+    const workdir = join(root, "workdir");
+
+    try {
+      await mkdir(operatorCodexHome, { recursive: true });
+      await writeFile(
+        join(operatorCodexHome, ["auth", "json"].join(".")),
+        '{"token":"credential"}',
+      );
+
+      await expect(
+        stageCodexHome({ CODEX_HOME: operatorCodexHome }, workdir, async () => {
+          throw Object.assign(new Error("unsupported"), { code: "ENOTSUP" });
+        }),
+      ).rejects.toThrow("requires hard-link support");
+    } finally {
+      await rm(root, { force: true, recursive: true });
     }
   });
 
