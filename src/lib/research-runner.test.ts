@@ -5,6 +5,7 @@ import {
   readFile,
   realpath,
   rm,
+  stat,
   symlink,
   writeFile,
 } from "node:fs/promises";
@@ -264,15 +265,18 @@ describe("research runner subprocess contract", () => {
     }
   });
 
-  it("shares isolated Codex authentication updates with the source", async () => {
+  it("copies Codex authentication to a distinct inode", async () => {
     const fixture = await createStagedAuthFixture();
 
     try {
+      const [sourceStat, isolatedStat] = await Promise.all([
+        stat(fixture.sourceAuth),
+        stat(fixture.isolatedAuth),
+      ]);
       await writeFile(fixture.isolatedAuth, '{"token":"new"}');
 
-      expect(await readFile(fixture.sourceAuth, "utf8")).toBe(
-        '{"token":"new"}',
-      );
+      expect(isolatedStat.ino).not.toBe(sourceStat.ino);
+      expect(await readFile(fixture.sourceAuth, "utf8")).toBe('{"token":"old"}');
     } finally {
       await rm(fixture.root, { force: true, recursive: true });
     }
@@ -305,7 +309,7 @@ describe("research runner subprocess contract", () => {
     }
   });
 
-  it("reports unsupported hard links as a credential staging error", async () => {
+  it("reports credential copy failures", async () => {
     const root = await mkdtemp(join(tmpdir(), "research-runner-test-"));
     const operatorCodexHome = join(root, "operator-codex");
     const workdir = join(root, "workdir");
@@ -319,23 +323,21 @@ describe("research runner subprocess contract", () => {
 
       await expect(
         stageCodexHome({ CODEX_HOME: operatorCodexHome }, workdir, async () => {
-          throw Object.assign(new Error("unsupported"), { code: "ENOTSUP" });
+          throw new Error("copy failed");
         }),
-      ).rejects.toThrow("requires hard-link support");
+      ).rejects.toThrow("copy failed");
     } finally {
       await rm(root, { force: true, recursive: true });
     }
   });
 
-  it("observes source authentication updates during the isolated run", async () => {
+  it("does not expose source authentication updates during the isolated run", async () => {
     const fixture = await createStagedAuthFixture();
 
     try {
       await writeFile(fixture.sourceAuth, '{"token":"operator"}');
 
-      expect(await readFile(fixture.isolatedAuth, "utf8")).toBe(
-        '{"token":"operator"}',
-      );
+      expect(await readFile(fixture.isolatedAuth, "utf8")).toBe('{"token":"old"}');
     } finally {
       await rm(fixture.root, { force: true, recursive: true });
     }

@@ -12,14 +12,12 @@ A missing file is tolerated so platform-provided environments (Vercel) still bui
 The reason is the research runner: its `codex` child runs under a read-only sandbox, and read-only restricts writes, not reads.
 An agent following instructions injected into a product page would look for a dotenv file at the repository root first, so there is nothing there to find.
 The runner also copies only `auth.json` into an ephemeral `CODEX_HOME`; it never gives the child the operator's real home path, from which the fixed secrets path could be derived.
-The staged file is a hard link to the same inode rather than a byte copy, so CLI token refreshes persist without a compare-and-replace step.
+The staged file is a byte copy with a distinct inode, so filesystem searches cannot use it to rediscover the operator's credential path. Token refreshes made by the isolated CLI do not propagate back to the operator's login file.
 The runner also stages the resolved `codex` executable under the workdir and gives the child only that directory plus system binary directories in `PATH`, so home-scoped package-manager paths do not disclose the operator's home.
 The system temp root is resolved before use and rejected when it is inside the operator's real `HOME`.
 This runner therefore requires Codex's file credential store; a keyring-only login is rejected with an explicit error because an isolated `CODEX_HOME` hashes to a different keyring entry.
 The child also forces `cli_auth_credentials_store = "file"` on the command line because `--ignore-user-config` deliberately omits the operator's setting.
-When the resolved credential target is on another filesystem, the runner creates its ephemeral workdir beside that target so the hard link remains valid, including when the login file is a cross-filesystem symlink.
-That fallback keeps the real `HOME` hidden, but the child can discover and read the credential target's sibling directory; use a `TMPDIR` on the credential filesystem when that residual exposure is unacceptable.
-It refuses that fallback when the credential home is inside the operator's real `HOME`; in that layout, set `TMPDIR` to the credential filesystem instead of exposing the home path.
+When the resolved credential target is on another filesystem, the runner creates its ephemeral workdir beside that target. It refuses that fallback when the credential home is inside the operator's real `HOME`; in that layout, set `TMPDIR` to the credential filesystem instead of exposing the home path.
 These measures shrink the exposure; they are not a same-UID filesystem boundary.
 The boundary is a separate OS account or a container, which stays the next hardening step.
 `src/lib/research-boundary.test.ts` pins that no package script reads an in-repo dotenv file.

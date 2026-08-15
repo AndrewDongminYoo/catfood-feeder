@@ -248,26 +248,21 @@ export async function createResearchWorkdir(parentEnv) {
   return mkdtemp(join(tempRoot, "catfood-research-"));
 }
 
-/** 실제 홈 경로를 노출하지 않고 Codex 로그인 파일만 임시 홈에 하드 링크한다. */
-export async function stageCodexHome(parentEnv, workdir, createLink = link) {
+/** 실제 홈 경로를 노출하지 않고 Codex 로그인 파일만 임시 홈에 복사한다. */
+export async function stageCodexHome(
+  parentEnv,
+  workdir,
+  copyCredential = copyFile,
+) {
   const sourceHome =
     parentEnv.CODEX_HOME ?? join(parentEnv.HOME ?? "", ".codex");
-  const copy = async (source, destination) => {
-    try {
-      await createLink(await realpath(source), destination);
-    } catch (error) {
-      if (["EXDEV", "ENOTSUP", "EOPNOTSUPP", "EPERM"].includes(error?.code)) {
-        throw new Error(
-          "research runner requires hard-link support for Codex credentials; place CODEX_HOME and TMPDIR on a hard-link-capable filesystem",
-          { cause: error },
-        );
-      }
-      throw error;
-    }
-  };
   const isolatedHome = join(workdir, ".codex");
   await mkdir(isolatedHome, { recursive: true });
-  await copy(join(sourceHome, "auth.json"), join(isolatedHome, "auth.json"));
+  await copyCredential(
+    await realpath(join(sourceHome, "auth.json")),
+    join(isolatedHome, "auth.json"),
+    constants.COPYFILE_FICLONE,
+  );
 }
 
 export function buildCodexArgs(schemaPath, messagePath, model) {
