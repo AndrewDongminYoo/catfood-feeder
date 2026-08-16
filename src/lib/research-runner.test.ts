@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import {
   lstat,
   mkdir,
+  readdir,
   mkdtemp,
   readFile,
   realpath,
@@ -368,6 +369,12 @@ describe("research runner subprocess contract", () => {
       expect(await readFile(fixture.sourceAuth, "utf8")).toBe(
         '{"token":"newer"}',
       );
+      // 교체본을 먼저 쓰므로, 거부된 경로가 살아 있는 자격 증명을 남기면 안 된다.
+      expect(
+        (await readdir(fixture.operatorCodexHome)).filter((entry) =>
+          entry.includes("pending"),
+        ),
+      ).toEqual([]);
     } finally {
       await rm(fixture.root, { force: true, recursive: true });
     }

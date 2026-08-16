@@ -256,8 +256,11 @@ export async function stageCodexHome(
  * 그 값인지 확인해, 다른 실행이나 `codex login`이 그 사이에 갱신한 토큰을
  * 이 실행의 낡은 복사본으로 덮어쓰지 않는다.
  *
- * 확인과 rename 사이의 창은 잠금 없이 닫을 수 없다. 단일 운영자의 로컬 러너라
- * 파일 잠금까지는 두지 않고, 원본이 바뀐 경우를 감지해 갱신을 버리는 쪽을 택한다.
+ * 확인과 rename 사이의 창은 잠금 없이 닫을 수 없고, Node에는 파일 단위 CAS가
+ * 없다(`renameat2(RENAME_EXCHANGE)` 미노출). 창은 rename 직전 비교로 syscall
+ * 하나까지 좁혀 두고, 잠금은 두지 않는다. 단일 운영자의 로컬 러너에서는 잠금이
+ * 막는 사고(두 실행이 그 창 안에서 교차)보다 잠금이 만드는 사고(죽은 실행이
+ * 남긴 잠금 파일이 이후 모든 갱신 보존을 영구히 막는 것)가 더 잦기 때문이다.
  */
 export async function persistRefreshedCodexAuth(parentEnv, workdir, baseline) {
   const sourceHome =
@@ -273,15 +276,16 @@ export async function persistRefreshedCodexAuth(parentEnv, workdir, baseline) {
   if (!staged || !baseline || staged.equals(baseline)) return false;
 
   const source = await realpath(join(sourceHome, "auth.json"));
-  if (!(await readFile(source)).equals(baseline)) {
-    throw new Error(
-      "the operator Codex login changed during this run; discarded the isolated refresh rather than overwriting it",
-    );
-  }
-
   const pending = `${source}.${process.pid}.pending`;
   try {
+    // 교체본을 먼저 만들어 두고, 비교는 rename 직전에 한다. 비교와 교체 사이에
+    // 남는 창이 write 시간만큼 넓어지지 않고 syscall 하나로 좁혀진다.
     await writeFile(pending, staged, { mode: 0o600 });
+    if (!(await readFile(source)).equals(baseline)) {
+      throw new Error(
+        "the operator Codex login changed during this run; discarded the isolated refresh rather than overwriting it",
+      );
+    }
     await rename(pending, source);
   } catch (error) {
     await rm(pending, { force: true });
