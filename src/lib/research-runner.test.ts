@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import {
+  lstat,
   mkdir,
   mkdtemp,
   readFile,
@@ -18,6 +19,7 @@ import {
   buildCodexArgs,
   buildPrompt,
   createResearchWorkdir,
+  persistRefreshedCodexAuth,
   selectResearchTempRoot,
   stageCodexExecutable,
   stageCodexHome,
@@ -37,8 +39,10 @@ async function createStagedAuthFixture() {
 
   return {
     isolatedAuth: join(workdir, ".codex", authFileName),
+    operatorCodexHome,
     root,
     sourceAuth,
+    workdir,
   };
 }
 
@@ -93,76 +97,49 @@ describe("research runner subprocess contract", () => {
     }
   });
 
-  it("uses the custom CODEX_HOME filesystem when system temp differs", () => {
+  it("keeps the workdir under the system temp root, never beside the credential", () => {
     expect(
       selectResearchTempRoot({
         home: "/Users/someone",
-        sourceDevice: 2,
-        sourcePath: "/Volumes/codex-auth/codex-home",
         systemTemp: "/private/tmp",
-        tempDevice: 1,
       }),
-    ).toBe("/Volumes/codex-auth");
-  });
-
-  it("uses the resolved credential target directory when devices differ", () => {
-    expect(
-      selectResearchTempRoot({
-        home: "/Users/someone",
-        sourceDevice: 2,
-        sourcePath: "/Volumes/encrypted/credentials/codex-auth",
-        systemTemp: "/private/tmp",
-        tempDevice: 1,
-      }),
-    ).toBe("/Volumes/encrypted/credentials");
+    ).toBe("/private/tmp");
   });
 
   it("rejects a system temp directory inside the operator home", () => {
     expect(() =>
       selectResearchTempRoot({
         home: "/Users/someone",
-        sourceDevice: 1,
-        sourcePath: "/Users/someone/.codex",
         systemTemp: "/Users/someone/tmp",
-        tempDevice: 1,
       }),
     ).toThrow("TMPDIR is inside the operator home");
   });
 
-  it("rejects cross-filesystem staging that would reveal the home", () => {
+  it("treats dot-prefixed temp paths as inside HOME", () => {
     expect(() =>
       selectResearchTempRoot({
         home: "/Users/someone",
-        sourceDevice: 2,
-        sourcePath: "/Users/someone/.codex",
-        systemTemp: "/private/tmp",
-        tempDevice: 1,
+        systemTemp: "/Users/someone/..tmp",
       }),
-    ).toThrow("cannot isolate Codex credentials across filesystems");
+    ).toThrow("TMPDIR is inside the operator home");
   });
 
-  it("rejects cross-filesystem staging when HOME is unknown", () => {
+  it("does not treat a sibling of HOME as inside it", () => {
+    expect(
+      selectResearchTempRoot({
+        home: "/Users/someone",
+        systemTemp: "/Users/someone-else/tmp",
+      }),
+    ).toBe("/Users/someone-else/tmp");
+  });
+
+  it("rejects staging when HOME is unknown", () => {
     expect(() =>
       selectResearchTempRoot({
         home: undefined,
-        sourceDevice: 2,
-        sourcePath: "/Users/someone/.codex",
         systemTemp: "/private/tmp",
-        tempDevice: 1,
       }),
     ).toThrow("cannot isolate Codex credentials when HOME is unknown");
-  });
-
-  it("treats dot-prefixed credential paths as inside HOME", () => {
-    expect(() =>
-      selectResearchTempRoot({
-        home: "/Users/someone",
-        sourceDevice: 2,
-        sourcePath: "/Users/someone/..codex",
-        systemTemp: "/private/tmp",
-        tempDevice: 1,
-      }),
-    ).toThrow("cannot isolate Codex credentials across filesystems");
   });
 
   it("stages the Codex executable without its original path", async () => {
@@ -276,9 +253,110 @@ describe("research runner subprocess contract", () => {
       await writeFile(fixture.isolatedAuth, '{"token":"new"}');
 
       expect(isolatedStat.ino).not.toBe(sourceStat.ino);
-      expect(await readFile(fixture.sourceAuth, "utf8")).toBe('{"token":"old"}');
+      expect(await readFile(fixture.sourceAuth, "utf8")).toBe(
+        '{"token":"old"}',
+      );
     } finally {
       await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
+  it("writes a refreshed credential back to the operator login file", async () => {
+    const fixture = await createStagedAuthFixture();
+
+    try {
+      await writeFile(fixture.isolatedAuth, '{"token":"refreshed"}');
+
+      expect(
+        await persistRefreshedCodexAuth(
+          { CODEX_HOME: fixture.operatorCodexHome },
+          fixture.workdir,
+        ),
+      ).toBe(true);
+      expect(await readFile(fixture.sourceAuth, "utf8")).toBe(
+        '{"token":"refreshed"}',
+      );
+      expect((await stat(fixture.sourceAuth)).mode & 0o777).toBe(0o600);
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
+  it("leaves the operator login file untouched when no refresh happened", async () => {
+    const fixture = await createStagedAuthFixture();
+
+    try {
+      const before = await stat(fixture.sourceAuth);
+
+      expect(
+        await persistRefreshedCodexAuth(
+          { CODEX_HOME: fixture.operatorCodexHome },
+          fixture.workdir,
+        ),
+      ).toBe(false);
+      expect((await stat(fixture.sourceAuth)).ino).toBe(before.ino);
+      expect(await readFile(fixture.sourceAuth, "utf8")).toBe(
+        '{"token":"old"}',
+      );
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
+  it("keeps the operator login file when the run died before staging", async () => {
+    const fixture = await createStagedAuthFixture();
+
+    try {
+      await rm(join(fixture.workdir, ".codex"), {
+        force: true,
+        recursive: true,
+      });
+
+      expect(
+        await persistRefreshedCodexAuth(
+          { CODEX_HOME: fixture.operatorCodexHome },
+          fixture.workdir,
+        ),
+      ).toBe(false);
+      expect(await readFile(fixture.sourceAuth, "utf8")).toBe(
+        '{"token":"old"}',
+      );
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
+  it("writes a refreshed credential through a credential symlink", async () => {
+    const root = await mkdtemp(join(tmpdir(), "research-runner-test-"));
+    const operatorCodexHome = join(root, "operator-codex");
+    const credentialTarget = join(root, "credential-target");
+    const workdir = join(root, "workdir");
+    const authFileName = ["auth", "json"].join(".");
+
+    try {
+      await mkdir(operatorCodexHome, { recursive: true });
+      await writeFile(credentialTarget, '{"token":"old"}', { mode: 0o600 });
+      await symlink(credentialTarget, join(operatorCodexHome, authFileName));
+      await stageCodexHome({ CODEX_HOME: operatorCodexHome }, workdir);
+      await writeFile(
+        join(workdir, ".codex", authFileName),
+        '{"token":"refreshed"}',
+      );
+
+      expect(
+        await persistRefreshedCodexAuth(
+          { CODEX_HOME: operatorCodexHome },
+          workdir,
+        ),
+      ).toBe(true);
+      expect(await readFile(credentialTarget, "utf8")).toBe(
+        '{"token":"refreshed"}',
+      );
+      expect(
+        (await lstat(join(operatorCodexHome, authFileName))).isSymbolicLink(),
+      ).toBe(true);
+    } finally {
+      await rm(root, { force: true, recursive: true });
     }
   });
 
@@ -337,7 +415,9 @@ describe("research runner subprocess contract", () => {
     try {
       await writeFile(fixture.sourceAuth, '{"token":"operator"}');
 
-      expect(await readFile(fixture.isolatedAuth, "utf8")).toBe('{"token":"old"}');
+      expect(await readFile(fixture.isolatedAuth, "utf8")).toBe(
+        '{"token":"old"}',
+      );
     } finally {
       await rm(fixture.root, { force: true, recursive: true });
     }

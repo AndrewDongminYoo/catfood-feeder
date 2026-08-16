@@ -17,20 +17,13 @@ import {
   open,
   readFile,
   realpath,
+  rename,
   rm,
   stat,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import {
-  delimiter,
-  dirname,
-  isAbsolute,
-  join,
-  relative,
-  resolve,
-  sep,
-} from "node:path";
+import { delimiter, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SECRETS_FILE, loadSecrets } from "./with-secrets.mjs";
 
@@ -177,13 +170,12 @@ function isWithin(root, target) {
   );
 }
 
-export function selectResearchTempRoot({
-  home,
-  sourceDevice,
-  sourcePath,
-  systemTemp,
-  tempDevice,
-}) {
+/**
+ * 작업 디렉터리는 언제나 시스템 임시 루트 아래에 만든다. 자격 증명은 하드 링크가
+ * 아니라 바이트 복사로 옮기므로 같은 파일시스템일 필요가 없고, 원본 옆에 두면
+ * read-only 자식이 그 디렉터리를 읽어 자격 증명 경로를 알아낼 수 있다.
+ */
+export function selectResearchTempRoot({ home, systemTemp }) {
   if (!home) {
     throw new Error("cannot isolate Codex credentials when HOME is unknown");
   }
@@ -192,15 +184,8 @@ export function selectResearchTempRoot({
       "cannot isolate Codex credentials when TMPDIR is inside the operator home",
     );
   }
-  if (sourceDevice === tempDevice) return systemTemp;
 
-  if (isWithin(home, sourcePath)) {
-    throw new Error(
-      "cannot isolate Codex credentials across filesystems without exposing the operator home; set TMPDIR to the credential filesystem",
-    );
-  }
-
-  return dirname(sourcePath);
+  return systemTemp;
 }
 
 export async function createResearchWorkdir(parentEnv) {
@@ -227,22 +212,15 @@ export async function createResearchWorkdir(parentEnv) {
     );
   }
 
-  const systemTemp = tmpdir();
-  const [resolvedSourceAuth, resolvedHome, resolvedSystemTemp, systemTempStat] =
-    await Promise.all([
-      realpath(sourceAuth),
-      parentEnv.HOME
-        ? realpath(parentEnv.HOME).catch(() => resolve(parentEnv.HOME))
-        : undefined,
-      realpath(systemTemp),
-      stat(systemTemp),
-    ]);
+  const [resolvedHome, resolvedSystemTemp] = await Promise.all([
+    parentEnv.HOME
+      ? realpath(parentEnv.HOME).catch(() => resolve(parentEnv.HOME))
+      : undefined,
+    realpath(tmpdir()),
+  ]);
   const tempRoot = selectResearchTempRoot({
     home: resolvedHome,
-    sourceDevice: sourceAuthStat.dev,
-    sourcePath: resolvedSourceAuth,
     systemTemp: resolvedSystemTemp,
-    tempDevice: systemTempStat.dev,
   });
 
   return mkdtemp(join(tempRoot, "catfood-research-"));
@@ -263,6 +241,30 @@ export async function stageCodexHome(
     join(isolatedHome, "auth.json"),
     constants.COPYFILE_FICLONE,
   );
+}
+
+/**
+ * 격리된 CLI가 토큰을 갱신했으면 그 결과만 원본 로그인 파일에 되돌려 쓴다.
+ * 복사본은 워크디렉터리와 함께 지워지므로, 되돌려 쓰지 않으면 원본에 이미 폐기된
+ * refresh 토큰이 남아 다음 실행이 인증에 실패한다.
+ *
+ * 부모만 원본 경로를 알고, 자식은 read-only 샌드박스라 복사본에 쓸 수 없다.
+ * 따라서 여기로 올라오는 내용은 CLI가 갱신한 것뿐이다.
+ */
+export async function persistRefreshedCodexAuth(parentEnv, workdir) {
+  const sourceHome =
+    parentEnv.CODEX_HOME ?? join(parentEnv.HOME ?? "", ".codex");
+  const source = await realpath(join(sourceHome, "auth.json"));
+  const [original, staged] = await Promise.all([
+    readFile(source),
+    readFile(join(workdir, ".codex", "auth.json")).catch(() => undefined),
+  ]);
+  if (!staged || original.equals(staged)) return false;
+
+  const pending = `${source}.${process.pid}.pending`;
+  await writeFile(pending, staged, { mode: 0o600 });
+  await rename(pending, source);
+  return true;
 }
 
 export function buildCodexArgs(schemaPath, messagePath, model) {
@@ -414,6 +416,13 @@ async function main() {
     });
     console.log(JSON.stringify(outcome, null, 2));
   } finally {
+    try {
+      await persistRefreshedCodexAuth(process.env, workdir);
+    } catch (error) {
+      console.warn(
+        `warning: could not write back the refreshed Codex login (${error.message}); run \`codex login\` if the next run fails to authenticate.`,
+      );
+    }
     await rm(workdir, { force: true, recursive: true });
   }
 }
