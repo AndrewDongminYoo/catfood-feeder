@@ -352,6 +352,46 @@ describe("research runner subprocess contract", () => {
     }
   });
 
+  it("takes the baseline from the staged copy, not a second read of the source", async () => {
+    const root = await mkdtemp(join(tmpdir(), "research-runner-test-"));
+    const operatorCodexHome = join(root, "operator-codex");
+    const workdir = join(root, "workdir");
+    const authFileName = ["auth", "json"].join(".");
+    const sourceAuth = join(operatorCodexHome, authFileName);
+
+    try {
+      await mkdir(operatorCodexHome, { recursive: true });
+      await writeFile(sourceAuth, '{"token":"a"}', { mode: 0o600 });
+
+      // 복사 도중 원본이 교체되는 상황: 스테이징된 것은 b다.
+      const baseline = await stageCodexHome(
+        { CODEX_HOME: operatorCodexHome },
+        workdir,
+        async (source, destination) => {
+          expect(source).toBe(await realpath(sourceAuth));
+          await writeFile(sourceAuth, '{"token":"b"}');
+          await writeFile(destination, '{"token":"b"}');
+        },
+      );
+
+      expect(baseline.toString()).toBe('{"token":"b"}');
+
+      // 그 위에서 CLI가 c로 회전하면, b는 폐기됐을 수 있으므로 c가 살아남아야 한다.
+      await writeFile(join(workdir, ".codex", authFileName), '{"token":"c"}');
+
+      expect(
+        await persistRefreshedCodexAuth(
+          { CODEX_HOME: operatorCodexHome },
+          workdir,
+          baseline,
+        ),
+      ).toBe(true);
+      expect(await readFile(sourceAuth, "utf8")).toBe('{"token":"c"}');
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
   it("refuses to roll back a login another run refreshed first", async () => {
     const fixture = await createStagedAuthFixture();
 

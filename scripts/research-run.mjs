@@ -233,15 +233,17 @@ export async function stageCodexHome(
     parentEnv.CODEX_HOME ?? join(parentEnv.HOME ?? "", ".codex");
   const isolatedHome = join(workdir, ".codex");
   await mkdir(isolatedHome, { recursive: true });
-  const source = await realpath(join(sourceHome, "auth.json"));
-  const baseline = await readFile(source);
+  const isolatedAuth = join(isolatedHome, "auth.json");
   await copyCredential(
-    source,
-    join(isolatedHome, "auth.json"),
+    await realpath(join(sourceHome, "auth.json")),
+    isolatedAuth,
     constants.COPYFILE_FICLONE,
   );
 
-  return baseline;
+  // 기준값은 복사본 자체에서 읽는다. 원본을 따로 한 번 더 읽으면 그 읽기와 복사
+  // 사이에 원본이 교체됐을 때 기준값과 복사본이 다른 토큰이 되고, 그러면 이
+  // 실행이 갱신한 토큰을 되돌려 쓰지 못한 채 버리게 된다.
+  return readFile(isolatedAuth);
 }
 
 /**
