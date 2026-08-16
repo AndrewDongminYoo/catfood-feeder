@@ -16,9 +16,12 @@ The staged file is a byte copy with a distinct inode, so filesystem searches can
 Because a copy does not need the credential's filesystem, the workdir is always created under the system temp root — never beside the credential, whose sibling entries a read-only child could still read.
 The system temp root is resolved before use and rejected when it is inside the operator's real `HOME`.
 The runner also stages the resolved `codex` executable under the workdir and gives the child only that directory plus system binary directories in `PATH`, so home-scoped package-manager paths do not disclose the operator's home.
+That executable is copied rather than hard-linked for the same reason as the credential: a shared inode is a searchable handle back to the original path, which for a home-scoped install is the operator's home.
+Nothing staged into the workdir shares an inode with a file the operator owns.
 This runner therefore requires Codex's file credential store; a keyring-only login is rejected with an explicit error because an isolated `CODEX_HOME` hashes to a different keyring entry.
 The child also forces `cli_auth_credentials_store = "file"` on the command line because `--ignore-user-config` deliberately omits the operator's setting.
-The copy is discarded with the workdir, so the parent compares it against the original afterwards and writes it back when the CLI refreshed the login; otherwise a rotated refresh token would be lost and the next run would fail to authenticate.
+The copy is discarded with the workdir, so the parent compares it against the staging-time bytes afterwards and writes it back when the CLI refreshed the login; otherwise a rotated refresh token would be lost and the next run would fail to authenticate.
+That write-back replaces the original only while it still holds those staging-time bytes, so a login another run or a `codex login` refreshed meanwhile is reported and left alone rather than rolled back to this run's older copy.
 Only the parent knows the original path, and the read-only sandbox refuses the child every write into the workdir, so nothing the child controls can reach that write-back.
 These measures shrink the exposure; they are not a same-UID filesystem boundary.
 The boundary is a separate OS account or a container, which stays the next hardening step.

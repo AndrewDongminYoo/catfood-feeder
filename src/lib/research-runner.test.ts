@@ -35,9 +35,13 @@ async function createStagedAuthFixture() {
 
   await mkdir(operatorCodexHome, { recursive: true });
   await writeFile(sourceAuth, '{"token":"old"}', { mode: 0o600 });
-  await stageCodexHome({ CODEX_HOME: operatorCodexHome }, workdir);
+  const baseline = await stageCodexHome(
+    { CODEX_HOME: operatorCodexHome },
+    workdir,
+  );
 
   return {
+    baseline,
     isolatedAuth: join(workdir, ".codex", authFileName),
     operatorCodexHome,
     root,
@@ -181,33 +185,27 @@ describe("research runner subprocess contract", () => {
     }
   });
 
-  it("copies the Codex executable when hard links are unsupported", async () => {
+  it("copies the Codex executable to a distinct inode", async () => {
     const root = await mkdtemp(join(tmpdir(), "research-runner-test-"));
     const operatorBin = join(root, "operator-bin");
     const workdir = join(root, "workdir");
-    let createLinkCalled = false;
+    const source = join(operatorBin, "codex");
 
     try {
       await mkdir(operatorBin, { recursive: true });
-      await writeFile(join(operatorBin, "codex"), "executable", {
-        mode: 0o700,
-      });
-      await stageCodexExecutable(
-        { PATH: operatorBin },
-        workdir,
-        async () => {
-          createLinkCalled = true;
-          throw Object.assign(new Error("unsupported"), { code: "EPERM" });
-        },
-        async (source, destination) => {
-          await writeFile(destination, await readFile(source));
-        },
-      );
+      await writeFile(source, "executable", { mode: 0o700 });
+      await stageCodexExecutable({ PATH: operatorBin }, workdir);
+
+      const [sourceStat, stagedStat] = await Promise.all([
+        stat(source),
+        stat(join(workdir, "bin", "codex")),
+      ]);
 
       expect(await readFile(join(workdir, "bin", "codex"), "utf8")).toBe(
         "executable",
       );
-      expect(createLinkCalled).toBe(true);
+      expect(stagedStat.ino).not.toBe(sourceStat.ino);
+      expect(stagedStat.nlink).toBe(1);
     } finally {
       await rm(root, { force: true, recursive: true });
     }
@@ -271,6 +269,7 @@ describe("research runner subprocess contract", () => {
         await persistRefreshedCodexAuth(
           { CODEX_HOME: fixture.operatorCodexHome },
           fixture.workdir,
+          fixture.baseline,
         ),
       ).toBe(true);
       expect(await readFile(fixture.sourceAuth, "utf8")).toBe(
@@ -292,6 +291,7 @@ describe("research runner subprocess contract", () => {
         await persistRefreshedCodexAuth(
           { CODEX_HOME: fixture.operatorCodexHome },
           fixture.workdir,
+          fixture.baseline,
         ),
       ).toBe(false);
       expect((await stat(fixture.sourceAuth)).ino).toBe(before.ino);
@@ -316,10 +316,33 @@ describe("research runner subprocess contract", () => {
         await persistRefreshedCodexAuth(
           { CODEX_HOME: fixture.operatorCodexHome },
           fixture.workdir,
+          fixture.baseline,
         ),
       ).toBe(false);
       expect(await readFile(fixture.sourceAuth, "utf8")).toBe(
         '{"token":"old"}',
+      );
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
+  it("refuses to roll back a login another run refreshed first", async () => {
+    const fixture = await createStagedAuthFixture();
+
+    try {
+      await writeFile(fixture.isolatedAuth, '{"token":"refreshed"}');
+      await writeFile(fixture.sourceAuth, '{"token":"newer"}');
+
+      await expect(
+        persistRefreshedCodexAuth(
+          { CODEX_HOME: fixture.operatorCodexHome },
+          fixture.workdir,
+          fixture.baseline,
+        ),
+      ).rejects.toThrow("changed during this run");
+      expect(await readFile(fixture.sourceAuth, "utf8")).toBe(
+        '{"token":"newer"}',
       );
     } finally {
       await rm(fixture.root, { force: true, recursive: true });
@@ -337,7 +360,10 @@ describe("research runner subprocess contract", () => {
       await mkdir(operatorCodexHome, { recursive: true });
       await writeFile(credentialTarget, '{"token":"old"}', { mode: 0o600 });
       await symlink(credentialTarget, join(operatorCodexHome, authFileName));
-      await stageCodexHome({ CODEX_HOME: operatorCodexHome }, workdir);
+      const baseline = await stageCodexHome(
+        { CODEX_HOME: operatorCodexHome },
+        workdir,
+      );
       await writeFile(
         join(workdir, ".codex", authFileName),
         '{"token":"refreshed"}',
@@ -347,6 +373,7 @@ describe("research runner subprocess contract", () => {
         await persistRefreshedCodexAuth(
           { CODEX_HOME: operatorCodexHome },
           workdir,
+          baseline,
         ),
       ).toBe(true);
       expect(await readFile(credentialTarget, "utf8")).toBe(

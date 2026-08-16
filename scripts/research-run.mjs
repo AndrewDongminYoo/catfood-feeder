@@ -11,7 +11,6 @@ import {
   access,
   chmod,
   copyFile,
-  link,
   mkdir,
   mkdtemp,
   open,
@@ -124,10 +123,16 @@ async function findCodexExecutable(pathValue) {
   throw new Error("research runner could not find an executable codex in PATH");
 }
 
+/**
+ * codex 실행 파일도 하드 링크가 아니라 바이트 복사로 옮긴다. 링크를 쓰면 자식이
+ * 스테이징된 파일의 device/inode를 읽어 같은 inode를 가진 원본을 찾아낼 수 있고,
+ * 그 경로가 홈 아래 패키지 매니저 디렉터리라면 운영자 홈이 그대로 드러난다.
+ * 자격 증명과 같은 종류의 노출이므로 워크디렉터리에 들어가는 모든 파일에 같은
+ * 규칙을 적용한다.
+ */
 export async function stageCodexExecutable(
   parentEnv,
   workdir,
-  createLink = link,
   copyExecutable = copyFile,
 ) {
   const source = await findCodexExecutable(parentEnv.PATH);
@@ -147,16 +152,8 @@ export async function stageCodexExecutable(
   const isolatedBin = join(workdir, "bin");
   const destination = join(isolatedBin, "codex");
   await mkdir(isolatedBin, { mode: 0o700, recursive: true });
-
-  try {
-    await createLink(source, destination);
-  } catch (error) {
-    if (!["EXDEV", "EPERM", "ENOTSUP", "EOPNOTSUPP"].includes(error?.code)) {
-      throw error;
-    }
-    await copyExecutable(source, destination, constants.COPYFILE_FICLONE);
-    await chmod(destination, 0o700);
-  }
+  await copyExecutable(source, destination, constants.COPYFILE_FICLONE);
+  await chmod(destination, 0o700);
 }
 
 function isWithin(root, target) {
@@ -236,11 +233,15 @@ export async function stageCodexHome(
     parentEnv.CODEX_HOME ?? join(parentEnv.HOME ?? "", ".codex");
   const isolatedHome = join(workdir, ".codex");
   await mkdir(isolatedHome, { recursive: true });
+  const source = await realpath(join(sourceHome, "auth.json"));
+  const baseline = await readFile(source);
   await copyCredential(
-    await realpath(join(sourceHome, "auth.json")),
+    source,
     join(isolatedHome, "auth.json"),
     constants.COPYFILE_FICLONE,
   );
+
+  return baseline;
 }
 
 /**
@@ -250,20 +251,38 @@ export async function stageCodexHome(
  *
  * 부모만 원본 경로를 알고, 자식은 read-only 샌드박스라 복사본에 쓸 수 없다.
  * 따라서 여기로 올라오는 내용은 CLI가 갱신한 것뿐이다.
+ *
+ * `baseline`은 스테이징 시점의 원본 바이트다. 되돌려 쓰기 직전에 원본이 아직
+ * 그 값인지 확인해, 다른 실행이나 `codex login`이 그 사이에 갱신한 토큰을
+ * 이 실행의 낡은 복사본으로 덮어쓰지 않는다.
+ *
+ * 확인과 rename 사이의 창은 잠금 없이 닫을 수 없다. 단일 운영자의 로컬 러너라
+ * 파일 잠금까지는 두지 않고, 원본이 바뀐 경우를 감지해 갱신을 버리는 쪽을 택한다.
  */
-export async function persistRefreshedCodexAuth(parentEnv, workdir) {
+export async function persistRefreshedCodexAuth(parentEnv, workdir, baseline) {
   const sourceHome =
     parentEnv.CODEX_HOME ?? join(parentEnv.HOME ?? "", ".codex");
+  const staged = await readFile(join(workdir, ".codex", "auth.json")).catch(
+    () => undefined,
+  );
+  if (!staged || !baseline || staged.equals(baseline)) return false;
+
   const source = await realpath(join(sourceHome, "auth.json"));
-  const [original, staged] = await Promise.all([
-    readFile(source),
-    readFile(join(workdir, ".codex", "auth.json")).catch(() => undefined),
-  ]);
-  if (!staged || original.equals(staged)) return false;
+  if (!(await readFile(source)).equals(baseline)) {
+    throw new Error(
+      "the operator Codex login changed during this run; discarded the isolated refresh rather than overwriting it",
+    );
+  }
 
   const pending = `${source}.${process.pid}.pending`;
-  await writeFile(pending, staged, { mode: 0o600 });
-  await rename(pending, source);
+  try {
+    await writeFile(pending, staged, { mode: 0o600 });
+    await rename(pending, source);
+  } catch (error) {
+    await rm(pending, { force: true });
+    throw error;
+  }
+
   return true;
 }
 
@@ -390,9 +409,10 @@ async function main() {
 
   const target = await fetchTarget(brokerUrl, secret, foodId);
   const workdir = await createResearchWorkdir(process.env);
+  let authBaseline;
   try {
     await stageCodexExecutable(process.env, workdir);
-    await stageCodexHome(process.env, workdir);
+    authBaseline = await stageCodexHome(process.env, workdir);
     const schemaPath = join(workdir, "schema.json");
     const messagePath = join(workdir, "message.json");
     await writeFile(schemaPath, JSON.stringify(PROPOSAL_JSON_SCHEMA));
@@ -417,7 +437,7 @@ async function main() {
     console.log(JSON.stringify(outcome, null, 2));
   } finally {
     try {
-      await persistRefreshedCodexAuth(process.env, workdir);
+      await persistRefreshedCodexAuth(process.env, workdir, authBaseline);
     } catch (error) {
       console.warn(
         `warning: could not write back the refreshed Codex login (${error.message}); run \`codex login\` if the next run fails to authenticate.`,
