@@ -11,26 +11,18 @@ import {
   access,
   chmod,
   copyFile,
-  link,
   mkdir,
   mkdtemp,
   open,
   readFile,
   realpath,
+  rename,
   rm,
   stat,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import {
-  delimiter,
-  dirname,
-  isAbsolute,
-  join,
-  relative,
-  resolve,
-  sep,
-} from "node:path";
+import { delimiter, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SECRETS_FILE, loadSecrets } from "./with-secrets.mjs";
 
@@ -131,10 +123,16 @@ async function findCodexExecutable(pathValue) {
   throw new Error("research runner could not find an executable codex in PATH");
 }
 
+/**
+ * codex 실행 파일도 하드 링크가 아니라 바이트 복사로 옮긴다. 링크를 쓰면 자식이
+ * 스테이징된 파일의 device/inode를 읽어 같은 inode를 가진 원본을 찾아낼 수 있고,
+ * 그 경로가 홈 아래 패키지 매니저 디렉터리라면 운영자 홈이 그대로 드러난다.
+ * 자격 증명과 같은 종류의 노출이므로 워크디렉터리에 들어가는 모든 파일에 같은
+ * 규칙을 적용한다.
+ */
 export async function stageCodexExecutable(
   parentEnv,
   workdir,
-  createLink = link,
   copyExecutable = copyFile,
 ) {
   const source = await findCodexExecutable(parentEnv.PATH);
@@ -154,16 +152,8 @@ export async function stageCodexExecutable(
   const isolatedBin = join(workdir, "bin");
   const destination = join(isolatedBin, "codex");
   await mkdir(isolatedBin, { mode: 0o700, recursive: true });
-
-  try {
-    await createLink(source, destination);
-  } catch (error) {
-    if (!["EXDEV", "EPERM", "ENOTSUP", "EOPNOTSUPP"].includes(error?.code)) {
-      throw error;
-    }
-    await copyExecutable(source, destination, constants.COPYFILE_FICLONE);
-    await chmod(destination, 0o700);
-  }
+  await copyExecutable(source, destination, constants.COPYFILE_FICLONE);
+  await chmod(destination, 0o700);
 }
 
 function isWithin(root, target) {
@@ -177,13 +167,12 @@ function isWithin(root, target) {
   );
 }
 
-export function selectResearchTempRoot({
-  home,
-  sourceDevice,
-  sourcePath,
-  systemTemp,
-  tempDevice,
-}) {
+/**
+ * 작업 디렉터리는 언제나 시스템 임시 루트 아래에 만든다. 자격 증명은 하드 링크가
+ * 아니라 바이트 복사로 옮기므로 같은 파일시스템일 필요가 없고, 원본 옆에 두면
+ * read-only 자식이 그 디렉터리를 읽어 자격 증명 경로를 알아낼 수 있다.
+ */
+export function selectResearchTempRoot({ home, systemTemp }) {
   if (!home) {
     throw new Error("cannot isolate Codex credentials when HOME is unknown");
   }
@@ -192,15 +181,8 @@ export function selectResearchTempRoot({
       "cannot isolate Codex credentials when TMPDIR is inside the operator home",
     );
   }
-  if (sourceDevice === tempDevice) return systemTemp;
 
-  if (isWithin(home, sourcePath)) {
-    throw new Error(
-      "cannot isolate Codex credentials across filesystems without exposing the operator home; set TMPDIR to the credential filesystem",
-    );
-  }
-
-  return dirname(sourcePath);
+  return systemTemp;
 }
 
 export async function createResearchWorkdir(parentEnv) {
@@ -227,47 +209,92 @@ export async function createResearchWorkdir(parentEnv) {
     );
   }
 
-  const systemTemp = tmpdir();
-  const [resolvedSourceAuth, resolvedHome, resolvedSystemTemp, systemTempStat] =
-    await Promise.all([
-      realpath(sourceAuth),
-      parentEnv.HOME
-        ? realpath(parentEnv.HOME).catch(() => resolve(parentEnv.HOME))
-        : undefined,
-      realpath(systemTemp),
-      stat(systemTemp),
-    ]);
+  const [resolvedHome, resolvedSystemTemp] = await Promise.all([
+    parentEnv.HOME
+      ? realpath(parentEnv.HOME).catch(() => resolve(parentEnv.HOME))
+      : undefined,
+    realpath(tmpdir()),
+  ]);
   const tempRoot = selectResearchTempRoot({
     home: resolvedHome,
-    sourceDevice: sourceAuthStat.dev,
-    sourcePath: resolvedSourceAuth,
     systemTemp: resolvedSystemTemp,
-    tempDevice: systemTempStat.dev,
   });
 
   return mkdtemp(join(tempRoot, "catfood-research-"));
 }
 
-/** 실제 홈 경로를 노출하지 않고 Codex 로그인 파일만 임시 홈에 하드 링크한다. */
-export async function stageCodexHome(parentEnv, workdir, createLink = link) {
+/** 실제 홈 경로를 노출하지 않고 Codex 로그인 파일만 임시 홈에 복사한다. */
+export async function stageCodexHome(
+  parentEnv,
+  workdir,
+  copyCredential = copyFile,
+) {
   const sourceHome =
     parentEnv.CODEX_HOME ?? join(parentEnv.HOME ?? "", ".codex");
-  const copy = async (source, destination) => {
-    try {
-      await createLink(await realpath(source), destination);
-    } catch (error) {
-      if (["EXDEV", "ENOTSUP", "EOPNOTSUPP", "EPERM"].includes(error?.code)) {
-        throw new Error(
-          "research runner requires hard-link support for Codex credentials; place CODEX_HOME and TMPDIR on a hard-link-capable filesystem",
-          { cause: error },
-        );
-      }
-      throw error;
-    }
-  };
   const isolatedHome = join(workdir, ".codex");
   await mkdir(isolatedHome, { recursive: true });
-  await copy(join(sourceHome, "auth.json"), join(isolatedHome, "auth.json"));
+  const isolatedAuth = join(isolatedHome, "auth.json");
+  await copyCredential(
+    await realpath(join(sourceHome, "auth.json")),
+    isolatedAuth,
+    constants.COPYFILE_FICLONE,
+  );
+
+  // 기준값은 복사본 자체에서 읽는다. 원본을 따로 한 번 더 읽으면 그 읽기와 복사
+  // 사이에 원본이 교체됐을 때 기준값과 복사본이 다른 토큰이 되고, 그러면 이
+  // 실행이 갱신한 토큰을 되돌려 쓰지 못한 채 버리게 된다.
+  return readFile(isolatedAuth);
+}
+
+/**
+ * 격리된 CLI가 토큰을 갱신했으면 그 결과만 원본 로그인 파일에 되돌려 쓴다.
+ * 복사본은 워크디렉터리와 함께 지워지므로, 되돌려 쓰지 않으면 원본에 이미 폐기된
+ * refresh 토큰이 남아 다음 실행이 인증에 실패한다.
+ *
+ * 부모만 원본 경로를 알고, 자식은 read-only 샌드박스라 복사본에 쓸 수 없다.
+ * 따라서 여기로 올라오는 내용은 CLI가 갱신한 것뿐이다.
+ *
+ * `baseline`은 스테이징 시점의 원본 바이트다. 되돌려 쓰기 직전에 원본이 아직
+ * 그 값인지 확인해, 다른 실행이나 `codex login`이 그 사이에 갱신한 토큰을
+ * 이 실행의 낡은 복사본으로 덮어쓰지 않는다.
+ *
+ * 확인과 rename 사이의 창은 잠금 없이 닫을 수 없고, Node에는 파일 단위 CAS가
+ * 없다(`renameat2(RENAME_EXCHANGE)` 미노출). 창은 rename 직전 비교로 syscall
+ * 하나까지 좁혀 두고, 잠금은 두지 않는다. 단일 운영자의 로컬 러너에서는 잠금이
+ * 막는 사고(두 실행이 그 창 안에서 교차)보다 잠금이 만드는 사고(죽은 실행이
+ * 남긴 잠금 파일이 이후 모든 갱신 보존을 영구히 막는 것)가 더 잦기 때문이다.
+ */
+export async function persistRefreshedCodexAuth(parentEnv, workdir, baseline) {
+  const sourceHome =
+    parentEnv.CODEX_HOME ?? join(parentEnv.HOME ?? "", ".codex");
+  // 스테이징 전에 죽은 실행만 조용히 넘긴다. EACCES/EIO까지 "갱신 없음"으로
+  // 처리하면 갱신된 토큰이 워크디렉터리와 함께 소리 없이 사라진다.
+  const staged = await readFile(join(workdir, ".codex", "auth.json")).catch(
+    (error) => {
+      if (error?.code === "ENOENT") return undefined;
+      throw error;
+    },
+  );
+  if (!staged || !baseline || staged.equals(baseline)) return false;
+
+  const source = await realpath(join(sourceHome, "auth.json"));
+  const pending = `${source}.${process.pid}.pending`;
+  try {
+    // 교체본을 먼저 만들어 두고, 비교는 rename 직전에 한다. 비교와 교체 사이에
+    // 남는 창이 write 시간만큼 넓어지지 않고 syscall 하나로 좁혀진다.
+    await writeFile(pending, staged, { mode: 0o600 });
+    if (!(await readFile(source)).equals(baseline)) {
+      throw new Error(
+        "the operator Codex login changed during this run; discarded the isolated refresh rather than overwriting it",
+      );
+    }
+    await rename(pending, source);
+  } catch (error) {
+    await rm(pending, { force: true });
+    throw error;
+  }
+
+  return true;
 }
 
 export function buildCodexArgs(schemaPath, messagePath, model) {
@@ -393,9 +420,10 @@ async function main() {
 
   const target = await fetchTarget(brokerUrl, secret, foodId);
   const workdir = await createResearchWorkdir(process.env);
+  let authBaseline;
   try {
     await stageCodexExecutable(process.env, workdir);
-    await stageCodexHome(process.env, workdir);
+    authBaseline = await stageCodexHome(process.env, workdir);
     const schemaPath = join(workdir, "schema.json");
     const messagePath = join(workdir, "message.json");
     await writeFile(schemaPath, JSON.stringify(PROPOSAL_JSON_SCHEMA));
@@ -419,6 +447,13 @@ async function main() {
     });
     console.log(JSON.stringify(outcome, null, 2));
   } finally {
+    try {
+      await persistRefreshedCodexAuth(process.env, workdir, authBaseline);
+    } catch (error) {
+      console.warn(
+        `warning: could not write back the refreshed Codex login (${error.message}); run \`codex login\` if the next run fails to authenticate.`,
+      );
+    }
     await rm(workdir, { force: true, recursive: true });
   }
 }

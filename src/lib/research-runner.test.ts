@@ -1,10 +1,13 @@
 import { spawn } from "node:child_process";
 import {
+  lstat,
   mkdir,
+  readdir,
   mkdtemp,
   readFile,
   realpath,
   rm,
+  stat,
   symlink,
   writeFile,
 } from "node:fs/promises";
@@ -17,6 +20,7 @@ import {
   buildCodexArgs,
   buildPrompt,
   createResearchWorkdir,
+  persistRefreshedCodexAuth,
   selectResearchTempRoot,
   stageCodexExecutable,
   stageCodexHome,
@@ -32,12 +36,18 @@ async function createStagedAuthFixture() {
 
   await mkdir(operatorCodexHome, { recursive: true });
   await writeFile(sourceAuth, '{"token":"old"}', { mode: 0o600 });
-  await stageCodexHome({ CODEX_HOME: operatorCodexHome }, workdir);
+  const baseline = await stageCodexHome(
+    { CODEX_HOME: operatorCodexHome },
+    workdir,
+  );
 
   return {
+    baseline,
     isolatedAuth: join(workdir, ".codex", authFileName),
+    operatorCodexHome,
     root,
     sourceAuth,
+    workdir,
   };
 }
 
@@ -92,76 +102,49 @@ describe("research runner subprocess contract", () => {
     }
   });
 
-  it("uses the custom CODEX_HOME filesystem when system temp differs", () => {
+  it("keeps the workdir under the system temp root, never beside the credential", () => {
     expect(
       selectResearchTempRoot({
         home: "/Users/someone",
-        sourceDevice: 2,
-        sourcePath: "/Volumes/codex-auth/codex-home",
         systemTemp: "/private/tmp",
-        tempDevice: 1,
       }),
-    ).toBe("/Volumes/codex-auth");
-  });
-
-  it("uses the resolved credential target directory when devices differ", () => {
-    expect(
-      selectResearchTempRoot({
-        home: "/Users/someone",
-        sourceDevice: 2,
-        sourcePath: "/Volumes/encrypted/credentials/codex-auth",
-        systemTemp: "/private/tmp",
-        tempDevice: 1,
-      }),
-    ).toBe("/Volumes/encrypted/credentials");
+    ).toBe("/private/tmp");
   });
 
   it("rejects a system temp directory inside the operator home", () => {
     expect(() =>
       selectResearchTempRoot({
         home: "/Users/someone",
-        sourceDevice: 1,
-        sourcePath: "/Users/someone/.codex",
         systemTemp: "/Users/someone/tmp",
-        tempDevice: 1,
       }),
     ).toThrow("TMPDIR is inside the operator home");
   });
 
-  it("rejects cross-filesystem staging that would reveal the home", () => {
+  it("treats dot-prefixed temp paths as inside HOME", () => {
     expect(() =>
       selectResearchTempRoot({
         home: "/Users/someone",
-        sourceDevice: 2,
-        sourcePath: "/Users/someone/.codex",
-        systemTemp: "/private/tmp",
-        tempDevice: 1,
+        systemTemp: "/Users/someone/..tmp",
       }),
-    ).toThrow("cannot isolate Codex credentials across filesystems");
+    ).toThrow("TMPDIR is inside the operator home");
   });
 
-  it("rejects cross-filesystem staging when HOME is unknown", () => {
+  it("does not treat a sibling of HOME as inside it", () => {
+    expect(
+      selectResearchTempRoot({
+        home: "/Users/someone",
+        systemTemp: "/Users/someone-else/tmp",
+      }),
+    ).toBe("/Users/someone-else/tmp");
+  });
+
+  it("rejects staging when HOME is unknown", () => {
     expect(() =>
       selectResearchTempRoot({
         home: undefined,
-        sourceDevice: 2,
-        sourcePath: "/Users/someone/.codex",
         systemTemp: "/private/tmp",
-        tempDevice: 1,
       }),
     ).toThrow("cannot isolate Codex credentials when HOME is unknown");
-  });
-
-  it("treats dot-prefixed credential paths as inside HOME", () => {
-    expect(() =>
-      selectResearchTempRoot({
-        home: "/Users/someone",
-        sourceDevice: 2,
-        sourcePath: "/Users/someone/..codex",
-        systemTemp: "/private/tmp",
-        tempDevice: 1,
-      }),
-    ).toThrow("cannot isolate Codex credentials across filesystems");
   });
 
   it("stages the Codex executable without its original path", async () => {
@@ -203,33 +186,27 @@ describe("research runner subprocess contract", () => {
     }
   });
 
-  it("copies the Codex executable when hard links are unsupported", async () => {
+  it("copies the Codex executable to a distinct inode", async () => {
     const root = await mkdtemp(join(tmpdir(), "research-runner-test-"));
     const operatorBin = join(root, "operator-bin");
     const workdir = join(root, "workdir");
-    let createLinkCalled = false;
+    const source = join(operatorBin, "codex");
 
     try {
       await mkdir(operatorBin, { recursive: true });
-      await writeFile(join(operatorBin, "codex"), "executable", {
-        mode: 0o700,
-      });
-      await stageCodexExecutable(
-        { PATH: operatorBin },
-        workdir,
-        async () => {
-          createLinkCalled = true;
-          throw Object.assign(new Error("unsupported"), { code: "EPERM" });
-        },
-        async (source, destination) => {
-          await writeFile(destination, await readFile(source));
-        },
-      );
+      await writeFile(source, "executable", { mode: 0o700 });
+      await stageCodexExecutable({ PATH: operatorBin }, workdir);
+
+      const [sourceStat, stagedStat] = await Promise.all([
+        stat(source),
+        stat(join(workdir, "bin", "codex")),
+      ]);
 
       expect(await readFile(join(workdir, "bin", "codex"), "utf8")).toBe(
         "executable",
       );
-      expect(createLinkCalled).toBe(true);
+      expect(stagedStat.ino).not.toBe(sourceStat.ino);
+      expect(stagedStat.nlink).toBe(1);
     } finally {
       await rm(root, { force: true, recursive: true });
     }
@@ -264,17 +241,220 @@ describe("research runner subprocess contract", () => {
     }
   });
 
-  it("shares isolated Codex authentication updates with the source", async () => {
+  it("copies Codex authentication to a distinct inode", async () => {
     const fixture = await createStagedAuthFixture();
 
     try {
+      const [sourceStat, isolatedStat] = await Promise.all([
+        stat(fixture.sourceAuth),
+        stat(fixture.isolatedAuth),
+      ]);
       await writeFile(fixture.isolatedAuth, '{"token":"new"}');
 
+      expect(isolatedStat.ino).not.toBe(sourceStat.ino);
       expect(await readFile(fixture.sourceAuth, "utf8")).toBe(
-        '{"token":"new"}',
+        '{"token":"old"}',
       );
     } finally {
       await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
+  it("writes a refreshed credential back to the operator login file", async () => {
+    const fixture = await createStagedAuthFixture();
+
+    try {
+      await writeFile(fixture.isolatedAuth, '{"token":"refreshed"}');
+
+      expect(
+        await persistRefreshedCodexAuth(
+          { CODEX_HOME: fixture.operatorCodexHome },
+          fixture.workdir,
+          fixture.baseline,
+        ),
+      ).toBe(true);
+      expect(await readFile(fixture.sourceAuth, "utf8")).toBe(
+        '{"token":"refreshed"}',
+      );
+      expect((await stat(fixture.sourceAuth)).mode & 0o777).toBe(0o600);
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
+  it("leaves the operator login file untouched when no refresh happened", async () => {
+    const fixture = await createStagedAuthFixture();
+
+    try {
+      const before = await stat(fixture.sourceAuth);
+
+      expect(
+        await persistRefreshedCodexAuth(
+          { CODEX_HOME: fixture.operatorCodexHome },
+          fixture.workdir,
+          fixture.baseline,
+        ),
+      ).toBe(false);
+      expect((await stat(fixture.sourceAuth)).ino).toBe(before.ino);
+      expect(await readFile(fixture.sourceAuth, "utf8")).toBe(
+        '{"token":"old"}',
+      );
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
+  it("keeps the operator login file when the run died before staging", async () => {
+    const fixture = await createStagedAuthFixture();
+
+    try {
+      await rm(join(fixture.workdir, ".codex"), {
+        force: true,
+        recursive: true,
+      });
+
+      expect(
+        await persistRefreshedCodexAuth(
+          { CODEX_HOME: fixture.operatorCodexHome },
+          fixture.workdir,
+          fixture.baseline,
+        ),
+      ).toBe(false);
+      expect(await readFile(fixture.sourceAuth, "utf8")).toBe(
+        '{"token":"old"}',
+      );
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
+  // 읽기 실패를 mode 비트로 만들면 root로 도는 CI에서는 그냥 읽혀버린다.
+  // 디렉터리 읽기는 권한과 무관하게 EISDIR이므로 그쪽으로 분기를 친다.
+  it("surfaces a staged credential that cannot be read", async () => {
+    const fixture = await createStagedAuthFixture();
+
+    try {
+      await rm(fixture.isolatedAuth);
+      await mkdir(fixture.isolatedAuth);
+
+      await expect(
+        persistRefreshedCodexAuth(
+          { CODEX_HOME: fixture.operatorCodexHome },
+          fixture.workdir,
+          fixture.baseline,
+        ),
+      ).rejects.toThrow(/EISDIR/);
+      expect(await readFile(fixture.sourceAuth, "utf8")).toBe(
+        '{"token":"old"}',
+      );
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
+  it("takes the baseline from the staged copy, not a second read of the source", async () => {
+    const root = await mkdtemp(join(tmpdir(), "research-runner-test-"));
+    const operatorCodexHome = join(root, "operator-codex");
+    const workdir = join(root, "workdir");
+    const authFileName = ["auth", "json"].join(".");
+    const sourceAuth = join(operatorCodexHome, authFileName);
+
+    try {
+      await mkdir(operatorCodexHome, { recursive: true });
+      await writeFile(sourceAuth, '{"token":"a"}', { mode: 0o600 });
+
+      // 복사 도중 원본이 교체되는 상황: 스테이징된 것은 b다.
+      const baseline = await stageCodexHome(
+        { CODEX_HOME: operatorCodexHome },
+        workdir,
+        async (source, destination) => {
+          expect(source).toBe(await realpath(sourceAuth));
+          await writeFile(sourceAuth, '{"token":"b"}');
+          await writeFile(destination, '{"token":"b"}');
+        },
+      );
+
+      expect(baseline.toString()).toBe('{"token":"b"}');
+
+      // 그 위에서 CLI가 c로 회전하면, b는 폐기됐을 수 있으므로 c가 살아남아야 한다.
+      await writeFile(join(workdir, ".codex", authFileName), '{"token":"c"}');
+
+      expect(
+        await persistRefreshedCodexAuth(
+          { CODEX_HOME: operatorCodexHome },
+          workdir,
+          baseline,
+        ),
+      ).toBe(true);
+      expect(await readFile(sourceAuth, "utf8")).toBe('{"token":"c"}');
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("refuses to roll back a login another run refreshed first", async () => {
+    const fixture = await createStagedAuthFixture();
+
+    try {
+      await writeFile(fixture.isolatedAuth, '{"token":"refreshed"}');
+      await writeFile(fixture.sourceAuth, '{"token":"newer"}');
+
+      await expect(
+        persistRefreshedCodexAuth(
+          { CODEX_HOME: fixture.operatorCodexHome },
+          fixture.workdir,
+          fixture.baseline,
+        ),
+      ).rejects.toThrow("changed during this run");
+      expect(await readFile(fixture.sourceAuth, "utf8")).toBe(
+        '{"token":"newer"}',
+      );
+      // 교체본을 먼저 쓰므로, 거부된 경로가 살아 있는 자격 증명을 남기면 안 된다.
+      expect(
+        (await readdir(fixture.operatorCodexHome)).filter((entry) =>
+          entry.includes("pending"),
+        ),
+      ).toEqual([]);
+    } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
+  it("writes a refreshed credential through a credential symlink", async () => {
+    const root = await mkdtemp(join(tmpdir(), "research-runner-test-"));
+    const operatorCodexHome = join(root, "operator-codex");
+    const credentialTarget = join(root, "credential-target");
+    const workdir = join(root, "workdir");
+    const authFileName = ["auth", "json"].join(".");
+
+    try {
+      await mkdir(operatorCodexHome, { recursive: true });
+      await writeFile(credentialTarget, '{"token":"old"}', { mode: 0o600 });
+      await symlink(credentialTarget, join(operatorCodexHome, authFileName));
+      const baseline = await stageCodexHome(
+        { CODEX_HOME: operatorCodexHome },
+        workdir,
+      );
+      await writeFile(
+        join(workdir, ".codex", authFileName),
+        '{"token":"refreshed"}',
+      );
+
+      expect(
+        await persistRefreshedCodexAuth(
+          { CODEX_HOME: operatorCodexHome },
+          workdir,
+          baseline,
+        ),
+      ).toBe(true);
+      expect(await readFile(credentialTarget, "utf8")).toBe(
+        '{"token":"refreshed"}',
+      );
+      expect(
+        (await lstat(join(operatorCodexHome, authFileName))).isSymbolicLink(),
+      ).toBe(true);
+    } finally {
+      await rm(root, { force: true, recursive: true });
     }
   });
 
@@ -305,7 +485,7 @@ describe("research runner subprocess contract", () => {
     }
   });
 
-  it("reports unsupported hard links as a credential staging error", async () => {
+  it("reports credential copy failures", async () => {
     const root = await mkdtemp(join(tmpdir(), "research-runner-test-"));
     const operatorCodexHome = join(root, "operator-codex");
     const workdir = join(root, "workdir");
@@ -319,22 +499,22 @@ describe("research runner subprocess contract", () => {
 
       await expect(
         stageCodexHome({ CODEX_HOME: operatorCodexHome }, workdir, async () => {
-          throw Object.assign(new Error("unsupported"), { code: "ENOTSUP" });
+          throw new Error("copy failed");
         }),
-      ).rejects.toThrow("requires hard-link support");
+      ).rejects.toThrow("copy failed");
     } finally {
       await rm(root, { force: true, recursive: true });
     }
   });
 
-  it("observes source authentication updates during the isolated run", async () => {
+  it("does not expose source authentication updates during the isolated run", async () => {
     const fixture = await createStagedAuthFixture();
 
     try {
       await writeFile(fixture.sourceAuth, '{"token":"operator"}');
 
       expect(await readFile(fixture.isolatedAuth, "utf8")).toBe(
-        '{"token":"operator"}',
+        '{"token":"old"}',
       );
     } finally {
       await rm(fixture.root, { force: true, recursive: true });
