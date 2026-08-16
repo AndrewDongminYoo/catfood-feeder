@@ -1,6 +1,5 @@
 import { spawn } from "node:child_process";
 import {
-  chmod,
   lstat,
   mkdir,
   mkdtemp,
@@ -328,11 +327,14 @@ describe("research runner subprocess contract", () => {
     }
   });
 
+  // 읽기 실패를 mode 비트로 만들면 root로 도는 CI에서는 그냥 읽혀버린다.
+  // 디렉터리 읽기는 권한과 무관하게 EISDIR이므로 그쪽으로 분기를 친다.
   it("surfaces a staged credential that cannot be read", async () => {
     const fixture = await createStagedAuthFixture();
 
     try {
-      await chmod(fixture.isolatedAuth, 0o000);
+      await rm(fixture.isolatedAuth);
+      await mkdir(fixture.isolatedAuth);
 
       await expect(
         persistRefreshedCodexAuth(
@@ -340,9 +342,11 @@ describe("research runner subprocess contract", () => {
           fixture.workdir,
           fixture.baseline,
         ),
-      ).rejects.toThrow(/EACCES|EPERM/);
+      ).rejects.toThrow(/EISDIR/);
+      expect(await readFile(fixture.sourceAuth, "utf8")).toBe(
+        '{"token":"old"}',
+      );
     } finally {
-      await chmod(fixture.isolatedAuth, 0o600).catch(() => undefined);
       await rm(fixture.root, { force: true, recursive: true });
     }
   });
