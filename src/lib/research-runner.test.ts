@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import {
+  chmod,
   lstat,
   mkdir,
   mkdtemp,
@@ -323,6 +324,25 @@ describe("research runner subprocess contract", () => {
         '{"token":"old"}',
       );
     } finally {
+      await rm(fixture.root, { force: true, recursive: true });
+    }
+  });
+
+  it("surfaces a staged credential that cannot be read", async () => {
+    const fixture = await createStagedAuthFixture();
+
+    try {
+      await chmod(fixture.isolatedAuth, 0o000);
+
+      await expect(
+        persistRefreshedCodexAuth(
+          { CODEX_HOME: fixture.operatorCodexHome },
+          fixture.workdir,
+          fixture.baseline,
+        ),
+      ).rejects.toThrow(/EACCES|EPERM/);
+    } finally {
+      await chmod(fixture.isolatedAuth, 0o600).catch(() => undefined);
       await rm(fixture.root, { force: true, recursive: true });
     }
   });

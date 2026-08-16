@@ -262,8 +262,13 @@ export async function stageCodexHome(
 export async function persistRefreshedCodexAuth(parentEnv, workdir, baseline) {
   const sourceHome =
     parentEnv.CODEX_HOME ?? join(parentEnv.HOME ?? "", ".codex");
+  // 스테이징 전에 죽은 실행만 조용히 넘긴다. EACCES/EIO까지 "갱신 없음"으로
+  // 처리하면 갱신된 토큰이 워크디렉터리와 함께 소리 없이 사라진다.
   const staged = await readFile(join(workdir, ".codex", "auth.json")).catch(
-    () => undefined,
+    (error) => {
+      if (error?.code === "ENOENT") return undefined;
+      throw error;
+    },
   );
   if (!staged || !baseline || staged.equals(baseline)) return false;
 
