@@ -137,10 +137,13 @@ function FactHead({
 }) {
   return (
     <>
-      <div>
+      {/* summary 의 콘텐츠 모델은 phrasing content 다 — 이 래퍼가 div 이면
+          비준수라 펼침 컨트롤의 이름 계산이 브라우저 오류 복구에 의존한다.
+          그리드 아이템이라 span 이어도 블록으로 배치된다. */}
+      <span className="fact-head">
         <span>{label}</span>
         <strong>{value}</strong>
-      </div>
+      </span>
       <EvidenceState label={evidence.label} tone={evidence.tone} />
     </>
   );

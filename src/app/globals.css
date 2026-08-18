@@ -756,12 +756,14 @@ button:active:not(:disabled),
   border-radius: var(--r-control);
   background: var(--bg);
 }
-.dossier-fact div > span:not(.evidence-state) {
+/* 요소 이름이 아니라 클래스로 잡는다 — 이 규칙은 래퍼가 div 였을 때 두 번
+   깨졌다(summary 중첩으로 자식 결합자가 어긋났고, 배지가 블록화됐다). */
+.dossier-fact .fact-head > span {
   display: block;
   color: var(--mut);
   font-size: 11px;
 }
-.dossier-fact div > strong {
+.dossier-fact .fact-head > strong {
   display: block;
   margin-top: 3px;
   font-size: 15px;
