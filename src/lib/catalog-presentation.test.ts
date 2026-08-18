@@ -45,6 +45,7 @@ describe("catalog presentation", () => {
       key: "protein_pct",
       label: "단백질",
       note: null,
+      proof: null,
       value: "36%",
     });
     expect(facts).toContainEqual({
@@ -52,6 +53,11 @@ describe("catalog presentation", () => {
       key: "ca_p_ratio",
       label: "Ca:P",
       note: expect.any(String),
+      proof: {
+        formula: "1.9 ÷ 1.3 = 1.462",
+        inputs: ["calcium_pct", "phosphorus_pct"],
+        kind: "computed",
+      },
       value: "1.46",
     });
   });
@@ -72,7 +78,77 @@ describe("catalog presentation", () => {
       key: "carb_pct",
       label: "탄수화물",
       note: expect.any(String),
+      proof: null,
       value: "—",
     });
+  });
+});
+
+describe("nutritionFacts proofs", () => {
+  const food = SAMPLE_FOODS[0]!;
+
+  it("quotes a fact that has a current evidence row", () => {
+    const facts = nutritionFacts(food, [
+      {
+        captured_at: "2026-08-18T00:00:00Z",
+        excerpt: "Crude Protein 36.00%",
+        nutrient_key: "protein_pct",
+        source: {
+          capture_method: "fetch",
+          kind: "manufacturer",
+          url: "https://example.test/label",
+        },
+        value: food.protein_pct!,
+      },
+    ]);
+
+    expect(facts.find((fact) => fact.key === "protein_pct")?.proof).toEqual({
+      captureMethod: "fetch",
+      capturedAt: "2026-08-18T00:00:00Z",
+      excerpt: "Crude Protein 36.00%",
+      kind: "quoted",
+      url: "https://example.test/label",
+      value: food.protein_pct!,
+    });
+  });
+
+  it("computes carbohydrate when no evidence row exists", () => {
+    const proof = nutritionFacts(food, []).find(
+      (fact) => fact.key === "carb_pct",
+    )?.proof;
+
+    expect(proof?.kind).toBe("computed");
+    expect(proof).toMatchObject({
+      inputs: [
+        "protein_pct",
+        "fat_pct",
+        "fiber_pct",
+        "moisture_pct",
+        "ash_pct",
+      ],
+    });
+  });
+
+  it("leaves a fact without evidence unproven rather than guessing", () => {
+    expect(
+      nutritionFacts(food, []).find((fact) => fact.key === "protein_pct")
+        ?.proof,
+    ).toBeNull();
+  });
+
+  it("탄수화물 출처 태그가 계산값이 아니면 근거 없이 수식을 붙이지 않는다", () => {
+    const manufacturerStated = {
+      ...food,
+      nutrient_sources: {
+        ...food.nutrient_sources,
+        carb_pct: "manufacturer" as const,
+      },
+    };
+
+    expect(
+      nutritionFacts(manufacturerStated, []).find(
+        (fact) => fact.key === "carb_pct",
+      )?.proof,
+    ).toBeNull();
   });
 });
