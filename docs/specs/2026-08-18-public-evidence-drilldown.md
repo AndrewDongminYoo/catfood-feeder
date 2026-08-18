@@ -76,7 +76,8 @@ grant select (id, food_id, kind, url, capture_method, captured_at)
 grant select on public.food_nutrient_evidence to anon, authenticated;
 ```
 
-The granted set is exactly what Section 5 renders, plus the two keys needed to join.
+The granted set is what Section 5 renders, plus the two keys needed to join, plus `kind`, which the read path's select no longer includes.
+Narrowing the grant to drop `kind` would need its own migration, so it stays granted but unrendered until a later revision wants that narrowing.
 
 `content_hash` and `observed_at` are deliberately excluded.
 A content hash is a fingerprint of the page body this design chose not to republish, and publishing it would let anyone confirm whether a candidate body matches — a small inference channel opened for a column nothing renders.
