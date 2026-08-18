@@ -743,9 +743,12 @@ button:active:not(:disabled),
   display: grid;
   gap: 8px;
 }
+/* 세 번째 트랙은 summary/.proof-input 내부 그리드의 화살표 예약 칸(7px)과 짝을
+   맞춘다 — 근거가 있는 사실은 그 칸이 화살표로 채워지고, 없는 사실은 비어 있을
+   뿐이라 배지(2번째 트랙)가 두 모양에서 같은 x 좌표에서 끝난다. */
 .dossier-fact {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto 7px;
   gap: 8px;
   align-items: center;
   padding: 10px;
@@ -753,7 +756,7 @@ button:active:not(:disabled),
   border-radius: var(--r-control);
   background: var(--bg);
 }
-.dossier-fact div > span {
+.dossier-fact div > span:not(.evidence-state) {
   display: block;
   color: var(--mut);
   font-size: 11px;
