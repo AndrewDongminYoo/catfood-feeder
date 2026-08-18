@@ -2,6 +2,7 @@
   "name": "catfood-admin",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "node scripts/with-secrets.mjs next dev --webpack",
     "build": "node scripts/with-secrets.mjs next build",
