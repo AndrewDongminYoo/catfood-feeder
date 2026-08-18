@@ -10,7 +10,7 @@ SELECT table_privs_are('public', 'prices', 'anon', ARRAY['SELECT']::name[], 'ano
 SELECT table_privs_are('public', 'cats', 'anon', ARRAY[]::name[], 'anon cannot reach cats');
 SELECT table_privs_are('public', 'feeding_logs', 'anon', ARRAY[]::name[], 'anon cannot reach feeding logs');
 SELECT table_privs_are('public', 'food_sources', 'anon', ARRAY[]::name[], 'anon cannot reach source ledger rows');
-SELECT table_privs_are('public', 'food_nutrient_evidence', 'anon', ARRAY[]::name[], 'anon cannot reach evidence ledger rows');
+SELECT table_privs_are('public', 'food_nutrient_evidence', 'anon', ARRAY['SELECT']::name[], 'anon can read evidence ledger rows (RLS scopes to published foods)');
 SELECT table_privs_are('public', 'food_research_runs', 'anon', ARRAY[]::name[], 'anon cannot reach research runs');
 SELECT table_privs_are('public', 'extraction_rate_limits', 'anon', ARRAY[]::name[], 'anon cannot reach extraction rate limits');
 
@@ -21,7 +21,7 @@ SELECT table_privs_are('public', 'prices', 'authenticated', ARRAY['SELECT']::nam
 SELECT table_privs_are('public', 'cats', 'authenticated', ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::name[], 'authenticated can manage owner-scoped cats');
 SELECT table_privs_are('public', 'feeding_logs', 'authenticated', ARRAY['DELETE', 'INSERT', 'SELECT', 'UPDATE']::name[], 'authenticated can manage owner-scoped feeding logs');
 SELECT table_privs_are('public', 'food_sources', 'authenticated', ARRAY[]::name[], 'authenticated cannot reach source ledger rows');
-SELECT table_privs_are('public', 'food_nutrient_evidence', 'authenticated', ARRAY[]::name[], 'authenticated cannot reach evidence ledger rows');
+SELECT table_privs_are('public', 'food_nutrient_evidence', 'authenticated', ARRAY['SELECT']::name[], 'authenticated can read evidence ledger rows (RLS scopes to published foods)');
 SELECT table_privs_are('public', 'food_research_runs', 'authenticated', ARRAY[]::name[], 'authenticated cannot reach research runs');
 SELECT table_privs_are('public', 'extraction_rate_limits', 'authenticated', ARRAY[]::name[], 'authenticated cannot reach extraction rate limits');
 

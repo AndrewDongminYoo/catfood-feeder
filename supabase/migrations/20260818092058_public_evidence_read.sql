@@ -8,7 +8,7 @@ CREATE POLICY "public read evidence of published foods"
     is_current
     AND EXISTS (
       SELECT 1 FROM public.foods f
-      WHERE f.id = food_id AND f.published_at IS NOT NULL
+      WHERE f.id = public.food_nutrient_evidence.food_id AND f.published_at IS NOT NULL
     )
   );
 
@@ -20,7 +20,7 @@ CREATE POLICY "public read sources of published foods"
     AND fetch_status = 'fetched'
     AND EXISTS (
       SELECT 1 FROM public.foods f
-      WHERE f.id = food_id AND f.published_at IS NOT NULL
+      WHERE f.id = public.food_sources.food_id AND f.published_at IS NOT NULL
     )
   );
 

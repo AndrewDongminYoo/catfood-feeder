@@ -14,6 +14,12 @@ dialect = postgres
 #   PG01                           — DROP INDEX에 CONCURRENTLY를 쓰라는 것.
 #                                    마이그레이션은 트랜잭션 안에서 돌고 CONCURRENTLY는
 #                                    트랜잭션 안에서 실행할 수 없으므로 따를 수 없다.
+#   RF05                           — 따옴표로 감싼 정책 이름에 공백이 있다고 지적하는 것.
+#                                    0001_init.sql부터 이어진 정책 명명 관례이므로 바꾸면
+#                                    기존 정책들과 일관성이 깨진다.
+#   AM04                           — SELECT * FROM finish();가 결과 컬럼 수를 알 수
+#                                    없다고 지적하는 것. supabase/tests의 모든 스위트가
+#                                    공유하는 pgTAP 종료 관용구다.
 #
 # 파싱 오류와 나머지 실질 규칙은 그대로 살아 있어서 앞으로 올릴 마이그레이션에 걸린다.
-exclude_rules = layout, aliasing, capitalisation, AM05, ST09, PG01
+exclude_rules = layout, aliasing, capitalisation, AM05, ST09, PG01, RF05, AM04
