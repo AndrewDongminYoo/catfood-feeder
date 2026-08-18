@@ -801,6 +801,32 @@ button:active:not(:disabled),
 .dossier-section > .learning-note {
   margin: 12px 0 0;
 }
+.dossier-fact summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+}
+.dossier-fact summary::-webkit-details-marker {
+  display: none;
+}
+.proof-quote {
+  grid-column: 1 / -1;
+  margin: 8px 0 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--line);
+  color: var(--mut);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.55;
+}
+.proof-quote mark {
+  background: transparent;
+  font-weight: 700;
+  text-decoration: underline;
+}
 .evidence-list,
 .unknown-list ul {
   display: grid;

@@ -1,9 +1,20 @@
-import type { FoodWithBrand } from "@/lib/catalog";
-import { type EvidenceTone, nutritionFacts } from "@/lib/catalog-presentation";
+import type { FoodWithBrand, NutrientEvidence } from "@/lib/catalog";
+import {
+  type EvidenceTone,
+  type NutritionProof,
+  nutritionFacts,
+} from "@/lib/catalog-presentation";
+import { matchExcerptValue } from "@/lib/excerpt-match";
 import { RecallHistory } from "./recall-history";
 
-export function FoodDossier({ food }: { food: FoodWithBrand }) {
-  const facts = nutritionFacts(food);
+export function FoodDossier({
+  evidence = [],
+  food,
+}: {
+  evidence?: readonly NutrientEvidence[];
+  food: FoodWithBrand;
+}) {
+  const facts = nutritionFacts(food, evidence);
   const unknownFacts = facts.filter((fact) => fact.evidence.tone === "unknown");
 
   return (
@@ -15,19 +26,36 @@ export function FoodDossier({ food }: { food: FoodWithBrand }) {
           점값을 뜻하지 않습니다.
         </p>
         <div className="dossier-facts">
-          {facts.map((fact) => (
-            <div className="dossier-fact" key={fact.key}>
-              <div>
-                <span>{fact.label}</span>
-                <strong>{fact.value}</strong>
+          {facts.map((fact) =>
+            fact.proof ? (
+              <details className="dossier-fact" key={fact.key}>
+                <summary>
+                  <div>
+                    <span>{fact.label}</span>
+                    <strong>{fact.value}</strong>
+                  </div>
+                  <EvidenceState
+                    label={fact.evidence.label}
+                    tone={fact.evidence.tone}
+                  />
+                  {fact.note && <p className="learning-note">{fact.note}</p>}
+                </summary>
+                <ProofDetail proof={fact.proof} />
+              </details>
+            ) : (
+              <div className="dossier-fact" key={fact.key}>
+                <div>
+                  <span>{fact.label}</span>
+                  <strong>{fact.value}</strong>
+                </div>
+                <EvidenceState
+                  label={fact.evidence.label}
+                  tone={fact.evidence.tone}
+                />
+                {fact.note && <p className="learning-note">{fact.note}</p>}
               </div>
-              <EvidenceState
-                label={fact.evidence.label}
-                tone={fact.evidence.tone}
-              />
-              {fact.note && <p className="learning-note">{fact.note}</p>}
-            </div>
-          ))}
+            ),
+          )}
         </div>
       </section>
 
@@ -92,5 +120,43 @@ function EvidenceState({ label, tone }: { label: string; tone: EvidenceTone }) {
     <span className="evidence-state" data-tone={tone}>
       {label}
     </span>
+  );
+}
+
+function captureMethodLabel(method: string) {
+  if (method === "manual") return "수동 입력";
+  if (method === "fetch") return "자동 수집";
+  return method;
+}
+
+function ProofQuote({ excerpt, value }: { excerpt: string; value: number }) {
+  const marked = matchExcerptValue(excerpt, value);
+  if (!marked)
+    return <blockquote className="proof-quote">{excerpt}</blockquote>;
+  return (
+    <blockquote className="proof-quote">
+      {marked.before}
+      <mark>{marked.match}</mark>
+      {marked.after}
+    </blockquote>
+  );
+}
+
+function ProofDetail({ proof }: { proof: NutritionProof }) {
+  if (proof.kind === "computed") {
+    return <p className="learning-note">{proof.formula}</p>;
+  }
+  return (
+    <>
+      <ProofQuote excerpt={proof.excerpt} value={proof.value} />
+      <p className="learning-note">
+        <a href={proof.url} rel="noreferrer" target="_blank">
+          원문 보기
+        </a>
+        {" · "}
+        {new Date(proof.capturedAt).toLocaleDateString("ko-KR")} 수집 ·{" "}
+        {captureMethodLabel(proof.captureMethod)}
+      </p>
+    </>
   );
 }

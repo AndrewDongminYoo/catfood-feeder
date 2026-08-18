@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { notFound } from "next/navigation";
 import { FoodDossier } from "@/components/food-dossier";
-import { getFood } from "@/lib/catalog";
+import { getFood, getFoodEvidence } from "@/lib/catalog";
 
 export const revalidate = 3600;
 
@@ -12,7 +12,10 @@ export default async function FoodDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const food = await getFood(Number(id));
+  const [food, evidence] = await Promise.all([
+    getFood(Number(id)),
+    getFoodEvidence(Number(id)),
+  ]);
   if (!food) notFound();
 
   return (
@@ -29,7 +32,7 @@ export default async function FoodDetailPage({
           </Link>
         </p>
       </header>
-      <FoodDossier food={food} />
+      <FoodDossier evidence={evidence} food={food} />
     </main>
   );
 }

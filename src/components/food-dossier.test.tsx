@@ -126,4 +126,54 @@ describe("FoodDossier", () => {
       screen.getByText("이 제품·로트의 해당 여부는 확인되지 않았습니다."),
     ).toBeTruthy();
   });
+
+  it("expands a quoted fact to its excerpt, source, and capture time", () => {
+    render(
+      <FoodDossier
+        food={SAMPLE_FOODS[0]!}
+        evidence={[
+          {
+            captured_at: "2026-08-18T00:00:00Z",
+            excerpt: "Crude Protein 36.00%",
+            nutrient_key: "protein_pct",
+            source: {
+              capture_method: "fetch",
+              kind: "manufacturer",
+              url: "https://example.test/label",
+            },
+            value: SAMPLE_FOODS[0]!.protein_pct!,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("36.00").tagName).toBe("MARK");
+    expect(
+      document.querySelector('a[href="https://example.test/label"]'),
+    ).toBeTruthy();
+  });
+
+  it("renders an unmatched excerpt without marking any number", () => {
+    render(
+      <FoodDossier
+        food={SAMPLE_FOODS[0]!}
+        evidence={[
+          {
+            captured_at: "2026-08-18T00:00:00Z",
+            excerpt: "Crude Protein not stated",
+            nutrient_key: "protein_pct",
+            source: {
+              capture_method: "fetch",
+              kind: "manufacturer",
+              url: "https://example.test/label",
+            },
+            value: SAMPLE_FOODS[0]!.protein_pct!,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Crude Protein not stated")).toBeTruthy();
+    expect(document.querySelector("mark")).toBeNull();
+  });
 });
