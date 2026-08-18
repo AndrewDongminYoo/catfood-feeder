@@ -258,4 +258,19 @@ describe("nutritionFacts proofs", () => {
 
     expect(facts.find((fact) => fact.key === "protein_pct")?.proof).toBeNull();
   });
+
+  it("컬럼 스케일 안의 정밀도 차이는 어긋남으로 보지 않는다", () => {
+    // foods 는 numeric(_,2), 근거 원장은 라벨의 원본 정밀도를 보존한다.
+    // supabase/tests/publication_precision_test.sql 이 "인 0.895% 이상" 을
+    // 0.90 으로 저장하는 경로를 고정해 두었다.
+    const caP = nutritionFacts({ ...food, phosphorus_pct: 0.9 }, [
+      evidenceRow("phosphorus_pct", 0.895, "인 0.895% 이상"),
+    ]).find((fact) => fact.key === "ca_p_ratio")?.proof;
+
+    if (caP?.kind !== "computed") throw new Error("computed proof expected");
+    expect(
+      caP.inputs.find((input) => input.key === "phosphorus_pct")?.proof
+        ?.excerpt,
+    ).toBe("인 0.895% 이상");
+  });
 });

@@ -91,6 +91,14 @@ export function evidenceState(
   }
 }
 
+// foods 의 영양 컬럼은 전부 numeric(_,2) 이고 근거 원장은 라벨의 원본 정밀도를
+// 그대로 보존한다 — "인 0.895% 이상" 은 컬럼에 0.90 으로 저장된다. 그래서 두 값을
+// 정밀도 그대로 비교하면 정당한 근거가 통째로 사라진다.
+// `publish_food_draft` 도 round(v, 2) 로 비교하므로 같은 스케일에서 본다. 반올림
+// 대신 허용 오차를 쓰는 것은 JS 의 이진 부동소수점 반올림이 Postgres 의 numeric
+// 반올림과 경계값에서 갈리기 때문이다 — 갈리는 쪽으로는 인용을 붙이지 않는다.
+const COLUMN_SCALE_TOLERANCE = 0.005 + 1e-9;
+
 // 표시값과 인용문의 값이 어긋나면 인용을 붙이지 않는다. 두 값은 각자 1시간짜리
 // 캐시(`public-foods` / `public-food-evidence`)를 거쳐 서로 다른 시점을 담을 수
 // 있고, 위에 적힌 수치와 다른 숫자를 표시하는 근거는 스스로를 반증한다.
@@ -98,7 +106,8 @@ function quotedProof(
   evidence: NutrientEvidence | undefined,
   value: number | null,
 ): QuotedProof | null {
-  if (!evidence || value === null || evidence.value !== value) return null;
+  if (!evidence || value === null) return null;
+  if (Math.abs(evidence.value - value) > COLUMN_SCALE_TOLERANCE) return null;
   return {
     captureMethod: evidence.source.capture_method,
     capturedAt: evidence.captured_at,
