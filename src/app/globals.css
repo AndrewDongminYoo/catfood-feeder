@@ -753,12 +753,12 @@ button:active:not(:disabled),
   border-radius: var(--r-control);
   background: var(--bg);
 }
-.dossier-fact > div > span {
+.dossier-fact div > span {
   display: block;
   color: var(--mut);
   font-size: 11px;
 }
-.dossier-fact > div > strong {
+.dossier-fact div > strong {
   display: block;
   margin-top: 3px;
   font-size: 15px;
