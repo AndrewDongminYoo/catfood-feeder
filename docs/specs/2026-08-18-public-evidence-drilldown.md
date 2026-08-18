@@ -95,12 +95,15 @@ An excerpt is never rendered detached from the source that produced it.
 
 ## Section 2: Read Path
 
-Add `getFoodEvidence(id)` to `src/lib/catalog.ts`, wrapped in `react.cache` like the existing catalog reads, joining current evidence rows to their source rows.
+Add `getFoodEvidence(id)` to `src/lib/catalog.ts`, joining current evidence rows to their source rows.
+
+It caches the way the existing catalog reads cache: `unstable_cache` over a `createPublicClient()` call, with the same one-hour `revalidate` and its own tag, matching `loadCachedPublicFoods`.
 
 It is called from the detail page only.
 The list page keeps its current query: pulling evidence for 349 rows to render a list that shows none of it would be waste.
 
-Pagination follows the existing `selectAll` helper already used by `publication-review.ts`.
+The result is bounded by the number of nutrient keys for one food, so it needs no pagination.
+The `selectAll` helper that `publication-review.ts` uses exists for multi-food admin sweeps and would be ceremony here.
 
 Because Section 1 grants `food_sources` per column, every select against it must enumerate columns.
 A column-level grant does not silently drop ungranted columns: a `select *` that reaches one fails the whole statement with `permission denied for table food_sources`.
@@ -163,11 +166,36 @@ No JavaScript and no library: the element carries its own keyboard and screen-re
 An expanded quoted fact shows the excerpt as a blockquote, the source URL, the capture timestamp, and the capture method.
 An expanded computed fact shows the formula and its inputs.
 
+### Marking the Number Inside the Quote
+
+The excerpt is the sentence; the value is the number taken out of it.
+Marking that number where it sits makes the derivation legible without a caption: a reader sees `조회분 7% 이하` with `7` marked and needs no explanation of what was read from where.
+
+Matching is numeric, not textual.
+A literal substring search on the stored value fails on 34 of the 833 published rows, because a value of `14` was read from `14.00%` and a value of `9` from `9.0%`.
+
+The matcher this needs already exists.
+`excerptContainsValue` in `src/lib/source-extraction.ts` normalizes NFKC, reads a decimal comma as a decimal point rather than deleting it, and already locates the token's offset.
+Its numeric core moves to a shared module that both the extraction path and the presentation path import, so no second number parser enters the codebase.
+
+The extraction-side function keeps its own behavior unchanged.
+It rejects an excerpt carrying more than one numeric token, which is a correctness guard at capture time and must not be loosened to serve a display feature.
+The display matcher is a separate, more permissive function over the same normalizer: it wraps the token whose normalized value equals the evidence value.
+
+That distinction is load-bearing rather than academic.
+Of the 833 published excerpts, 832 carry exactly one numeric token; the single exception is `Metabolizable Energy (ME) 3,200 kcal/kg; 320 kcal/cup` for a value of 3200, where matching on value selects the correct token and a single-token rule would mark nothing.
+
+Verified against production on 2026-08-18: this resolves all 833 rows, including every one the substring search missed.
+
+When no token parses equal to the value, the excerpt renders unmarked.
+A wrong number is never marked, because pointing at the wrong part of the sentence is worse than pointing at none of it.
+
 Styling reuses the existing hand-rolled classes in `src/app/globals.css` per `DESIGN.md`; no new design tokens.
 
 ## Section 6: Verification
 
 - `src/lib/catalog-presentation.test.ts` covers the fact-to-proof mapping and both branches of the derived-value discriminator.
+- A focused test covers the excerpt marker: a trailing-zero case such as value `14` against `Crude Fat 14.00%`, a decimal-comma case, and the no-match case that must render unmarked rather than mark the wrong token.
 - A pgTAP suite in `supabase/tests/`, following the existing `foods_publication_rls_test.sql` pattern, asserts that `anon` reads evidence for a published food, cannot read evidence for a draft food, and cannot select `captured_text` from `food_sources`.
 - `src/lib/fixtures.test.ts` must stay green; the ACANA Grasslands case is unaffected because no domain math changes.
 
