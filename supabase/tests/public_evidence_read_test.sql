@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(8);
+SELECT plan(10);
 
 INSERT INTO public.brands (id, name, ko_name, manufacturer)
 OVERRIDING SYSTEM VALUE
@@ -41,7 +41,14 @@ VALUES
    '2026-08-18 00:00:00+00'::timestamptz, true),
   -- 교체된(superseded) 근거 행. 발행된 사료에 달려 있어도 보이면 안 된다.
   (-93003, -93001, 'protein_pct', -93001, 34, 'Crude Protein 34.00%',
-   '2026-08-17 00:00:00+00'::timestamptz, false);
+   '2026-08-17 00:00:00+00'::timestamptz, false),
+  -- current 이지만 은퇴한 캡처를 가리키는 근거. 인용문은 그것을 낳은 소스 없이
+  -- 공개되지 않아야 하고, 그 규칙은 앱의 조인이 아니라 정책이 지켜야 한다.
+  (-93004, -93001, 'fat_pct', -93003, 18, 'Crude Fat 18.00%',
+   '2026-08-18 00:00:00+00'::timestamptz, true),
+  -- current 이지만 실패한 캡처를 가리키는 근거.
+  (-93005, -93001, 'fiber_pct', -93004, 4, 'Crude Fibre 4.00%',
+   '2026-08-18 00:00:00+00'::timestamptz, true);
 
 -- Supabase Cloud grants these table/column privileges to the API roles via
 -- schema default privileges; a local `supabase start` does not, so anon would
@@ -98,6 +105,18 @@ SELECT is(
   (SELECT count(*)::int FROM public.food_nutrient_evidence WHERE id = -93003),
   0,
   'anon cannot read a superseded evidence row of a published food'
+);
+
+SELECT is(
+  (SELECT count(*)::int FROM public.food_nutrient_evidence WHERE id = -93004),
+  0,
+  'anon cannot read evidence whose backing source was retired'
+);
+
+SELECT is(
+  (SELECT count(*)::int FROM public.food_nutrient_evidence WHERE id = -93005),
+  0,
+  'anon cannot read evidence whose backing source failed to fetch'
 );
 
 SELECT throws_ok(
