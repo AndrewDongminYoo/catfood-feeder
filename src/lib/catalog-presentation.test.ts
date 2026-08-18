@@ -59,7 +59,7 @@ describe("catalog presentation", () => {
       label: "Ca:P",
       note: expect.any(String),
       proof: {
-        formula: "1.9 ÷ 1.3 = 1.462",
+        formula: "1.9 ÷ 1.3 → 1.462 (소수점 셋째 자리 반올림)",
         inputs: [
           {
             evidence: { label: "제조사 표기", tone: "declared" },

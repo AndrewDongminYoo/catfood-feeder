@@ -196,7 +196,9 @@ function carbProof(
   if (terms.some((term) => term === null)) return null;
 
   return {
-    formula: `100 − (${terms.join(" + ")} + ${ash.value}${ash.estimated ? " 추정" : ""}) = ${food.carb_pct}`,
+    // 등식으로 쓰지 않는다 — computeDerived 가 소수점 첫째 자리로 반올림하므로
+    // 좌변과 우변이 실제로 같지 않을 수 있다. 반올림을 밝히는 편이 정확하다.
+    formula: `100 − (${terms.join(" + ")} + ${ash.value}${ash.estimated ? " 추정" : ""}) → ${food.carb_pct} (소수점 첫째 자리 반올림)`,
     // 회분 항은 원본 컬럼이 아니라 resolveAsh 결과가 수식에 들어간다. 폴백으로 받은
     // 9.0%는 인용할 구절이 없으므로, 그 자리에서 "추정값"이라고만 말한다 —
     // 같은 값을 가진 지난 근거 행이 있어도 붙이지 않는다.
@@ -250,7 +252,9 @@ function caPRatioProof(
     return null;
   }
   return {
-    formula: `${food.calcium_pct} ÷ ${food.phosphorus_pct} = ${food.ca_p_ratio}`,
+    // 나눗셈은 대개 나누어떨어지지 않는다 — 1.9 ÷ 1.3 은 1.4615… 이고 컬럼은
+    // 소수점 셋째 자리로 반올림해 저장한다. 등식은 거짓이 되므로 쓰지 않는다.
+    formula: `${food.calcium_pct} ÷ ${food.phosphorus_pct} → ${food.ca_p_ratio} (소수점 셋째 자리 반올림)`,
     inputs: [
       proofInput(
         "calcium_pct",
