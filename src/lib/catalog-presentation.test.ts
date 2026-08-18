@@ -136,7 +136,7 @@ describe("nutritionFacts proofs", () => {
     ).toBeNull();
   });
 
-  it("탄수화물 출처 태그가 계산값이 아니면 근거 없이 수식을 붙이지 않는다", () => {
+  it("탄수화물이 제조사 표기값이면 근거 없이 수식을 붙이지 않는다", () => {
     const manufacturerStated = {
       ...food,
       nutrient_sources: {
@@ -150,5 +150,36 @@ describe("nutritionFacts proofs", () => {
         (fact) => fact.key === "carb_pct",
       )?.proof,
     ).toBeNull();
+  });
+
+  it("익스트루전 회분 폴백을 거친 추정 탄수화물도 계산 근거를 붙인다 (Ruling B 개정)", () => {
+    // ash_pct가 null이라 resolveAsh가 9.0% 익스트루전 기본값으로 대체하는 경우.
+    // 쓰기 경로(derivedNutrientSources)는 이 경우 carb_pct 태그를 "derived"가
+    // 아니라 "estimated"로 붙인다 — 두 태그 모두 evidence 없음 검사와 함께라야
+    // 계산값임을 뜻한다.
+    const estimatedAsh = {
+      ...food,
+      ash_pct: null,
+      nutrient_sources: {
+        ...food.nutrient_sources,
+        ash_pct: undefined,
+        carb_pct: "estimated" as const,
+      },
+    };
+
+    const proof = nutritionFacts(estimatedAsh, []).find(
+      (fact) => fact.key === "carb_pct",
+    )?.proof;
+
+    expect(proof?.kind).toBe("computed");
+    expect(proof).toMatchObject({
+      inputs: [
+        "protein_pct",
+        "fat_pct",
+        "fiber_pct",
+        "moisture_pct",
+        "ash_pct",
+      ],
+    });
   });
 });

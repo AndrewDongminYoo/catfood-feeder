@@ -77,14 +77,17 @@ function quotedProof(
 // 탄수화물은 no evidence 만으로는 "계산값"이라 단정할 수 없다 — Supabase 미설정 시
 // SAMPLE_FOODS 폴백에는 evidence 행이 애초에 존재하지 않으므로, 제조사가 명시한
 // 값도 이 조건만으로는 역산값처럼 보이게 된다. nutrient_sources.carb_pct가
-// "derived"일 때만 수식을 붙인다.
+// "derived" 또는 "estimated"(익스트루전 회분 폴백 경유)일 때만 수식을 붙인다 —
+// 두 태그 모두 "제조사/국내 라벨이 직접 쓰지 않았다"는 뜻이고, evidence 없음
+// 검사가 이미 실측(manufacturer/kr_label) 오분류를 막는다.
 function carbProof(
   food: FoodWithBrand,
   evidence: NutrientEvidence | undefined,
 ): NutritionProof | null {
   const quoted = quotedProof(evidence);
   if (quoted) return quoted;
-  if (food.nutrient_sources.carb_pct !== "derived") return null;
+  const carbSource = food.nutrient_sources.carb_pct;
+  if (carbSource !== "derived" && carbSource !== "estimated") return null;
   if (food.carb_pct === null) return null;
 
   const ash = resolveAsh(
