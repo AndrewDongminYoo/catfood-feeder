@@ -90,9 +90,13 @@ If a later revision wants an "unchanged since" marker, it adds the column to thi
 Restricting `food_sources` to current, fetched rows only works while every current evidence row points at one.
 Measured on 2026-08-18 across all 833 current evidence rows on published foods: none referenced a missing, retired, or unfetched source.
 
-The policy does not enforce that invariant, and a past defect in this area is recorded in the evidence-source currency project memory.
-So the read path treats a missing source join exactly as it treats an absent evidence row: the fact carries no `proof`, and the existing badge falls through to its established `tone: "unknown"` / `미기록` state.
-An excerpt is never rendered detached from the source that produced it.
+The evidence policy enforces that invariant rather than assuming it: it requires a `food_sources` row for the same food to be visible, and because that subquery is itself subject to the source policy, a retired or failed capture takes its evidence with it.
+
+The condition deliberately does not repeat `is_current` and `fetch_status`.
+Those two columns are not granted to `anon`, so reading them inside the policy makes every evidence query fail with `permission denied for table food_sources`; the source policy already tests them, and leaning on it is both simpler and the only form that works.
+
+The read path keeps its inner join, so a row the policy would hide is also absent from the application's result: the fact carries no `proof` and the badge falls through to its established `tone: "unknown"` / `미기록` state.
+An excerpt is never rendered detached from the source that produced it, and that now holds for a direct Data API read as well as for the page.
 
 ## Section 2: Read Path
 
