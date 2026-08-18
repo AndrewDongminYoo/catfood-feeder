@@ -1,5 +1,10 @@
-import type { FoodWithBrand, NutrientSourceKey } from "@/lib/catalog";
+import type {
+  FoodWithBrand,
+  NutrientEvidence,
+  NutrientSourceKey,
+} from "@/lib/catalog";
 import type { Source } from "@/lib/domain";
+import { resolveAsh } from "@/lib/domain";
 import { formatKcal, formatPct, formatRatio } from "@/lib/format";
 
 export type EvidenceTone = "declared" | "estimated" | "derived" | "unknown";
@@ -11,12 +16,59 @@ export type EvidenceState = {
 
 export type NutritionPresentationKey = NutrientSourceKey | "ca_p_ratio";
 
+/** 공개 상세면이 쓰는 지표 이름. 계산 근거의 입력 항목도 같은 이름을 쓴다. */
+const NUTRITION_LABELS: Record<NutritionPresentationKey, string> = {
+  ash_pct: "조회분",
+  ca_p_ratio: "Ca:P",
+  calcium_pct: "칼슘",
+  carb_pct: "탄수화물",
+  energy_c_pct: "탄수화물 열량비",
+  energy_f_pct: "지방 열량비",
+  energy_p_pct: "단백질 열량비",
+  fat_pct: "지방",
+  fiber_pct: "조섬유",
+  kcal_per_kg: "열량 밀도",
+  moisture_pct: "수분",
+  phosphorus_pct: "인",
+  protein_pct: "단백질",
+};
+
+export type QuotedProof = {
+  kind: "quoted";
+  excerpt: string;
+  value: number;
+  url: string;
+  capturedAt: string;
+  captureMethod: string;
+};
+
+/**
+ * 계산 근거의 항 하나. 근거 행이 없는 항(익스트루전 회분 폴백이 대표적)은
+ * proof 가 null 이고, 그 사실은 evidence 배지가 그 자리에서 말한다.
+ */
+export type NutritionProofInput = {
+  key: NutritionPresentationKey;
+  label: string;
+  value: string;
+  evidence: EvidenceState;
+  proof: QuotedProof | null;
+};
+
+export type NutritionProof =
+  | QuotedProof
+  | {
+      kind: "computed";
+      formula: string;
+      inputs: readonly NutritionProofInput[];
+    };
+
 export type NutritionFact = {
   key: NutritionPresentationKey;
   label: string;
   value: string;
   evidence: EvidenceState;
   note: string | null;
+  proof: NutritionProof | null;
 };
 
 export function evidenceState(
@@ -39,64 +91,264 @@ export function evidenceState(
   }
 }
 
+// foods 의 영양 컬럼은 전부 numeric(_,2) 이고 근거 원장은 라벨의 원본 정밀도를
+// 그대로 보존한다 — "인 0.895% 이상" 은 컬럼에 0.90 으로 저장된다. 두 값을 정밀도
+// 그대로 비교하면 정당한 근거가 사라지고, 절대 거리로 비교하면 방향을 잃는다:
+// 0.895 와 0.905 는 0.90 에서 같은 거리에 있지만 컬럼에는 0.90 과 0.91 로 들어간다.
+// 그래서 `publish_food_draft` 와 같은 반올림을 하되, 부동소수점 산술은 쓰지 않는다 —
+// `Math.round(1.005 * 100)` 은 IEEE-754 오차로 100 이 되어 Postgres 의 1.01 과
+// 갈리고, 그 갈림은 어떤 상수로도 메울 수 없다. JSON 숫자는 왕복 가능한 최단 십진
+// 표기로 직렬화되므로 String(value) 가 원장에 적힌 자릿수를 그대로 되돌려 준다.
+const COLUMN_SCALE = 2;
+
+/** numeric(_,2) 캐스트와 같은 반올림을 십진 문자열 위에서 수행한다. */
+function toColumnScale(value: number): string | null {
+  if (!Number.isFinite(value)) return null;
+  const text = String(value);
+  // 지수 표기는 이 스케일의 영양 수치에 나타나지 않는다 — 나오면 비교를 포기한다.
+  if (text.includes("e") || text.includes("E")) return null;
+
+  const negative = text.startsWith("-");
+  const [whole = "0", fraction = ""] = (negative ? text.slice(1) : text).split(
+    ".",
+  );
+  const sign = negative ? "-" : "";
+  if (fraction.length <= COLUMN_SCALE) {
+    return `${sign}${whole}.${fraction.padEnd(COLUMN_SCALE, "0")}`;
+  }
+
+  // 버리는 첫 자리가 5 이상이면 0 에서 먼 쪽으로 올린다 — Postgres numeric 과 같다.
+  // 보관 자릿수는 가장 큰 컬럼(kcal_per_kg numeric(7,2))에서도 7자리라 Number 로
+  // 정확하다 — BigInt 는 tsconfig 의 target 아래에서 쓸 수 없기도 하다.
+  const kept = Number(`${whole}${fraction.slice(0, COLUMN_SCALE)}`);
+  if (!Number.isSafeInteger(kept)) return null;
+  const roundedUp = Number(fraction[COLUMN_SCALE]) >= 5 ? kept + 1 : kept;
+  const scaled = String(roundedUp).padStart(COLUMN_SCALE + 1, "0");
+  return `${sign}${scaled.slice(0, -COLUMN_SCALE)}.${scaled.slice(-COLUMN_SCALE)}`;
+}
+
+// 표시값과 인용문의 값이 어긋나면 인용을 붙이지 않는다. 두 값은 각자 1시간짜리
+// 캐시(`public-foods` / `public-food-evidence`)를 거쳐 서로 다른 시점을 담을 수
+// 있고, 위에 적힌 수치와 다른 숫자를 표시하는 근거는 스스로를 반증한다.
+function quotedProof(
+  evidence: NutrientEvidence | undefined,
+  value: number | null,
+): QuotedProof | null {
+  if (!evidence || value === null) return null;
+  const quoted = toColumnScale(evidence.value);
+  if (quoted === null || quoted !== toColumnScale(value)) return null;
+  return {
+    captureMethod: evidence.source.capture_method,
+    capturedAt: evidence.captured_at,
+    excerpt: evidence.excerpt,
+    kind: "quoted",
+    url: evidence.source.url,
+    value: evidence.value,
+  };
+}
+
+type EvidenceByKey = ReadonlyMap<string, NutrientEvidence>;
+
+function proofInput(
+  key: NutritionPresentationKey,
+  value: number | null,
+  source: Source | undefined,
+  evidence: NutrientEvidence | undefined,
+): NutritionProofInput {
+  return {
+    evidence: evidenceState(source, value),
+    key,
+    label: NUTRITION_LABELS[key],
+    proof: quotedProof(evidence, value),
+    value: formatPct(value),
+  };
+}
+
+// 탄수화물은 no evidence 만으로는 "계산값"이라 단정할 수 없다 — Supabase 미설정 시
+// SAMPLE_FOODS 폴백에는 evidence 행이 애초에 존재하지 않으므로, 제조사가 명시한
+// 값도 이 조건만으로는 역산값처럼 보이게 된다. nutrient_sources.carb_pct가
+// "derived" 또는 "estimated"(익스트루전 회분 폴백 경유)일 때만 수식을 붙인다 —
+// 두 태그 모두 "제조사/국내 라벨이 직접 쓰지 않았다"는 뜻이고, evidence 없음
+// 검사가 이미 실측(manufacturer/kr_label) 오분류를 막는다.
+function carbProof(
+  food: FoodWithBrand,
+  evidenceByKey: EvidenceByKey,
+): NutritionProof | null {
+  const quoted = quotedProof(evidenceByKey.get("carb_pct"), food.carb_pct);
+  if (quoted) return quoted;
+  const carbSource = food.nutrient_sources.carb_pct;
+  if (carbSource !== "derived" && carbSource !== "estimated") return null;
+  if (food.carb_pct === null) return null;
+
+  const ash = resolveAsh(
+    food.ash_pct,
+    food.nutrient_sources.ash_pct ?? null,
+    food.cooking_method,
+  );
+  if (ash.value === null) return null;
+
+  const terms = [
+    food.protein_pct,
+    food.fat_pct,
+    food.fiber_pct,
+    food.moisture_pct,
+  ];
+  if (terms.some((term) => term === null)) return null;
+
+  return {
+    // 등식으로 쓰지 않는다 — computeDerived 가 소수점 첫째 자리로 반올림하므로
+    // 좌변과 우변이 실제로 같지 않을 수 있다. 반올림을 밝히는 편이 정확하다.
+    formula: `100 − (${terms.join(" + ")} + ${ash.value}${ash.estimated ? " 추정" : ""}) → ${food.carb_pct} (소수점 첫째 자리 반올림)`,
+    // 회분 항은 원본 컬럼이 아니라 resolveAsh 결과가 수식에 들어간다. 폴백으로 받은
+    // 9.0%는 인용할 구절이 없으므로, 그 자리에서 "추정값"이라고만 말한다 —
+    // 같은 값을 가진 지난 근거 행이 있어도 붙이지 않는다.
+    inputs: [
+      proofInput(
+        "protein_pct",
+        food.protein_pct,
+        food.nutrient_sources.protein_pct,
+        evidenceByKey.get("protein_pct"),
+      ),
+      proofInput(
+        "fat_pct",
+        food.fat_pct,
+        food.nutrient_sources.fat_pct,
+        evidenceByKey.get("fat_pct"),
+      ),
+      proofInput(
+        "fiber_pct",
+        food.fiber_pct,
+        food.nutrient_sources.fiber_pct,
+        evidenceByKey.get("fiber_pct"),
+      ),
+      proofInput(
+        "moisture_pct",
+        food.moisture_pct,
+        food.nutrient_sources.moisture_pct,
+        evidenceByKey.get("moisture_pct"),
+      ),
+      proofInput(
+        "ash_pct",
+        ash.value,
+        ash.estimated ? "estimated" : food.nutrient_sources.ash_pct,
+        ash.estimated ? undefined : evidenceByKey.get("ash_pct"),
+      ),
+    ],
+    kind: "computed",
+  };
+}
+
+// Ca:P는 생성 컬럼이라 evidence 행이 애초에 없다 — source 태그가 아니라 입력값
+// 존재 여부로 게이팅한다.
+function caPRatioProof(
+  food: FoodWithBrand,
+  evidenceByKey: EvidenceByKey,
+): NutritionProof | null {
+  if (
+    food.calcium_pct === null ||
+    food.phosphorus_pct === null ||
+    food.ca_p_ratio === null
+  ) {
+    return null;
+  }
+  return {
+    // 나눗셈은 대개 나누어떨어지지 않는다 — 1.9 ÷ 1.3 은 1.4615… 이고 컬럼은
+    // 소수점 셋째 자리로 반올림해 저장한다. 등식은 거짓이 되므로 쓰지 않는다.
+    formula: `${food.calcium_pct} ÷ ${food.phosphorus_pct} → ${food.ca_p_ratio} (소수점 셋째 자리 반올림)`,
+    inputs: [
+      proofInput(
+        "calcium_pct",
+        food.calcium_pct,
+        food.nutrient_sources.calcium_pct,
+        evidenceByKey.get("calcium_pct"),
+      ),
+      proofInput(
+        "phosphorus_pct",
+        food.phosphorus_pct,
+        food.nutrient_sources.phosphorus_pct,
+        evidenceByKey.get("phosphorus_pct"),
+      ),
+    ],
+    kind: "computed",
+  };
+}
+
 function foodFact(
   food: FoodWithBrand,
   key: NutrientSourceKey,
-  label: string,
   value: number | null,
   format: (value: number | null) => string,
+  proof: NutritionProof | null,
   note: string | null = null,
 ): NutritionFact {
   return {
     evidence: evidenceState(food.nutrient_sources[key], value),
     key,
-    label,
+    label: NUTRITION_LABELS[key],
     note,
+    proof,
     value: format(value),
   };
 }
 
-export function nutritionFacts(food: FoodWithBrand): readonly NutritionFact[] {
+export function nutritionFacts(
+  food: FoodWithBrand,
+  evidence: readonly NutrientEvidence[] = [],
+): readonly NutritionFact[] {
+  const evidenceByKey = new Map(evidence.map((e) => [e.nutrient_key, e]));
   const carbSource = food.nutrient_sources.carb_pct;
 
   return [
-    foodFact(food, "protein_pct", "단백질", food.protein_pct, formatPct),
-    foodFact(food, "fat_pct", "지방", food.fat_pct, formatPct),
+    foodFact(
+      food,
+      "protein_pct",
+      food.protein_pct,
+      formatPct,
+      quotedProof(evidenceByKey.get("protein_pct"), food.protein_pct),
+    ),
+    foodFact(
+      food,
+      "fat_pct",
+      food.fat_pct,
+      formatPct,
+      quotedProof(evidenceByKey.get("fat_pct"), food.fat_pct),
+    ),
     foodFact(
       food,
       "carb_pct",
-      "탄수화물",
       food.carb_pct,
       formatPct,
+      carbProof(food, evidenceByKey),
       carbSource === "manufacturer" || carbSource === "kr_label"
         ? null
         : "탄수화물 수치는 근거 상태와 함께 확인하세요.",
     ),
-    foodFact(food, "kcal_per_kg", "열량 밀도", food.kcal_per_kg, formatKcal),
+    foodFact(
+      food,
+      "kcal_per_kg",
+      food.kcal_per_kg,
+      formatKcal,
+      quotedProof(evidenceByKey.get("kcal_per_kg"), food.kcal_per_kg),
+    ),
     foodFact(
       food,
       "energy_p_pct",
-      "단백질 열량비",
       food.energy_p_pct,
       formatPct,
+      null,
       "열량 구성은 생애주기와 신체 상태를 함께 고려해 읽으세요.",
     ),
-    foodFact(food, "energy_f_pct", "지방 열량비", food.energy_f_pct, formatPct),
-    foodFact(
-      food,
-      "energy_c_pct",
-      "탄수화물 열량비",
-      food.energy_c_pct,
-      formatPct,
-    ),
+    foodFact(food, "energy_f_pct", food.energy_f_pct, formatPct, null),
+    foodFact(food, "energy_c_pct", food.energy_c_pct, formatPct, null),
     {
       evidence: evidenceState(
         food.ca_p_ratio === null ? undefined : "derived",
         food.ca_p_ratio,
       ),
       key: "ca_p_ratio",
-      label: "Ca:P",
+      label: NUTRITION_LABELS.ca_p_ratio,
       note: "Ca:P는 높고 낮음보다 비율 자체를 확인할 지표입니다.",
+      proof: caPRatioProof(food, evidenceByKey),
       value: formatRatio(food.ca_p_ratio),
     },
   ];
