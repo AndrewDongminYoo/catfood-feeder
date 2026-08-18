@@ -127,16 +127,32 @@ The page keeps its one-hour ISR revalidation.
 `evidenceState` and its `tone`/`label` output are unchanged, so the existing badge behavior and its tests stay as they are.
 
 ```ts
+type QuotedProof = {
+  kind: "quoted";
+  excerpt: string;
+  value: number;
+  url: string;
+  capturedAt: string;
+  captureMethod: string;
+};
+
 proof?:
+  | QuotedProof
   | {
-      kind: "quoted";
-      excerpt: string;
-      url: string;
-      capturedAt: string;
-      captureMethod: string;
-    }
-  | { kind: "computed"; formula: string; inputs: NutritionPresentationKey[] };
+      kind: "computed";
+      formula: string;
+      inputs: readonly {
+        key: NutritionPresentationKey;
+        label: string;
+        value: string;
+        evidence: EvidenceState;
+        proof: QuotedProof | null;
+      }[];
+    };
 ```
+
+The computed variant's `inputs` carry resolved per-term proofs rather than bare keys, so Section 5 can render each input's own quote without the component reaching back into the evidence array.
+A term with no evidence row — the estimated ash term is the standing case — carries `proof: null` and states its status through `evidence` instead.
 
 ## Section 4: Derived Values
 

@@ -42,6 +42,11 @@ export function normalizeNumericToken(token: string): string | null {
   );
 }
 
+/** 표시 경로가 공유하는 정규화. 매치 실패로 원문을 그대로 그릴 때도 이걸 거쳐야 한 화면에 두 가지 정규화가 섞이지 않는다. */
+export function normalizeExcerpt(excerpt: string): string {
+  return excerpt.normalize("NFKC").replace(/−/g, "-");
+}
+
 /**
  * 표시용 매처. 값과 같은 토큰의 위치를 돌려준다.
  * 추출 시점 가드인 excerptContainsValue 와 달리 토큰이 여럿이어도 허용한다 —
@@ -52,7 +57,7 @@ export function matchExcerptValue(
   value: number,
 ): { before: string; match: string; after: string } | null {
   if (!Number.isFinite(value)) return null;
-  const normalized = excerpt.normalize("NFKC").replace(/−/g, "-");
+  const normalized = normalizeExcerpt(excerpt);
   if (normalized.includes("⁄")) return null;
   const target = normalizeDecimalLiteral(String(value));
   if (target === null) return null;

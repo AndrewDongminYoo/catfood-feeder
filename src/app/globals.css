@@ -801,16 +801,44 @@ button:active:not(:disabled),
 .dossier-section > .learning-note {
   margin: 12px 0 0;
 }
-.dossier-fact summary {
+.dossier-fact > details {
+  grid-column: 1 / -1;
+}
+/* 마지막 트랙은 펼침 화살표 자리 — 근거 없는 항(.proof-input)도 같은 폭을 비워
+   두어 배지 열이 어긋나지 않게 한다. */
+.dossier-fact summary,
+.proof-input {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto 7px;
   align-items: center;
   gap: 8px;
+}
+.dossier-fact summary {
   cursor: pointer;
   list-style: none;
 }
 .dossier-fact summary::-webkit-details-marker {
   display: none;
+}
+/* 이 행이 펼쳐진다는 유일한 신호. 새 색을 만들지 않고 기존 토큰만 쓴다. */
+.dossier-fact summary::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid var(--mut);
+  border-bottom: 2px solid var(--mut);
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 120ms ease;
+}
+.dossier-fact details[open] > summary::after {
+  transform: translateY(1px) rotate(-135deg);
+}
+.proof-inputs {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  padding-left: 10px;
+  border-left: 2px solid var(--line);
 }
 .proof-quote {
   grid-column: 1 / -1;

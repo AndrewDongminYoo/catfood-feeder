@@ -2,9 +2,11 @@ import type { FoodWithBrand, NutrientEvidence } from "@/lib/catalog";
 import {
   type EvidenceTone,
   type NutritionProof,
+  type NutritionProofInput,
+  type QuotedProof,
   nutritionFacts,
 } from "@/lib/catalog-presentation";
-import { matchExcerptValue } from "@/lib/excerpt-match";
+import { matchExcerptValue, normalizeExcerpt } from "@/lib/excerpt-match";
 import { RecallHistory } from "./recall-history";
 
 export function FoodDossier({
@@ -26,36 +28,31 @@ export function FoodDossier({
           점값을 뜻하지 않습니다.
         </p>
         <div className="dossier-facts">
-          {facts.map((fact) =>
-            fact.proof ? (
-              <details className="dossier-fact" key={fact.key}>
-                <summary>
-                  <div>
-                    <span>{fact.label}</span>
-                    <strong>{fact.value}</strong>
-                  </div>
-                  <EvidenceState
-                    label={fact.evidence.label}
-                    tone={fact.evidence.tone}
-                  />
-                  {fact.note && <p className="learning-note">{fact.note}</p>}
-                </summary>
-                <ProofDetail proof={fact.proof} />
-              </details>
-            ) : (
-              <div className="dossier-fact" key={fact.key}>
-                <div>
-                  <span>{fact.label}</span>
-                  <strong>{fact.value}</strong>
-                </div>
-                <EvidenceState
-                  label={fact.evidence.label}
-                  tone={fact.evidence.tone}
+          {facts.map((fact) => (
+            // 주의 문구는 summary 밖에 둔다 — summary 의 콘텐츠 모델은 phrasing
+            // content 이고, 안에 두면 접힌 상태에서도 펼침 컨트롤의 이름에 섞인다.
+            <div className="dossier-fact" key={fact.key}>
+              {fact.proof ? (
+                <details>
+                  <summary>
+                    <FactHead
+                      evidence={fact.evidence}
+                      label={fact.label}
+                      value={fact.value}
+                    />
+                  </summary>
+                  <ProofDetail proof={fact.proof} />
+                </details>
+              ) : (
+                <FactHead
+                  evidence={fact.evidence}
+                  label={fact.label}
+                  value={fact.value}
                 />
-                {fact.note && <p className="learning-note">{fact.note}</p>}
-              </div>
-            ),
-          )}
+              )}
+              {fact.note && <p className="learning-note">{fact.note}</p>}
+            </div>
+          ))}
         </div>
       </section>
 
@@ -129,10 +126,37 @@ function captureMethodLabel(method: string) {
   return method;
 }
 
+function FactHead({
+  evidence,
+  label,
+  value,
+}: {
+  evidence: { label: string; tone: EvidenceTone };
+  label: string;
+  value: string;
+}) {
+  return (
+    <>
+      <div>
+        <span>{label}</span>
+        <strong>{value}</strong>
+      </div>
+      <EvidenceState label={evidence.label} tone={evidence.tone} />
+    </>
+  );
+}
+
+// 매치가 없으면 원문을 그대로가 아니라 정규화한 문자열로 그린다 — 매치가 있을 때
+// 그리는 조각도 정규화된 문자열에서 잘라낸 것이라, 그러지 않으면 한 화면에 서로
+// 다른 정규화가 섞인다.
 function ProofQuote({ excerpt, value }: { excerpt: string; value: number }) {
   const marked = matchExcerptValue(excerpt, value);
   if (!marked)
-    return <blockquote className="proof-quote">{excerpt}</blockquote>;
+    return (
+      <blockquote className="proof-quote">
+        {normalizeExcerpt(excerpt)}
+      </blockquote>
+    );
   return (
     <blockquote className="proof-quote">
       {marked.before}
@@ -142,10 +166,7 @@ function ProofQuote({ excerpt, value }: { excerpt: string; value: number }) {
   );
 }
 
-function ProofDetail({ proof }: { proof: NutritionProof }) {
-  if (proof.kind === "computed") {
-    return <p className="learning-note">{proof.formula}</p>;
-  }
+function QuotedProofDetail({ proof }: { proof: QuotedProof }) {
   return (
     <>
       <ProofQuote excerpt={proof.excerpt} value={proof.value} />
@@ -159,4 +180,40 @@ function ProofDetail({ proof }: { proof: NutritionProof }) {
       </p>
     </>
   );
+}
+
+// 수식만으로는 "무엇에서 계산했는지"가 검증되지 않는다. 각 항을 그 항의 인용문까지
+// 펼칠 수 있게 하되, 인용할 근거가 없는 항(익스트루전 회분 폴백)은 빈 펼침 대신
+// 배지만 달린 줄로 남긴다.
+function ProofInput({ input }: { input: NutritionProofInput }) {
+  const head = (
+    <FactHead
+      evidence={input.evidence}
+      label={input.label}
+      value={input.value}
+    />
+  );
+  if (!input.proof) return <div className="proof-input">{head}</div>;
+  return (
+    <details>
+      <summary>{head}</summary>
+      <QuotedProofDetail proof={input.proof} />
+    </details>
+  );
+}
+
+function ProofDetail({ proof }: { proof: NutritionProof }) {
+  if (proof.kind === "computed") {
+    return (
+      <>
+        <p className="learning-note">{proof.formula}</p>
+        <div className="proof-inputs">
+          {proof.inputs.map((input) => (
+            <ProofInput input={input} key={input.key} />
+          ))}
+        </div>
+      </>
+    );
+  }
+  return <QuotedProofDetail proof={proof} />;
 }

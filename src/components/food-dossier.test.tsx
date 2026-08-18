@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { SAMPLE_FOODS } from "@/lib/fixtures";
 import { FoodDossier } from "./food-dossier";
@@ -138,7 +138,6 @@ describe("FoodDossier", () => {
             nutrient_key: "protein_pct",
             source: {
               capture_method: "fetch",
-              kind: "manufacturer",
               url: "https://example.test/label",
             },
             value: SAMPLE_FOODS[0]!.protein_pct!,
@@ -147,10 +146,109 @@ describe("FoodDossier", () => {
       />,
     );
 
-    expect(screen.getByText("36.00").tagName).toBe("MARK");
+    for (const mark of screen.getAllByText("36.00")) {
+      expect(mark.tagName).toBe("MARK");
+    }
     expect(
       document.querySelector('a[href="https://example.test/label"]'),
     ).toBeTruthy();
+  });
+
+  it("계산값을 수식과 각 입력 항목의 근거로 함께 펼친다", () => {
+    render(
+      <FoodDossier
+        food={acana}
+        evidence={[
+          {
+            captured_at: "2026-08-18T00:00:00Z",
+            excerpt: "Crude fiber (max.) 4 %",
+            nutrient_key: "fiber_pct",
+            source: {
+              capture_method: "fetch",
+              url: "https://example.test/label",
+            },
+            value: acana.fiber_pct!,
+          },
+        ]}
+      />,
+    );
+
+    const carbFormula = screen.getByText(/^100 − \(/);
+    const carbRow = carbFormula.closest("details");
+    expect(carbRow).toBeTruthy();
+    // 다섯 항이 모두 이름과 값으로 나타난다 — 수식만 보여 주는 상태가 아니다.
+    for (const label of ["단백질", "지방", "조섬유", "수분", "조회분"]) {
+      expect(within(carbRow!).getAllByText(label).length).toBeGreaterThan(0);
+    }
+    // 근거가 있는 항만 그 항의 인용문까지 펼쳐진다.
+    expect(within(carbRow!).getByText("4").tagName).toBe("MARK");
+    expect(within(carbRow!).queryByText("Crude Protein 36.00%")).toBeNull();
+  });
+
+  it("폴백으로 채운 회분 항을 인용 없이 추정값으로 밝힌다", () => {
+    render(
+      <FoodDossier
+        food={{
+          ...acana,
+          ash_pct: null,
+          nutrient_sources: {
+            ...acana.nutrient_sources,
+            ash_pct: undefined,
+            carb_pct: "estimated",
+          },
+        }}
+      />,
+    );
+
+    const carbRow = screen.getByText(/^100 − \(/).closest("details")!;
+    const ashTerm = within(carbRow)
+      .getByText("조회분")
+      .closest(".proof-input")!;
+    expect(ashTerm.textContent).toContain("9%");
+    expect(ashTerm.textContent).toContain("추정값");
+    // 인용할 구절이 없는 항은 빈 펼침이 아니라 배지만 달린 줄이다.
+    expect(ashTerm.closest("details")).toBe(carbRow);
+    expect(ashTerm.querySelector("blockquote")).toBeNull();
+  });
+
+  it("주의 문구를 접힌 상태에서도 보여 주되 펼침 컨트롤 안에 넣지 않는다", () => {
+    render(<FoodDossier food={acana} />);
+
+    const note = screen.getByText(
+      "탄수화물 수치는 근거 상태와 함께 확인하세요.",
+    );
+    // details 밖 — 접혀 있어도 보인다.
+    expect(note.closest("details")).toBeNull();
+    // summary 밖 — 펼침 컨트롤의 접근성 이름에 섞이지 않는다.
+    expect(note.closest("summary")).toBeNull();
+    const carbSummary = screen
+      .getByText(/^100 − \(/)
+      .closest("details")!
+      .querySelector("summary")!;
+    expect(carbSummary.textContent).not.toContain("탄수화물 수치는");
+  });
+
+  it("매치가 없는 인용문도 같은 정규화를 거쳐 그린다", () => {
+    render(
+      <FoodDossier
+        food={acana}
+        evidence={[
+          {
+            captured_at: "2026-08-18T00:00:00Z",
+            excerpt: "조단백질 ３９％",
+            nutrient_key: "protein_pct",
+            source: {
+              capture_method: "fetch",
+              url: "https://example.test/label",
+            },
+            value: acana.protein_pct!,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByText("조단백질 39%").length).toBeGreaterThan(0);
+    expect(screen.queryByText("조단백질 ３９％")).toBeNull();
   });
 
   it("renders an unmatched excerpt without marking any number", () => {
@@ -164,7 +262,6 @@ describe("FoodDossier", () => {
             nutrient_key: "protein_pct",
             source: {
               capture_method: "fetch",
-              kind: "manufacturer",
               url: "https://example.test/label",
             },
             value: SAMPLE_FOODS[0]!.protein_pct!,
@@ -173,7 +270,9 @@ describe("FoodDossier", () => {
       />,
     );
 
-    expect(screen.getByText("Crude Protein not stated")).toBeTruthy();
+    expect(
+      screen.getAllByText("Crude Protein not stated").length,
+    ).toBeGreaterThan(0);
     expect(document.querySelector("mark")).toBeNull();
   });
 });
