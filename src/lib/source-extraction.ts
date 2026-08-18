@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { computeDerived, NUTRIENT_FIELDS, validate } from "./domain";
+import { DECIMAL_COMMA, normalizeDecimalLiteral } from "./excerpt-match";
 import { isEvidenceExcerpt } from "./source-collection";
 import type { CookingMethod, NutrientKey, Source } from "./domain";
 import type { SourceKind } from "./source-collection";
@@ -284,13 +285,6 @@ export function validateExtractedEvidence(
     : evidenceBackedCandidates;
 }
 
-/**
- * 유럽 라벨의 소수점 쉼표("조섬유 2,5 %"). 쉼표 뒤 자릿수가 1~2개면 천 단위 묶음일
- * 수 없으므로(묶음은 정확히 3자리) 소수점으로 읽는 것 외에 다른 해석이 없다.
- * "1,500"처럼 3자리인 것은 여기 걸리지 않고 천 단위로 남는다 — 그 둘은 겹치지 않는다.
- */
-const DECIMAL_COMMA = /^-?\d+,\d{1,2}$/;
-
 function excerptContainsValue(excerpt: string, value: number): boolean {
   const normalizedExcerpt = excerpt.normalize("NFKC").replace(/−/g, "-");
   if (normalizedExcerpt.includes("⁄")) return false;
@@ -331,29 +325,6 @@ function excerptContainsValue(excerpt: string, value: number): boolean {
     Math.abs(value) <= Number.MAX_SAFE_INTEGER &&
     normalizedToken === normalizedValue
   );
-}
-
-function normalizeDecimalLiteral(value: string): string | null {
-  const match = value.match(/^(-?)(\d*)(?:\.(\d*))?(?:e([+-]?\d+))?$/i);
-  if (!match || (!match[2] && !match[3])) return null;
-  const sourceInteger = match[2] || "0";
-  const sourceFraction = match[3] ?? "";
-  const exponent = Number(match[4] ?? 0);
-  if (!Number.isSafeInteger(exponent)) return null;
-
-  const digits = `${sourceInteger}${sourceFraction}`;
-  const decimalIndex = sourceInteger.length + exponent;
-  const expanded =
-    decimalIndex <= 0
-      ? `0.${"0".repeat(-decimalIndex)}${digits}`
-      : decimalIndex >= digits.length
-        ? `${digits}${"0".repeat(decimalIndex - digits.length)}`
-        : `${digits.slice(0, decimalIndex)}.${digits.slice(decimalIndex)}`;
-  const [expandedInteger = "0", expandedFraction = ""] = expanded.split(".");
-  const integer = expandedInteger.replace(/^0+(?=\d)/, "") || "0";
-  const fraction = expandedFraction.replace(/0+$/, "");
-  const sign = match[1] === "-" && (integer !== "0" || fraction) ? "-" : "";
-  return `${sign}${integer}${fraction ? `.${fraction}` : ""}`;
 }
 
 function buildExtractionPrompt(
