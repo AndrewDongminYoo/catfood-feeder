@@ -94,16 +94,37 @@ export function evidenceState(
 // foods 의 영양 컬럼은 전부 numeric(_,2) 이고 근거 원장은 라벨의 원본 정밀도를
 // 그대로 보존한다 — "인 0.895% 이상" 은 컬럼에 0.90 으로 저장된다. 두 값을 정밀도
 // 그대로 비교하면 정당한 근거가 사라지고, 절대 거리로 비교하면 방향을 잃는다:
-// 0.895 와 0.905 는 0.90 에서 같은 거리에 있지만 컬럼에 저장되면 각각 0.90 과
-// 0.91 이 된다. 그래서 거리가 아니라 `publish_food_draft` 와 같은 반올림을 한다.
-const COLUMN_SCALE = 100;
+// 0.895 와 0.905 는 0.90 에서 같은 거리에 있지만 컬럼에는 0.90 과 0.91 로 들어간다.
+// 그래서 `publish_food_draft` 와 같은 반올림을 하되, 부동소수점 산술은 쓰지 않는다 —
+// `Math.round(1.005 * 100)` 은 IEEE-754 오차로 100 이 되어 Postgres 의 1.01 과
+// 갈리고, 그 갈림은 어떤 상수로도 메울 수 없다. JSON 숫자는 왕복 가능한 최단 십진
+// 표기로 직렬화되므로 String(value) 가 원장에 적힌 자릿수를 그대로 되돌려 준다.
+const COLUMN_SCALE = 2;
 
-/** numeric(_,2) 캐스트와 같은 반올림. Postgres numeric 은 0.5 를 0 에서 먼 쪽으로 올린다. */
-function roundToColumnScale(value: number): number {
-  return (
-    (Math.sign(value) * Math.round(Math.abs(value) * COLUMN_SCALE)) /
-    COLUMN_SCALE
+/** numeric(_,2) 캐스트와 같은 반올림을 십진 문자열 위에서 수행한다. */
+function toColumnScale(value: number): string | null {
+  if (!Number.isFinite(value)) return null;
+  const text = String(value);
+  // 지수 표기는 이 스케일의 영양 수치에 나타나지 않는다 — 나오면 비교를 포기한다.
+  if (text.includes("e") || text.includes("E")) return null;
+
+  const negative = text.startsWith("-");
+  const [whole = "0", fraction = ""] = (negative ? text.slice(1) : text).split(
+    ".",
   );
+  const sign = negative ? "-" : "";
+  if (fraction.length <= COLUMN_SCALE) {
+    return `${sign}${whole}.${fraction.padEnd(COLUMN_SCALE, "0")}`;
+  }
+
+  // 버리는 첫 자리가 5 이상이면 0 에서 먼 쪽으로 올린다 — Postgres numeric 과 같다.
+  // 보관 자릿수는 가장 큰 컬럼(kcal_per_kg numeric(7,2))에서도 7자리라 Number 로
+  // 정확하다 — BigInt 는 tsconfig 의 target 아래에서 쓸 수 없기도 하다.
+  const kept = Number(`${whole}${fraction.slice(0, COLUMN_SCALE)}`);
+  if (!Number.isSafeInteger(kept)) return null;
+  const roundedUp = Number(fraction[COLUMN_SCALE]) >= 5 ? kept + 1 : kept;
+  const scaled = String(roundedUp).padStart(COLUMN_SCALE + 1, "0");
+  return `${sign}${scaled.slice(0, -COLUMN_SCALE)}.${scaled.slice(-COLUMN_SCALE)}`;
 }
 
 // 표시값과 인용문의 값이 어긋나면 인용을 붙이지 않는다. 두 값은 각자 1시간짜리
@@ -114,8 +135,8 @@ function quotedProof(
   value: number | null,
 ): QuotedProof | null {
   if (!evidence || value === null) return null;
-  if (roundToColumnScale(evidence.value) !== roundToColumnScale(value))
-    return null;
+  const quoted = toColumnScale(evidence.value);
+  if (quoted === null || quoted !== toColumnScale(value)) return null;
   return {
     captureMethod: evidence.source.capture_method,
     capturedAt: evidence.captured_at,

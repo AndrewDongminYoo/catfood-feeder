@@ -286,4 +286,18 @@ describe("nutritionFacts proofs", () => {
       caP.inputs.find((input) => input.key === "phosphorus_pct")?.proof,
     ).toBeNull();
   });
+
+  it("이진 부동소수점이 갈리는 자리에서도 컬럼 반올림을 따른다", () => {
+    // Math.round(1.005 * 100) 은 IEEE-754 오차로 100 이 되지만 Postgres 의
+    // numeric(_,2) 는 1.01 로 올린다. 발행 경로가 1.01 을 저장했으므로 이 근거는
+    // 표시값과 어긋나지 않는다 — 인용이 붙어야 한다.
+    const caP = nutritionFacts({ ...food, calcium_pct: 1.01 }, [
+      evidenceRow("calcium_pct", 1.005, "칼슘 1.005% 이상"),
+    ]).find((fact) => fact.key === "ca_p_ratio")?.proof;
+
+    if (caP?.kind !== "computed") throw new Error("computed proof expected");
+    expect(
+      caP.inputs.find((input) => input.key === "calcium_pct")?.proof?.excerpt,
+    ).toBe("칼슘 1.005% 이상");
+  });
 });
