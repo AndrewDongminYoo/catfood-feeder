@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(5);
+SELECT plan(8);
 
 INSERT INTO public.brands (id, name, ko_name, manufacturer)
 OVERRIDING SYSTEM VALUE
@@ -15,13 +15,21 @@ VALUES
   (-93002, -93001, 'pgTAP draft food', NULL, NULL, NULL);
 
 INSERT INTO public.food_sources
-  (id, food_id, kind, url, capture_method, fetch_status, captured_at, content_hash, captured_text, is_current)
+  (id, food_id, kind, url, capture_method, fetch_status, failure_code, captured_at, content_hash, captured_text, is_current)
 OVERRIDING SYSTEM VALUE
 VALUES
-  (-93001, -93001, 'manufacturer', 'https://example.test/published', 'fetch', 'fetched',
+  (-93001, -93001, 'manufacturer', 'https://example.test/published', 'fetch', 'fetched', NULL,
    '2026-08-18 00:00:00+00'::timestamptz, 'pgtap-hash-93001', 'published body', true),
-  (-93002, -93002, 'manufacturer', 'https://example.test/draft', 'fetch', 'fetched',
-   '2026-08-18 00:00:00+00'::timestamptz, 'pgtap-hash-93002', 'draft body', true);
+  (-93002, -93002, 'manufacturer', 'https://example.test/draft', 'fetch', 'fetched', NULL,
+   '2026-08-18 00:00:00+00'::timestamptz, 'pgtap-hash-93002', 'draft body', true),
+  -- 발행된 사료에 달렸지만 은퇴한 출처. is_current 절은 이 프로젝트에서 실제로
+  -- defect 이 난 적이 있는 절이라 따로 못 박는다.
+  (-93003, -93001, 'manufacturer', 'https://example.test/retired', 'fetch', 'fetched', NULL,
+   '2026-08-17 00:00:00+00'::timestamptz, 'pgtap-hash-93003', 'retired body', false),
+  -- 수집에 실패한 출처. capture_state 제약이 failure_code 를 요구하고 본문 3열을
+  -- NULL 로 못 박는다 — 인용할 구절이 애초에 없는 행이다.
+  (-93004, -93001, 'manufacturer', 'https://example.test/failed', 'fetch', 'failed', 'http_404',
+   NULL, NULL, NULL, true);
 
 INSERT INTO public.food_nutrient_evidence
   (id, food_id, nutrient_key, source_id, value, excerpt, captured_at, is_current)
@@ -30,7 +38,10 @@ VALUES
   (-93001, -93001, 'protein_pct', -93001, 36, 'Crude Protein 36.00%',
    '2026-08-18 00:00:00+00'::timestamptz, true),
   (-93002, -93002, 'protein_pct', -93002, 30, 'Crude Protein 30.00%',
-   '2026-08-18 00:00:00+00'::timestamptz, true);
+   '2026-08-18 00:00:00+00'::timestamptz, true),
+  -- 교체된(superseded) 근거 행. 발행된 사료에 달려 있어도 보이면 안 된다.
+  (-93003, -93001, 'protein_pct', -93001, 34, 'Crude Protein 34.00%',
+   '2026-08-17 00:00:00+00'::timestamptz, false);
 
 -- Supabase Cloud grants these table/column privileges to the API roles via
 -- schema default privileges; a local `supabase start` does not, so anon would
@@ -67,6 +78,26 @@ SELECT is(
   (SELECT count(*)::int FROM public.food_sources WHERE food_id = -93002),
   0,
   'anon cannot read the source of a draft food'
+);
+
+-- is_current 와 fetch_status 는 컬럼 권한에 없다. anon 이 그 컬럼으로 필터하면
+-- RLS 가 아니라 42501 이 나므로, 행은 id 로만 지목한다.
+SELECT is(
+  (SELECT count(*)::int FROM public.food_sources WHERE id = -93003),
+  0,
+  'anon cannot read a superseded source of a published food'
+);
+
+SELECT is(
+  (SELECT count(*)::int FROM public.food_sources WHERE id = -93004),
+  0,
+  'anon cannot read a failed-fetch source of a published food'
+);
+
+SELECT is(
+  (SELECT count(*)::int FROM public.food_nutrient_evidence WHERE id = -93003),
+  0,
+  'anon cannot read a superseded evidence row of a published food'
 );
 
 SELECT throws_ok(
