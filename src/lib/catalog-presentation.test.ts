@@ -273,4 +273,17 @@ describe("nutritionFacts proofs", () => {
         ?.excerpt,
     ).toBe("인 0.895% 이상");
   });
+
+  it("컬럼이 다른 값으로 반올림되는 근거는 인용하지 않는다", () => {
+    // 0.895 와 0.905 는 0.90 에서 절대 거리가 같지만, numeric(_,2) 로 저장하면
+    // 각각 0.90 과 0.91 이 된다 — 거리로 비교하면 이 둘을 구분할 수 없다.
+    const caP = nutritionFacts({ ...food, phosphorus_pct: 0.9 }, [
+      evidenceRow("phosphorus_pct", 0.905, "인 0.905% 이상"),
+    ]).find((fact) => fact.key === "ca_p_ratio")?.proof;
+
+    if (caP?.kind !== "computed") throw new Error("computed proof expected");
+    expect(
+      caP.inputs.find((input) => input.key === "phosphorus_pct")?.proof,
+    ).toBeNull();
+  });
 });

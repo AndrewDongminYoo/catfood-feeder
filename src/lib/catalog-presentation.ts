@@ -92,12 +92,19 @@ export function evidenceState(
 }
 
 // foods 의 영양 컬럼은 전부 numeric(_,2) 이고 근거 원장은 라벨의 원본 정밀도를
-// 그대로 보존한다 — "인 0.895% 이상" 은 컬럼에 0.90 으로 저장된다. 그래서 두 값을
-// 정밀도 그대로 비교하면 정당한 근거가 통째로 사라진다.
-// `publish_food_draft` 도 round(v, 2) 로 비교하므로 같은 스케일에서 본다. 반올림
-// 대신 허용 오차를 쓰는 것은 JS 의 이진 부동소수점 반올림이 Postgres 의 numeric
-// 반올림과 경계값에서 갈리기 때문이다 — 갈리는 쪽으로는 인용을 붙이지 않는다.
-const COLUMN_SCALE_TOLERANCE = 0.005 + 1e-9;
+// 그대로 보존한다 — "인 0.895% 이상" 은 컬럼에 0.90 으로 저장된다. 두 값을 정밀도
+// 그대로 비교하면 정당한 근거가 사라지고, 절대 거리로 비교하면 방향을 잃는다:
+// 0.895 와 0.905 는 0.90 에서 같은 거리에 있지만 컬럼에 저장되면 각각 0.90 과
+// 0.91 이 된다. 그래서 거리가 아니라 `publish_food_draft` 와 같은 반올림을 한다.
+const COLUMN_SCALE = 100;
+
+/** numeric(_,2) 캐스트와 같은 반올림. Postgres numeric 은 0.5 를 0 에서 먼 쪽으로 올린다. */
+function roundToColumnScale(value: number): number {
+  return (
+    (Math.sign(value) * Math.round(Math.abs(value) * COLUMN_SCALE)) /
+    COLUMN_SCALE
+  );
+}
 
 // 표시값과 인용문의 값이 어긋나면 인용을 붙이지 않는다. 두 값은 각자 1시간짜리
 // 캐시(`public-foods` / `public-food-evidence`)를 거쳐 서로 다른 시점을 담을 수
@@ -107,7 +114,8 @@ function quotedProof(
   value: number | null,
 ): QuotedProof | null {
   if (!evidence || value === null) return null;
-  if (Math.abs(evidence.value - value) > COLUMN_SCALE_TOLERANCE) return null;
+  if (roundToColumnScale(evidence.value) !== roundToColumnScale(value))
+    return null;
   return {
     captureMethod: evidence.source.capture_method,
     capturedAt: evidence.captured_at,
