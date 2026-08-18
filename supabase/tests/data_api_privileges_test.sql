@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(67);
+SELECT plan(69);
 
 SELECT table_privs_are('public', 'brands', 'anon', ARRAY['SELECT']::name[], 'anon can read brands');
 SELECT table_privs_are('public', 'foods', 'anon', ARRAY['SELECT']::name[], 'anon can read foods');
@@ -28,6 +28,7 @@ SELECT column_privs_are('public', 'food_sources', 'attempted_at', 'anon', ARRAY[
 SELECT column_privs_are('public', 'food_sources', 'failure_code', 'anon', ARRAY[]::name[], 'anon cannot read food_sources.failure_code');
 SELECT column_privs_are('public', 'food_sources', 'created_by', 'anon', ARRAY[]::name[], 'anon cannot read food_sources.created_by');
 SELECT column_privs_are('public', 'food_sources', 'is_current', 'anon', ARRAY[]::name[], 'anon cannot read food_sources.is_current');
+SELECT column_privs_are('public', 'food_sources', 'created_at', 'anon', ARRAY[]::name[], 'anon cannot read food_sources.created_at');
 
 SELECT table_privs_are('public', 'food_nutrient_evidence', 'anon', ARRAY['SELECT']::name[], 'anon can read evidence ledger rows (RLS scopes to published foods)');
 SELECT table_privs_are('public', 'food_research_runs', 'anon', ARRAY[]::name[], 'anon cannot reach research runs');
@@ -55,6 +56,7 @@ SELECT column_privs_are('public', 'food_sources', 'attempted_at', 'authenticated
 SELECT column_privs_are('public', 'food_sources', 'failure_code', 'authenticated', ARRAY[]::name[], 'authenticated cannot read food_sources.failure_code');
 SELECT column_privs_are('public', 'food_sources', 'created_by', 'authenticated', ARRAY[]::name[], 'authenticated cannot read food_sources.created_by');
 SELECT column_privs_are('public', 'food_sources', 'is_current', 'authenticated', ARRAY[]::name[], 'authenticated cannot read food_sources.is_current');
+SELECT column_privs_are('public', 'food_sources', 'created_at', 'authenticated', ARRAY[]::name[], 'authenticated cannot read food_sources.created_at');
 
 SELECT table_privs_are('public', 'food_nutrient_evidence', 'authenticated', ARRAY['SELECT']::name[], 'authenticated can read evidence ledger rows (RLS scopes to published foods)');
 SELECT table_privs_are('public', 'food_research_runs', 'authenticated', ARRAY[]::name[], 'authenticated cannot reach research runs');
