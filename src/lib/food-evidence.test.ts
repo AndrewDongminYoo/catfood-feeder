@@ -15,9 +15,7 @@ describe("loadFoodEvidence", () => {
     await loadFoodEvidence(client, 95);
     expect(from).toHaveBeenCalledWith("food_nutrient_evidence");
     const requested = select.mock.calls[0]?.[0] as string;
-    expect(requested).toContain(
-      "food_sources!inner(url, kind, capture_method)",
-    );
+    expect(requested).toContain("food_sources!inner(url, capture_method)");
     expect(requested).not.toContain("*");
     expect(requested).not.toContain("captured_text");
   });
@@ -29,7 +27,6 @@ describe("loadFoodEvidence", () => {
         excerpt: "Crude Protein 36.00%",
         food_sources: {
           capture_method: "fetch",
-          kind: "manufacturer",
           url: "https://example.test/label",
         },
         nutrient_key: "protein_pct",
@@ -44,7 +41,6 @@ describe("loadFoodEvidence", () => {
         nutrient_key: "protein_pct",
         source: {
           capture_method: "fetch",
-          kind: "manufacturer",
           url: "https://example.test/label",
         },
         value: 36,

@@ -182,14 +182,14 @@ export interface NutrientEvidence {
   value: number;
   excerpt: string;
   captured_at: string;
-  source: { url: string; kind: string; capture_method: string };
+  source: { url: string; capture_method: string };
 }
 
 // food_sources 는 컬럼 단위로만 열려 있다. `*` 나 생략형은 permission denied 로 전체
 // 쿼리를 실패시키므로 임베디드 컬럼을 반드시 나열한다. !inner 는 소스가 RLS 로 가려진
 // 근거를 통째로 떨어뜨린다 — 출처 없는 인용문은 보여주지 않는다는 규칙과 같다.
 const FOOD_EVIDENCE_SELECT =
-  "nutrient_key, value, excerpt, captured_at, food_sources!inner(url, kind, capture_method)";
+  "nutrient_key, value, excerpt, captured_at, food_sources!inner(url, capture_method)";
 
 export async function loadFoodEvidence(
   supabase: SupabaseClient<Database>,
