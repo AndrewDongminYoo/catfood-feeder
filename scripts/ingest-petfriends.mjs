@@ -1,4 +1,4 @@
-// Pet Friends 상품 목록(pet-fritends.json) → 건사료 카탈로그 골격 적재.
+// Pet Friends 상품 목록(pet-friends.json) → 건사료 카탈로그 골격 적재.
 //
 // 적재 대상: brands + foods 골격(brand, product_name, weight_kg). 성분(영양)은
 // 채우지 않는다 — 그것은 사람 큐레이터가 출처 태깅과 함께
@@ -93,7 +93,7 @@ function recipeName(name) {
 }
 
 // ── 메인 ───────────────────────────────────────────────────────
-const raw = JSON.parse(readFileSync("pet-fritends.json", "utf8"));
+const raw = JSON.parse(readFileSync("pet-friends.json", "utf8"));
 const products = raw
   .filter(isDryCatFood)
   .map((p) => ({

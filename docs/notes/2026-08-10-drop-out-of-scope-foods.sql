@@ -5,7 +5,7 @@
 -- 붙여야 하고, 그중 하나만 빠뜨려도 조용히 다시 대상이 되기 때문이다. 인제스트가
 -- in_scope 를 존중하므로 다시 살아나지도 않는다.
 --
--- 되돌릴 수 있다: pet-fritends.json 이 저장소에 있고 scripts/ingest-petfriends.mjs 가
+-- 되돌릴 수 있다: pet-friends.json 이 저장소에 있고 scripts/ingest-petfriends.mjs 가
 -- 골격을 재생한다. 잃는 것은 이 사료들에 붙어 있던 근거와 출처뿐이고, 그건 아래에서
 -- 몇 건인지 세어 둔다.
 --

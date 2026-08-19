@@ -29,7 +29,7 @@ The boundary is a separate OS account or a container, which stays the next harde
 
 ## Phase A — `ingest-petfriends.mjs` (worklist)
 
-Filters `pet-fritends.json` to dry cat food (kg-weight >= 1, excluding wet/treat/sample), normalizes brand names, and inserts `brands` + `foods` skeleton rows (`brand` + `product_name` + `weight_kg`, no nutrients).
+Filters `pet-friends.json` to dry cat food (kg-weight >= 1, excluding wet/treat/sample), normalizes brand names, and inserts `brands` + `foods` skeleton rows (`brand` + `product_name` + `weight_kg`, no nutrients).
 Prices are omitted per `BLUEPRINT.md` (pricing is deferred).
 The skeleton rows are the **curation worklist** for the protected `/new/research` workflow.
 
