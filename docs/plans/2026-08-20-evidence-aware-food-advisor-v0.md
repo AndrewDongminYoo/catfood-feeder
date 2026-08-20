@@ -277,6 +277,7 @@ Reuse one mapper for the nested `food_sources` join instead of duplicating its c
 
 Use batches of 100 food IDs to bound response size without relying on a server-side maximum-row setting.
 Use one query per batch, not one query per food.
+Page `loadPublicFoods()` in ranges ordered by product name and then unique food ID so PostgREST cannot silently truncate an advisor catalog above its 1,000-row response cap.
 Cache the serializable `{ foods, evidenceRows }` arrays for 3,600 seconds with the existing `public-foods` tag, then group evidence into a `ReadonlyMap<number, readonly NutrientEvidence[]>` outside the cached function.
 Return the grouped map through `AdvisorCatalogLoadResult`.
 

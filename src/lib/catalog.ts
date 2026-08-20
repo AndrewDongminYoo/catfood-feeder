@@ -1,4 +1,5 @@
 import { unstable_cache } from "next/cache";
+import { selectAll } from "../../scripts/select-all.mjs";
 import {
   SAMPLE_ADVISOR_FOODS,
   SAMPLE_FOOD_EVIDENCE,
@@ -146,21 +147,25 @@ export function isSupabaseConfigured() {
 export async function loadPublicFoods(
   supabase: SupabaseClient<Database>,
 ): Promise<FoodWithBrand[]> {
-  const { data, error } = await supabase
-    .from("foods")
-    .select(
-      `
-      *,
-      brands:brand_id (id, name, manufacturer, importer, country),
-      recalls (id, brand_id, food_id, source, source_url, external_id, recalling_firm, reason, classification, affected_lots, recall_date, region)
-    `,
-    )
-    .not("published_at", "is", null)
-    .order("product_name", { ascending: true });
+  const data = await selectAll((from, to) =>
+    Promise.resolve(
+      supabase
+        .from("foods")
+        .select(
+          `
+        *,
+        brands:brand_id (id, name, manufacturer, importer, country),
+        recalls (id, brand_id, food_id, source, source_url, external_id, recalling_firm, reason, classification, affected_lots, recall_date, region)
+      `,
+        )
+        .not("published_at", "is", null)
+        .order("product_name", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
+  );
 
-  if (error) throw error;
-
-  const foods = (data ?? []) as unknown as FoodRecord[];
+  const foods = data as unknown as FoodRecord[];
   const brandIds = [...new Set(foods.map((food) => food.brand_id))];
   if (brandIds.length === 0) return [];
 
