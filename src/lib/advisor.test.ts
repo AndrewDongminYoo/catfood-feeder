@@ -185,16 +185,22 @@ describe("findAdvisorCandidates", () => {
   });
 
   it("requested kcal range excludes missing and out-of-range values separately", () => {
+    const foods = [
+      food(1, { kcal_per_kg: 4000 }),
+      food(2, { kcal_per_kg: null }),
+      food(3, { kcal_per_kg: 4500 }),
+      food(4, { kcal_per_kg: 4200 }),
+    ];
+    const evidenceByFoodId = new Map([
+      [1, [evidence("kcal_per_kg", 4000, "4000 kcal/kg")]],
+      [3, [evidence("kcal_per_kg", 4500, "4500 kcal/kg")]],
+      [4, [evidence("kcal_per_kg", 4200, "4200 kcal/kg")]],
+    ]);
     const selection = readyCandidates(
-      findAdvisorCandidates(
-        catalog([
-          food(1, { kcal_per_kg: 4000 }),
-          food(2, { kcal_per_kg: null }),
-          food(3, { kcal_per_kg: 4500 }),
-          food(4, { kcal_per_kg: 4200 }),
-        ]),
-        { ...baseQuery, maxKcalDeltaPct: 10 },
-      ),
+      findAdvisorCandidates(catalog(foods, evidenceByFoodId), {
+        ...baseQuery,
+        maxKcalDeltaPct: 10,
+      }),
     );
 
     expect(selection.candidates.map((candidate) => candidate.food.id)).toEqual([
@@ -205,16 +211,43 @@ describe("findAdvisorCandidates", () => {
     expect(selection.excluded.kcalOutsideRange).toBe(1);
   });
 
-  it("without a kcal range, missing kcal remains eligible but sorts last", () => {
+  it("matching literal evidence가 없는 저장 열량은 비교에 사용하지 않는다", () => {
+    const foods = [
+      food(1, { kcal_per_kg: 4000 }),
+      food(2, { kcal_per_kg: 4100 }),
+      food(3, { kcal_per_kg: 4200 }),
+    ];
+    const evidenceByFoodId = new Map([
+      [1, [evidence("kcal_per_kg", 4000, "4000 kcal/kg")]],
+      [3, [evidence("kcal_per_kg", 4200, "4200 kcal/kg")]],
+    ]);
+
     const selection = readyCandidates(
-      findAdvisorCandidates(
-        catalog([
-          food(1, { kcal_per_kg: 4000 }),
-          food(2, { kcal_per_kg: null }),
-          food(3, { kcal_per_kg: 4100 }),
-        ]),
-        baseQuery,
-      ),
+      findAdvisorCandidates(catalog(foods, evidenceByFoodId), {
+        ...baseQuery,
+        maxKcalDeltaPct: 10,
+      }),
+    );
+
+    expect(selection.candidates.map((candidate) => candidate.food.id)).toEqual([
+      3,
+    ]);
+    expect(selection.candidates[0]?.kcalDeltaPct).toBe(5);
+    expect(selection.excluded.kcalMissing).toBe(1);
+  });
+
+  it("without a kcal range, missing kcal remains eligible but sorts last", () => {
+    const foods = [
+      food(1, { kcal_per_kg: 4000 }),
+      food(2, { kcal_per_kg: null }),
+      food(3, { kcal_per_kg: 4100 }),
+    ];
+    const evidenceByFoodId = new Map([
+      [1, [evidence("kcal_per_kg", 4000, "4000 kcal/kg")]],
+      [3, [evidence("kcal_per_kg", 4100, "4100 kcal/kg")]],
+    ]);
+    const selection = readyCandidates(
+      findAdvisorCandidates(catalog(foods, evidenceByFoodId), baseQuery),
     );
 
     expect(selection.candidates.map((candidate) => candidate.food.id)).toEqual([
@@ -223,38 +256,47 @@ describe("findAdvisorCandidates", () => {
     expect(selection.candidates[1]?.unknowns).toContain("kcal_unknown");
   });
 
-  it("declared carbohydrate accepts only a stated value with declared provenance", () => {
+  it("declared carbohydrate requires declared provenance and matching literal evidence", () => {
+    const foods = [
+      food(1),
+      food(2, {
+        carb_pct: 20,
+        nutrient_sources: { carb_pct: "manufacturer" },
+      }),
+      food(3, {
+        carb_pct: 21,
+        nutrient_sources: { carb_pct: "kr_label" },
+      }),
+      food(4, {
+        carb_pct: 22,
+        nutrient_sources: { carb_pct: "derived" },
+      }),
+      food(5, {
+        carb_pct: 23,
+        nutrient_sources: { carb_pct: "estimated" },
+      }),
+      food(6, { carb_pct: null, nutrient_sources: {} }),
+      food(7, { carb_pct: 24, nutrient_sources: {} }),
+      food(8, {
+        carb_pct: 25,
+        nutrient_sources: { carb_pct: "manufacturer" },
+      }),
+    ];
+    const evidenceByFoodId = new Map([
+      [2, [evidence("carb_pct", 20, "Carbohydrate 20%")]],
+      [3, [evidence("carb_pct", 21, "탄수화물 21%")]],
+    ]);
     const selection = readyCandidates(
-      findAdvisorCandidates(
-        catalog([
-          food(1),
-          food(2, {
-            carb_pct: 20,
-            nutrient_sources: { carb_pct: "manufacturer" },
-          }),
-          food(3, {
-            carb_pct: 21,
-            nutrient_sources: { carb_pct: "kr_label" },
-          }),
-          food(4, {
-            carb_pct: 22,
-            nutrient_sources: { carb_pct: "derived" },
-          }),
-          food(5, {
-            carb_pct: 23,
-            nutrient_sources: { carb_pct: "estimated" },
-          }),
-          food(6, { carb_pct: null, nutrient_sources: {} }),
-          food(7, { carb_pct: 24, nutrient_sources: {} }),
-        ]),
-        { ...baseQuery, requireDeclaredCarb: true },
-      ),
+      findAdvisorCandidates(catalog(foods, evidenceByFoodId), {
+        ...baseQuery,
+        requireDeclaredCarb: true,
+      }),
     );
 
     expect(selection.candidates.map((candidate) => candidate.food.id)).toEqual([
       2, 3,
     ]);
-    expect(selection.excluded.declaredCarb).toBe(4);
+    expect(selection.excluded.declaredCarb).toBe(5);
     expect(selection.candidates[0]?.matchedReasons).toContain(
       "declared_carb_available",
     );
@@ -264,23 +306,35 @@ describe("findAdvisorCandidates", () => {
     const foods = [
       food(1, { kcal_per_kg: 4000 }),
       food(5, { kcal_per_kg: 3800 }),
-      food(4, { kcal_per_kg: 4200 }),
+      food(4, { kcal_per_kg: 4040 }),
       food(3, { kcal_per_kg: 3960 }),
-      food(2, { kcal_per_kg: 4040 }),
+      food(2, { kcal_per_kg: 4200 }),
     ];
+    const evidenceByFoodId = new Map(
+      foods.map((item) => [
+        item.id,
+        [
+          evidence(
+            "kcal_per_kg",
+            item.kcal_per_kg!,
+            `${item.kcal_per_kg} kcal/kg`,
+          ),
+        ],
+      ]),
+    );
 
     const first = readyCandidates(
-      findAdvisorCandidates(catalog(foods), baseQuery),
+      findAdvisorCandidates(catalog(foods, evidenceByFoodId), baseQuery),
     );
     const second = readyCandidates(
-      findAdvisorCandidates(catalog(foods), baseQuery),
+      findAdvisorCandidates(catalog(foods, evidenceByFoodId), baseQuery),
     );
 
     expect(first.candidates.map((candidate) => candidate.food.id)).toEqual([
-      2, 3, 4,
+      3, 4, 2,
     ]);
     expect(second.candidates.map((candidate) => candidate.food.id)).toEqual([
-      2, 3, 4,
+      3, 4, 2,
     ]);
   });
 
@@ -354,6 +408,7 @@ describe("findAdvisorCandidates", () => {
               },
             }),
             food(3, {
+              protein_pct: 35,
               nutrient_sources: { protein_pct: "manufacturer" },
             }),
           ],

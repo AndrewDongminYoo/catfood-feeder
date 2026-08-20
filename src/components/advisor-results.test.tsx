@@ -176,4 +176,42 @@ describe("AdvisorResults", () => {
     expect(screen.getByText(/원재료·그레인프리·육분프리/)).toBeTruthy();
     expect(screen.getByText(/건강 상태나 종합 품질/)).toBeTruthy();
   });
+
+  it("literal proof가 없는 저장 영양 수치를 표시하지 않는다", () => {
+    const unprovenFood = food(4, {
+      carb_pct: 12,
+      kcal_per_kg: 1234,
+      nutrient_sources: {
+        carb_pct: "manufacturer",
+        kcal_per_kg: "manufacturer",
+        protein_pct: "manufacturer",
+      },
+      protein_pct: 42,
+      product_name: "Unproven Recipe",
+    });
+
+    renderState({
+      currentFood: food(1),
+      kind: "ready",
+      selection: selection([
+        {
+          evidence: [],
+          food: unprovenFood,
+          kcalDeltaPct: null,
+          matchedReasons: [],
+          tradeoffs: [],
+          unknowns: ["kcal_unknown", "protein_unknown", "carb_unknown"],
+        },
+      ]),
+    });
+
+    expect(screen.queryByText("1,234 kcal/kg")).toBeNull();
+    expect(screen.queryByText("42%")).toBeNull();
+    expect(screen.queryByText("12%")).toBeNull();
+    expect(screen.getAllByText("미확인")).toHaveLength(3);
+    expect(screen.getAllByText("근거 미확인")).toHaveLength(3);
+    expect(
+      screen.getByText(/열량 차이를 계산할 수 없어 카탈로그 ID 순서/),
+    ).toBeTruthy();
+  });
 });

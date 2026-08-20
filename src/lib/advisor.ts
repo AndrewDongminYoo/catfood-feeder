@@ -5,6 +5,10 @@ import type {
   NutrientSourceKey,
 } from "@/lib/catalog";
 import { COOKING_METHOD_VALUES, type CookingMethod } from "@/lib/domain";
+import {
+  findMatchingNutrientEvidence,
+  nutrientEvidenceMatchesValue,
+} from "@/lib/nutrient-evidence";
 
 export type NutrientBound = "minimum" | "maximum" | "unspecified";
 
@@ -146,20 +150,29 @@ function kcalDeltaPct(
   return (Math.abs(candidateKcal - currentKcal) / currentKcal) * 100;
 }
 
-function isDeclaredCarbohydrate(food: FoodWithBrand): boolean {
+function isDeclaredCarbohydrate(
+  food: FoodWithBrand,
+  evidence: readonly NutrientEvidence[],
+): boolean {
   const source = food.nutrient_sources.carb_pct;
   return (
     food.carb_pct !== null &&
-    (source === "manufacturer" || source === "kr_label")
+    (source === "manufacturer" || source === "kr_label") &&
+    findMatchingNutrientEvidence(evidence, "carb_pct", food.carb_pct) !== null
   );
 }
 
 function nutrientBound(
   evidence: readonly NutrientEvidence[],
   nutrientKey: NutrientSourceKey,
+  value: number | null,
 ): NutrientBound {
   const excerpts = evidence
-    .filter((row) => row.nutrient_key === nutrientKey)
+    .filter(
+      (row) =>
+        row.nutrient_key === nutrientKey &&
+        nutrientEvidenceMatchesValue(row, value),
+    )
     .map((row) => row.excerpt)
     .join("\n");
   return classifyNutrientBound(excerpts);
@@ -184,12 +197,21 @@ function candidateUnknowns(
   const unknowns: AdvisorUnknown[] = [];
   if (deltaPct === null) unknowns.push("kcal_unknown");
 
-  if (food.protein_pct === null || !food.nutrient_sources.protein_pct) {
+  const proteinEvidence = findMatchingNutrientEvidence(
+    evidence,
+    "protein_pct",
+    food.protein_pct,
+  );
+  if (
+    food.protein_pct === null ||
+    !food.nutrient_sources.protein_pct ||
+    proteinEvidence === null
+  ) {
     unknowns.push("protein_unknown");
   } else if (
     (food.nutrient_sources.protein_pct === "manufacturer" ||
       food.nutrient_sources.protein_pct === "kr_label") &&
-    nutrientBound(evidence, "protein_pct") === "unspecified"
+    nutrientBound(evidence, "protein_pct", food.protein_pct) === "unspecified"
   ) {
     unknowns.push("protein_bound_unspecified");
   }
@@ -199,7 +221,13 @@ function candidateUnknowns(
     unknowns.push("carb_unknown");
   } else if (carbSource === "derived" || carbSource === "estimated") {
     unknowns.push("carb_point_comparison_unavailable");
-  } else if (nutrientBound(evidence, "carb_pct") === "unspecified") {
+  } else if (
+    findMatchingNutrientEvidence(evidence, "carb_pct", food.carb_pct) === null
+  ) {
+    unknowns.push("carb_unknown");
+  } else if (
+    nutrientBound(evidence, "carb_pct", food.carb_pct) === "unspecified"
+  ) {
     unknowns.push("carb_bound_unspecified");
   }
 
@@ -214,6 +242,15 @@ export function findAdvisorCandidates(
     (food) => food.id === query.currentFoodId,
   );
   if (!currentFood) return { kind: "current_food_not_found" };
+  const currentEvidence = catalog.evidenceByFoodId.get(currentFood.id) ?? [];
+  const currentKcal =
+    findMatchingNutrientEvidence(
+      currentEvidence,
+      "kcal_per_kg",
+      currentFood.kcal_per_kg,
+    ) === null
+      ? null
+      : currentFood.kcal_per_kg;
 
   const excluded = {
     cookingMethod: 0,
@@ -225,6 +262,7 @@ export function findAdvisorCandidates(
 
   for (const food of catalog.foods) {
     if (food.id === currentFood.id) continue;
+    const evidence = catalog.evidenceByFoodId.get(food.id) ?? [];
 
     if (
       query.cookingMethod !== null &&
@@ -234,7 +272,15 @@ export function findAdvisorCandidates(
       continue;
     }
 
-    const deltaPct = kcalDeltaPct(currentFood.kcal_per_kg, food.kcal_per_kg);
+    const candidateKcal =
+      findMatchingNutrientEvidence(
+        evidence,
+        "kcal_per_kg",
+        food.kcal_per_kg,
+      ) === null
+        ? null
+        : food.kcal_per_kg;
+    const deltaPct = kcalDeltaPct(currentKcal, candidateKcal);
     if (query.maxKcalDeltaPct !== null) {
       if (deltaPct === null) {
         excluded.kcalMissing += 1;
@@ -246,12 +292,11 @@ export function findAdvisorCandidates(
       }
     }
 
-    if (query.requireDeclaredCarb && !isDeclaredCarbohydrate(food)) {
+    if (query.requireDeclaredCarb && !isDeclaredCarbohydrate(food, evidence)) {
       excluded.declaredCarb += 1;
       continue;
     }
 
-    const evidence = catalog.evidenceByFoodId.get(food.id) ?? [];
     const matchedReasons: AdvisorReason[] = [];
     if (deltaPct !== null) matchedReasons.push("kcal_nearby");
     if (query.cookingMethod !== null) {

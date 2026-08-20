@@ -73,7 +73,7 @@ export default async function AdvisorPage({
         <p>
           <Link href={"/foods" as Route}>← 카탈로그</Link>
         </p>
-        <p className="eyebrow">Evidence-aware advisor v0</p>
+        <p className="eyebrow">근거 기반 사료 탐색 v0</p>
         <h1>다음 사료 후보 찾기</h1>
         <p>
           현재 사료와 확인 가능한 조건을 고르면 열량 차이가 가까운 후보를 최대

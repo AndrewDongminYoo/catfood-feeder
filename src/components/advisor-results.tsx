@@ -48,10 +48,11 @@ const UNKNOWN_LABELS: Record<AdvisorUnknown, string> = {
 
 function relationLabel(fact: NutritionFact): string {
   if (fact.evidence.tone === "unknown") return "미확인";
+  if (fact.proof === null) return "근거 미확인";
   if (fact.evidence.tone === "derived" || fact.evidence.tone === "estimated") {
     return "우열 판단 제외";
   }
-  if (fact.proof?.kind !== "quoted") return "경계 미확인";
+  if (fact.proof.kind !== "quoted") return "경계 미확인";
   if (fact.proof.bound === "minimum") return "최소 보증치";
   if (fact.proof.bound === "maximum") return "최대 보증치";
   return "경계 미확인";
@@ -64,15 +65,16 @@ function EvidenceMetric({
   fact: NutritionFact;
   showRelation?: boolean;
 }) {
+  const proofUnavailable = fact.proof === null;
   return (
     <div className="advisor-metric">
       <dt>{fact.label}</dt>
       <dd>
-        <strong>{fact.value}</strong>
+        <strong>{proofUnavailable ? "미확인" : fact.value}</strong>
         <span className="evidence-state" data-tone={fact.evidence.tone}>
           {fact.evidence.label}
         </span>
-        {showRelation && (
+        {(showRelation || proofUnavailable) && (
           <span className="advisor-relation">{relationLabel(fact)}</span>
         )}
       </dd>
@@ -216,12 +218,20 @@ function AdvisorContent({ state }: { state: AdvisorViewState }) {
     );
   }
 
+  const hasEvidenceBackedKcal = state.selection.candidates.some(
+    (candidate) => candidate.kcalDeltaPct !== null,
+  );
+
   return (
     <>
       <header className="advisor-results-header">
         <p className="eyebrow">현재 사료: {state.currentFood.product_name}</p>
         <h2>근거를 확인할 다음 후보</h2>
-        <p>열량 차이가 가까운 순서이며, 같은 차이면 카탈로그 ID 순서입니다.</p>
+        <p>
+          {hasEvidenceBackedKcal
+            ? "근거가 확인된 열량 차이가 가까운 순서이며, 계산할 수 없는 후보는 뒤에서 카탈로그 ID 순서로 표시합니다."
+            : "열량 차이를 계산할 수 없어 카탈로그 ID 순서로 표시합니다."}
+        </p>
       </header>
       <div className="advisor-candidates">
         {state.selection.candidates.map((candidate) => (

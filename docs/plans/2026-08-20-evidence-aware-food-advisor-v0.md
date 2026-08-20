@@ -332,8 +332,8 @@ Build a small synthetic catalog that proves all of these behaviors:
 
 1. The current food never appears as a candidate.
 2. A requested cooking method is a hard equality filter.
-3. A requested kcal threshold excludes a candidate with missing kcal and records `missing_kcal` in aggregate diagnostics.
-4. `requireDeclaredCarb` accepts only `manufacturer` or `kr_label` carbohydrate and rejects `derived`, `estimated`, missing, or untagged values.
+3. A requested kcal threshold excludes a candidate with missing kcal or without current literal evidence matching the stored kcal value and records `missing_kcal` in aggregate diagnostics.
+4. `requireDeclaredCarb` accepts only `manufacturer` or `kr_label` carbohydrate with current literal evidence matching the stored value and rejects `derived`, `estimated`, missing, untagged, or unproven values.
 5. Eligible rows sort by absolute kcal delta and then numeric food ID.
 6. The result is capped at three after sorting.
 7. Recall history becomes a scoped trade-off and never affects eligibility or ordering.
@@ -356,13 +356,13 @@ Apply constraints in this order:
 1. Resolve the selected current food; return `current_food_not_found` if absent.
 2. Exclude the current food.
 3. Apply cooking-method equality when requested.
-4. Require both kcal values and enforce the absolute delta threshold when requested.
-5. Require declared carbohydrate when requested.
+4. Require both kcal values to have current literal evidence matching the stored value and enforce the absolute delta threshold when requested.
+5. Require declared carbohydrate with current literal evidence matching the stored value when requested.
 6. Build reasons, trade-offs, and unknowns for eligible candidates.
 7. Sort by absolute kcal delta, then food ID.
 8. Return the first three.
 
-If no kcal threshold is requested, candidates with missing kcal remain eligible but sort after candidates with a calculable delta and carry `kcal_unknown`.
+If no kcal threshold is requested, candidates with missing or unproven kcal remain eligible but sort after candidates with a calculable evidence-backed delta and carry `kcal_unknown`.
 Do not substitute zero for null.
 
 - [ ] **Step 3: Make comparison claims source-aware**
