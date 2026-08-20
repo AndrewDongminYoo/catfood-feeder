@@ -8,8 +8,9 @@ overrides:
   "brace-expansion@1": ^1.1.17 # GHSA-mh99-v99m-4gvg
   "brace-expansion@5": ^5.0.8 # GHSA-mh99-v99m-4gvg, GHSA-3jxr-9vmj-r5cp
   "fast-uri@": 3.1.5 # GHSA-4c8g-83qw-93j6, GHSA-v2hh-gcrm-f6hx
-  "hono@": 4.13.0 # GHSA-hvrm-45r6-mjfj, GHSA-w62v-xxxg-mg59, GHSA-xgm2-5f3f-mvvc
+  "hono@4": ^4.13.3 # GHSA-hvrm-45r6-mjfj, GHSA-w62v-xxxg-mg59, GHSA-xgm2-5f3f-mvvc
   "js-yaml@": 4.3.1 # GHSA-52cp-r559-cp3m
+  "nanoid@3": ^3.3.18 # GHSA-2v37-7h3g-55p8
   postcss: ">=8.5.10"
   sharp: 0.35.3 # GHSA-f88m-g3jw-g9cj
   tldts: 7.4.0
