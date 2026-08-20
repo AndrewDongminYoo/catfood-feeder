@@ -207,7 +207,10 @@ describe("findAdvisorCandidates", () => {
       4,
     ]);
     expect(selection.candidates[0]?.kcalDeltaPct).toBe(5);
-    expect(selection.excluded.kcalMissing).toBe(1);
+    expect(selection.excluded).toMatchObject({
+      candidateKcalMissing: 1,
+      currentKcalMissing: false,
+    });
     expect(selection.excluded.kcalOutsideRange).toBe(1);
   });
 
@@ -233,7 +236,10 @@ describe("findAdvisorCandidates", () => {
       3,
     ]);
     expect(selection.candidates[0]?.kcalDeltaPct).toBe(5);
-    expect(selection.excluded.kcalMissing).toBe(1);
+    expect(selection.excluded).toMatchObject({
+      candidateKcalMissing: 1,
+      currentKcalMissing: false,
+    });
   });
 
   it("without a kcal range, missing kcal remains eligible but sorts last", () => {
@@ -253,7 +259,41 @@ describe("findAdvisorCandidates", () => {
     expect(selection.candidates.map((candidate) => candidate.food.id)).toEqual([
       3, 2,
     ]);
-    expect(selection.candidates[1]?.unknowns).toContain("kcal_unknown");
+    expect(selection.candidates[1]?.unknowns).toContain(
+      "candidate_kcal_unknown",
+    );
+  });
+
+  it("현재 사료와 후보 사료의 열량 근거 누락을 구분한다", () => {
+    const foods = [
+      food(1, { kcal_per_kg: 4000 }),
+      food(2, { kcal_per_kg: 4100 }),
+    ];
+    const evidenceByFoodId = new Map([
+      [2, [evidence("kcal_per_kg", 4100, "4100 kcal/kg")]],
+    ]);
+
+    const unfiltered = readyCandidates(
+      findAdvisorCandidates(catalog(foods, evidenceByFoodId), baseQuery),
+    );
+    expect(unfiltered.candidates[0]?.unknowns).toContain(
+      "current_kcal_unknown",
+    );
+    expect(unfiltered.candidates[0]?.unknowns).not.toContain(
+      "candidate_kcal_unknown",
+    );
+
+    const filtered = readyCandidates(
+      findAdvisorCandidates(catalog(foods, evidenceByFoodId), {
+        ...baseQuery,
+        maxKcalDeltaPct: 10,
+      }),
+    );
+    expect(filtered.candidates).toEqual([]);
+    expect(filtered.excluded).toMatchObject({
+      candidateKcalMissing: 0,
+      currentKcalMissing: true,
+    });
   });
 
   it("declared carbohydrate requires declared provenance and matching literal evidence", () => {

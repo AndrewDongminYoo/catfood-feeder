@@ -244,7 +244,7 @@ export type AdvisorCatalogLoadResult =
     }
   | {
       available: false;
-      reason: "not_configured" | "load_failed";
+      reason: "load_failed";
     };
 ```
 
@@ -257,7 +257,7 @@ Test that the loader:
 - Selects only `food_id`, `nutrient_key`, `value`, `excerpt`, `captured_at`, and the already-approved nested source fields.
 - Requires `is_current = true` and relies on public RLS for published-food visibility.
 - Groups evidence by food ID without losing foods that have no evidence rows.
-- Throws from the low-level loader on a Supabase error while `getAdvisorCatalog()` returns a typed unavailable result instead of sample evidence.
+- Throws from the low-level loader on a Supabase error while `getAdvisorCatalog()` returns a typed unavailable result for configured-backend failures and a literal-evidence-bearing catalog fixture when public Supabase configuration is absent.
 
 Run:
 
@@ -282,7 +282,8 @@ Return the grouped map through `AdvisorCatalogLoadResult`.
 
 - [ ] **Step 4: Preserve fail-closed public behavior**
 
-If Supabase is not configured, return `{ available: false, reason: "not_configured" }` so the page can explain that advisor evidence is unavailable.
+If Supabase is not configured, preserve the public catalog fallback with the curated ACANA fixture and literal nutrient evidence extracted from its existing manufacturer text.
+Do not invent additional products to force a candidate result; the single-product fixture may truthfully produce no alternatives.
 If the public query fails, log one server error and return `{ available: false, reason: "load_failed" }`; do not present sample data as live candidate results.
 When configured, call the low-level `loadPublicFoods()` and `loadPublicFoodEvidence()` functions inside the same guarded read path so the existing `getFoods()` catch-and-empty behavior cannot hide a backend failure.
 
@@ -319,8 +320,9 @@ export type AdvisorSelection =
       candidates: readonly AdvisorCandidate[];
       excluded: {
         cookingMethod: number;
+        currentKcalMissing: boolean;
+        candidateKcalMissing: number;
         declaredCarb: number;
-        kcalMissing: number;
         kcalOutsideRange: number;
       };
     };
@@ -362,7 +364,8 @@ Apply constraints in this order:
 7. Sort by absolute kcal delta, then food ID.
 8. Return the first three.
 
-If no kcal threshold is requested, candidates with missing or unproven kcal remain eligible but sort after candidates with a calculable evidence-backed delta and carry `kcal_unknown`.
+If no kcal threshold is requested, candidates with missing or unproven kcal remain eligible but sort after candidates with a calculable evidence-backed delta.
+Carry `current_kcal_unknown` when the selected food lacks matching literal evidence and `candidate_kcal_unknown` when the candidate lacks it; do not conflate the two causes in card copy or exclusion diagnostics.
 Do not substitute zero for null.
 
 - [ ] **Step 3: Make comparison claims source-aware**

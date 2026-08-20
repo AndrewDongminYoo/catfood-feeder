@@ -1,5 +1,9 @@
 import { unstable_cache } from "next/cache";
-import { SAMPLE_FOODS } from "@/lib/fixtures";
+import {
+  SAMPLE_ADVISOR_FOODS,
+  SAMPLE_FOOD_EVIDENCE,
+  SAMPLE_FOODS,
+} from "@/lib/fixtures";
 import { createPublicClient } from "@/lib/supabase/public";
 import type { CookingMethod, NutrientKey, Source } from "@/lib/domain";
 import type { Database } from "@/types/supabase";
@@ -197,7 +201,7 @@ export type AdvisorCatalogLoadResult =
     }
   | {
       available: false;
-      reason: "not_configured" | "load_failed";
+      reason: "load_failed";
     };
 
 // food_sources 는 컬럼 단위로만 열려 있다. `*` 나 생략형은 permission denied 로 전체
@@ -362,7 +366,14 @@ export async function getFoods(): Promise<FoodWithBrand[]> {
 
 export async function getAdvisorCatalog(): Promise<AdvisorCatalogLoadResult> {
   if (!isSupabaseConfigured()) {
-    return { available: false, reason: "not_configured" };
+    const [sampleFood] = SAMPLE_ADVISOR_FOODS;
+    return {
+      available: true,
+      evidenceByFoodId: new Map(
+        sampleFood ? [[sampleFood.id, SAMPLE_FOOD_EVIDENCE]] : [],
+      ),
+      foods: SAMPLE_ADVISOR_FOODS,
+    };
   }
 
   try {

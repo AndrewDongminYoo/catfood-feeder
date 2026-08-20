@@ -29,7 +29,8 @@ export type AdvisorReason =
 export type AdvisorTradeoff = "product_recall_history" | "brand_recall_history";
 
 export type AdvisorUnknown =
-  | "kcal_unknown"
+  | "candidate_kcal_unknown"
+  | "current_kcal_unknown"
   | "protein_unknown"
   | "protein_bound_unspecified"
   | "carb_unknown"
@@ -52,8 +53,9 @@ export type AdvisorSelection =
       candidates: readonly AdvisorCandidate[];
       excluded: {
         cookingMethod: number;
+        currentKcalMissing: boolean;
+        candidateKcalMissing: number;
         declaredCarb: number;
-        kcalMissing: number;
         kcalOutsideRange: number;
       };
     };
@@ -192,10 +194,12 @@ function candidateTradeoffs(food: FoodWithBrand): AdvisorTradeoff[] {
 function candidateUnknowns(
   food: FoodWithBrand,
   evidence: readonly NutrientEvidence[],
-  deltaPct: number | null,
+  currentKcal: number | null,
+  candidateKcal: number | null,
 ): AdvisorUnknown[] {
   const unknowns: AdvisorUnknown[] = [];
-  if (deltaPct === null) unknowns.push("kcal_unknown");
+  if (currentKcal === null) unknowns.push("current_kcal_unknown");
+  if (candidateKcal === null) unknowns.push("candidate_kcal_unknown");
 
   const proteinEvidence = findMatchingNutrientEvidence(
     evidence,
@@ -253,9 +257,10 @@ export function findAdvisorCandidates(
       : currentFood.kcal_per_kg;
 
   const excluded = {
+    candidateKcalMissing: 0,
     cookingMethod: 0,
+    currentKcalMissing: query.maxKcalDeltaPct !== null && currentKcal === null,
     declaredCarb: 0,
-    kcalMissing: 0,
     kcalOutsideRange: 0,
   };
   const candidates: AdvisorCandidate[] = [];
@@ -282,10 +287,13 @@ export function findAdvisorCandidates(
         : food.kcal_per_kg;
     const deltaPct = kcalDeltaPct(currentKcal, candidateKcal);
     if (query.maxKcalDeltaPct !== null) {
-      if (deltaPct === null) {
-        excluded.kcalMissing += 1;
+      if (candidateKcal === null) {
+        excluded.candidateKcalMissing += 1;
+      }
+      if (currentKcal === null || candidateKcal === null) {
         continue;
       }
+      if (deltaPct === null) continue;
       if (deltaPct > query.maxKcalDeltaPct) {
         excluded.kcalOutsideRange += 1;
         continue;
@@ -312,7 +320,7 @@ export function findAdvisorCandidates(
       kcalDeltaPct: deltaPct,
       matchedReasons,
       tradeoffs: candidateTradeoffs(food),
-      unknowns: candidateUnknowns(food, evidence, deltaPct),
+      unknowns: candidateUnknowns(food, evidence, currentKcal, candidateKcal),
     });
   }
 

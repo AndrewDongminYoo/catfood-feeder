@@ -6,6 +6,7 @@ import {
   loadPublicFoodEvidence,
   type FoodNutrientEvidence,
 } from "./catalog";
+import { SAMPLE_ADVISOR_FOODS } from "./fixtures";
 
 const { createPublicClientMock } = vi.hoisted(() => ({
   createPublicClientMock: vi.fn(),
@@ -175,14 +176,30 @@ describe("groupFoodEvidence", () => {
 });
 
 describe("getAdvisorCatalog", () => {
-  it("does not substitute fixtures when Supabase is not configured", async () => {
+  it("Supabase가 없으면 literal evidence를 포함한 공개 픽스처를 사용한다", async () => {
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "");
 
-    await expect(getAdvisorCatalog()).resolves.toEqual({
-      available: false,
-      reason: "not_configured",
-    });
+    const result = await getAdvisorCatalog();
+
+    expect(result.available).toBe(true);
+    if (!result.available) throw new Error("fixture catalog expected");
+    expect(result.foods).toEqual(SAMPLE_ADVISOR_FOODS);
+    expect(SAMPLE_ADVISOR_FOODS[0]?.id).toBeGreaterThan(0);
+    expect(result.evidenceByFoodId.get(SAMPLE_ADVISOR_FOODS[0]!.id)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          excerpt: expect.stringContaining("Crude protein (min.) 36 %"),
+          nutrient_key: "protein_pct",
+          value: 36,
+        }),
+        expect.objectContaining({
+          excerpt: expect.stringContaining("3850 kcal/kg"),
+          nutrient_key: "kcal_per_kg",
+          value: 3850,
+        }),
+      ]),
+    );
     expect(createPublicClientMock).not.toHaveBeenCalled();
   });
 

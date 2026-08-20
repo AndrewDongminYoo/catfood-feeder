@@ -40,9 +40,10 @@ function evidence(
 function selection(
   candidates: readonly AdvisorCandidate[],
   excluded: Extract<AdvisorSelection, { kind: "ready" }>["excluded"] = {
+    candidateKcalMissing: 0,
     cookingMethod: 0,
+    currentKcalMissing: false,
     declaredCarb: 0,
-    kcalMissing: 0,
     kcalOutsideRange: 0,
   },
 ): Extract<AdvisorSelection, { kind: "ready" }> {
@@ -83,9 +84,10 @@ describe("AdvisorResults", () => {
       currentFood: food(1),
       kind: "ready",
       selection: selection([], {
+        candidateKcalMissing: 3,
         cookingMethod: 4,
+        currentKcalMissing: false,
         declaredCarb: 2,
-        kcalMissing: 3,
         kcalOutsideRange: 5,
       }),
     });
@@ -93,7 +95,7 @@ describe("AdvisorResults", () => {
     expect(screen.getByText("조건을 충족한 후보가 없습니다")).toBeTruthy();
     expect(screen.getByText(/제조 방식 불일치 4개/)).toBeTruthy();
     expect(screen.getByText(/표기 탄수화물 조건 2개/)).toBeTruthy();
-    expect(screen.getByText(/열량 미확인 3개/)).toBeTruthy();
+    expect(screen.getByText(/후보 사료 열량 근거 미확인 3개/)).toBeTruthy();
     expect(screen.getByText(/열량 범위 밖 5개/)).toBeTruthy();
   });
 
@@ -200,7 +202,11 @@ describe("AdvisorResults", () => {
           kcalDeltaPct: null,
           matchedReasons: [],
           tradeoffs: [],
-          unknowns: ["kcal_unknown", "protein_unknown", "carb_unknown"],
+          unknowns: [
+            "candidate_kcal_unknown",
+            "protein_unknown",
+            "carb_unknown",
+          ],
         },
       ]),
     });
@@ -213,5 +219,45 @@ describe("AdvisorResults", () => {
     expect(
       screen.getByText(/열량 차이를 계산할 수 없어 카탈로그 ID 순서/),
     ).toBeTruthy();
+  });
+
+  it("후보 열량 근거가 있어도 현재 사료 근거가 없으면 원인을 현재 사료로 표시한다", () => {
+    const candidateFood = food(2, { kcal_per_kg: 4100 });
+
+    renderState({
+      currentFood: food(1, { kcal_per_kg: 4000 }),
+      kind: "ready",
+      selection: selection([
+        {
+          evidence: [evidence("kcal_per_kg", 4100, "4100 kcal/kg")],
+          food: candidateFood,
+          kcalDeltaPct: null,
+          matchedReasons: [],
+          tradeoffs: [],
+          unknowns: ["current_kcal_unknown"],
+        },
+      ]),
+    });
+
+    expect(screen.getByText("4,100 kcal/kg")).toBeTruthy();
+    expect(screen.getByText("현재 사료 열량 근거 미확인")).toBeTruthy();
+    expect(screen.queryByText("후보 사료 열량 근거 미확인")).toBeNull();
+  });
+
+  it("열량 범위 제외 원인을 현재 사료와 후보 사료로 나눠 표시한다", () => {
+    renderState({
+      currentFood: food(1),
+      kind: "ready",
+      selection: selection([], {
+        candidateKcalMissing: 2,
+        cookingMethod: 0,
+        currentKcalMissing: true,
+        declaredCarb: 0,
+        kcalOutsideRange: 0,
+      }),
+    });
+
+    expect(screen.getByText(/현재 사료 열량 근거 미확인/)).toBeTruthy();
+    expect(screen.getByText(/후보 사료 열량 근거 미확인 2개/)).toBeTruthy();
   });
 });

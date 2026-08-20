@@ -16,7 +16,7 @@ export type AdvisorViewState =
   | { kind: "invalid_query" }
   | {
       kind: "data_unavailable";
-      reason: "not_configured" | "load_failed";
+      reason: "load_failed";
     }
   | { kind: "current_food_not_found" }
   | {
@@ -37,11 +37,12 @@ const TRADEOFF_LABELS: Record<AdvisorTradeoff, string> = {
 };
 
 const UNKNOWN_LABELS: Record<AdvisorUnknown, string> = {
+  candidate_kcal_unknown: "후보 사료 열량 근거 미확인",
   carb_bound_unspecified: "탄수화물 경계 미확인",
   carb_point_comparison_unavailable:
     "탄수화물은 추정·계산값이므로 우열 판단 제외",
   carb_unknown: "탄수화물 미확인",
-  kcal_unknown: "열량 미확인",
+  current_kcal_unknown: "현재 사료 열량 근거 미확인",
   protein_bound_unspecified: "단백질 경계 미확인",
   protein_unknown: "단백질 미확인",
 };
@@ -91,10 +92,13 @@ function CandidateCard({
   const kcal = facts.find((fact) => fact.key === "kcal_per_kg")!;
   const protein = facts.find((fact) => fact.key === "protein_pct")!;
   const carb = facts.find((fact) => fact.key === "carb_pct")!;
-  const delta =
-    candidate.kcalDeltaPct === null
-      ? "열량 차이 계산 불가"
-      : `현재 대비 열량 ${new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 1 }).format(candidate.kcalDeltaPct)}% 차이`;
+  const delta = candidate.unknowns.includes("current_kcal_unknown")
+    ? "현재 사료 열량 근거가 없어 차이 계산 불가"
+    : candidate.unknowns.includes("candidate_kcal_unknown")
+      ? "후보 사료 열량 근거가 없어 차이 계산 불가"
+      : candidate.kcalDeltaPct === null
+        ? "열량 차이 계산 불가"
+        : `현재 대비 열량 ${new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 1 }).format(candidate.kcalDeltaPct)}% 차이`;
 
   return (
     <article
@@ -171,8 +175,10 @@ function ExclusionSummary({
   return (
     <p className="advisor-exclusions">
       제조 방식 불일치 {excluded.cookingMethod}개 · 표기 탄수화물 조건{" "}
-      {excluded.declaredCarb}개 · 열량 미확인 {excluded.kcalMissing}개 · 열량
-      범위 밖 {excluded.kcalOutsideRange}개
+      {excluded.declaredCarb}개 ·{" "}
+      {excluded.currentKcalMissing && "현재 사료 열량 근거 미확인 · "}
+      후보 사료 열량 근거 미확인 {excluded.candidateKcalMissing}개 · 열량 범위
+      밖 {excluded.kcalOutsideRange}개
     </p>
   );
 }
