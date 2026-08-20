@@ -185,11 +185,42 @@ export interface NutrientEvidence {
   source: { url: string; capture_method: string };
 }
 
+export interface FoodNutrientEvidence extends NutrientEvidence {
+  food_id: number;
+}
+
+export type AdvisorCatalogLoadResult =
+  | {
+      available: true;
+      foods: readonly FoodWithBrand[];
+      evidenceByFoodId: ReadonlyMap<number, readonly NutrientEvidence[]>;
+    }
+  | {
+      available: false;
+      reason: "not_configured" | "load_failed";
+    };
+
 // food_sources 는 컬럼 단위로만 열려 있다. `*` 나 생략형은 permission denied 로 전체
 // 쿼리를 실패시키므로 임베디드 컬럼을 반드시 나열한다. !inner 는 소스가 RLS 로 가려진
 // 근거를 통째로 떨어뜨린다 — 출처 없는 인용문은 보여주지 않는다는 규칙과 같다.
 const FOOD_EVIDENCE_SELECT =
   "nutrient_key, value, excerpt, captured_at, food_sources!inner(url, capture_method)";
+const PUBLIC_FOOD_EVIDENCE_SELECT = `food_id, ${FOOD_EVIDENCE_SELECT}`;
+const PUBLIC_EVIDENCE_BATCH_SIZE = 100;
+
+type NutrientEvidenceRow = Omit<NutrientEvidence, "source"> & {
+  food_sources: NutrientEvidence["source"];
+};
+type FoodNutrientEvidenceRow = NutrientEvidenceRow & { food_id: number };
+
+function mapEvidenceRow(row: FoodNutrientEvidenceRow): FoodNutrientEvidence;
+function mapEvidenceRow(row: NutrientEvidenceRow): NutrientEvidence;
+function mapEvidenceRow(
+  row: NutrientEvidenceRow | FoodNutrientEvidenceRow,
+): NutrientEvidence | FoodNutrientEvidence {
+  const { food_sources: source, ...evidence } = row;
+  return { ...evidence, source };
+}
 
 export async function loadFoodEvidence(
   supabase: SupabaseClient<Database>,
@@ -203,13 +234,59 @@ export async function loadFoodEvidence(
 
   if (error) throw error;
 
-  return (data ?? []).map((row) => {
-    const { food_sources: source, ...rest } = row as unknown as Omit<
-      NutrientEvidence,
-      "source"
-    > & { food_sources: NutrientEvidence["source"] };
-    return { ...rest, source };
-  });
+  return (data ?? []).map((row) =>
+    mapEvidenceRow(row as unknown as NutrientEvidenceRow),
+  );
+}
+
+export async function loadPublicFoodEvidence(
+  supabase: SupabaseClient<Database>,
+  foodIds: readonly number[],
+): Promise<FoodNutrientEvidence[]> {
+  const uniqueFoodIds = [...new Set(foodIds)];
+  if (uniqueFoodIds.length === 0) return [];
+
+  const evidenceRows: FoodNutrientEvidence[] = [];
+  for (
+    let offset = 0;
+    offset < uniqueFoodIds.length;
+    offset += PUBLIC_EVIDENCE_BATCH_SIZE
+  ) {
+    const batch = uniqueFoodIds.slice(
+      offset,
+      offset + PUBLIC_EVIDENCE_BATCH_SIZE,
+    );
+    const { data, error } = await supabase
+      .from("food_nutrient_evidence")
+      .select(PUBLIC_FOOD_EVIDENCE_SELECT)
+      .eq("is_current", true)
+      .in("food_id", batch);
+
+    if (error) throw error;
+    evidenceRows.push(
+      ...(data ?? []).map((row) =>
+        mapEvidenceRow(row as unknown as FoodNutrientEvidenceRow),
+      ),
+    );
+  }
+
+  return evidenceRows;
+}
+
+export function groupFoodEvidence(
+  foodIds: readonly number[],
+  evidenceRows: readonly FoodNutrientEvidence[],
+): ReadonlyMap<number, readonly NutrientEvidence[]> {
+  const grouped = new Map<number, NutrientEvidence[]>(
+    foodIds.map((foodId) => [foodId, []]),
+  );
+
+  for (const { food_id: foodId, ...evidence } of evidenceRows) {
+    const rows = grouped.get(foodId);
+    if (rows) rows.push(evidence);
+  }
+
+  return grouped;
 }
 
 export async function getFoodEvidence(
@@ -252,6 +329,20 @@ const loadCachedPublicFoods = unstable_cache(
   { revalidate: 3600, tags: ["public-foods"] },
 );
 
+const loadCachedAdvisorCatalogRows = unstable_cache(
+  async () => {
+    const supabase = createPublicClient();
+    const foods = await loadPublicFoods(supabase);
+    const evidenceRows = await loadPublicFoodEvidence(
+      supabase,
+      foods.map((food) => food.id),
+    );
+    return { foods, evidenceRows };
+  },
+  ["public-advisor-catalog"],
+  { revalidate: 3600, tags: ["public-foods"] },
+);
+
 const loadCachedPublicRecalls = unstable_cache(
   async () => loadPublicRecalls(createPublicClient()),
   ["public-recalls"],
@@ -266,6 +357,27 @@ export async function getFoods(): Promise<FoodWithBrand[]> {
   } catch (error) {
     console.error("Failed to load foods", error);
     return [];
+  }
+}
+
+export async function getAdvisorCatalog(): Promise<AdvisorCatalogLoadResult> {
+  if (!isSupabaseConfigured()) {
+    return { available: false, reason: "not_configured" };
+  }
+
+  try {
+    const { foods, evidenceRows } = await loadCachedAdvisorCatalogRows();
+    return {
+      available: true,
+      foods,
+      evidenceByFoodId: groupFoodEvidence(
+        foods.map((food) => food.id),
+        evidenceRows,
+      ),
+    };
+  } catch (error) {
+    console.error("Failed to load advisor catalog", error);
+    return { available: false, reason: "load_failed" };
   }
 }
 

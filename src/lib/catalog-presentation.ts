@@ -6,6 +6,7 @@ import type {
 import type { Source } from "@/lib/domain";
 import { resolveAsh } from "@/lib/domain";
 import { formatKcal, formatPct, formatRatio } from "@/lib/format";
+import { classifyNutrientBound, type NutrientBound } from "@/lib/advisor";
 
 export type EvidenceTone = "declared" | "estimated" | "derived" | "unknown";
 
@@ -35,6 +36,7 @@ const NUTRITION_LABELS: Record<NutritionPresentationKey, string> = {
 
 export type QuotedProof = {
   kind: "quoted";
+  bound: NutrientBound;
   excerpt: string;
   value: number;
   url: string;
@@ -138,6 +140,7 @@ function quotedProof(
   const quoted = toColumnScale(evidence.value);
   if (quoted === null || quoted !== toColumnScale(value)) return null;
   return {
+    bound: classifyNutrientBound(evidence.excerpt),
     captureMethod: evidence.source.capture_method,
     capturedAt: evidence.captured_at,
     excerpt: evidence.excerpt,
