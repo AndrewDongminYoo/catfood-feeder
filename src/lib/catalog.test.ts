@@ -86,7 +86,8 @@ describe("loadPublicFoods", () => {
         if (column === "protein_pct") foodRows = [];
         return foodQuery;
       },
-      order: async () => ({ data: foodRows, error: null }),
+      order: () => foodQuery,
+      range: async () => ({ data: foodRows, error: null }),
     };
     const recallQuery = {
       select: () => recallQuery,
@@ -102,5 +103,42 @@ describe("loadPublicFoods", () => {
 
     expect(foods).toHaveLength(1);
     expect(foods[0]).toMatchObject({ id: foodA.id, protein_pct: null });
+  });
+
+  it("PostgREST 제한을 넘는 공개 제품을 고유 ID 순서로 모두 페이지한다", async () => {
+    const foodRows = Array.from({ length: 1001 }, (_, index) => ({
+      ...foodA,
+      brand_id: index + 1,
+      id: index + 1,
+      product_name: `Food ${String(index + 1).padStart(4, "0")}`,
+    }));
+    const ranges: Array<{ from: number; to: number }> = [];
+    const foodQuery = {
+      select: () => foodQuery,
+      not: () => foodQuery,
+      order: () => foodQuery,
+      range: async (from: number, to: number) => {
+        ranges.push({ from, to });
+        return { data: foodRows.slice(from, to + 1), error: null };
+      },
+    };
+    const recallQuery = {
+      select: () => recallQuery,
+      is: () => recallQuery,
+      in: () => recallQuery,
+      order: async () => ({ data: [], error: null }),
+    };
+    const client = {
+      from: (table: string) => (table === "foods" ? foodQuery : recallQuery),
+    };
+
+    const foods = await loadPublicFoods(client as never);
+
+    expect(foods).toHaveLength(1001);
+    expect(new Set(foods.map((food) => food.id)).size).toBe(1001);
+    expect(ranges).toEqual([
+      { from: 0, to: 999 },
+      { from: 1000, to: 1999 },
+    ]);
   });
 });

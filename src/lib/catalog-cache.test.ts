@@ -29,12 +29,16 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 describe("public catalog cache", () => {
-  it("제품과 리콜 공개 읽기를 각각 한 시간 캐시에 등록한다", async () => {
+  it("제품, advisor 근거, 리콜 공개 읽기를 각각 한 시간 캐시에 등록한다", async () => {
     await import("./catalog");
 
     expect(cacheRegistrations).toEqual([
       {
         keyParts: ["public-foods"],
+        options: { revalidate: 3600, tags: ["public-foods"] },
+      },
+      {
+        keyParts: ["public-advisor-catalog"],
         options: { revalidate: 3600, tags: ["public-foods"] },
       },
       {

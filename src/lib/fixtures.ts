@@ -1,4 +1,7 @@
-import type { FoodWithBrand } from "@/lib/catalog";
+import type { FoodWithBrand, NutrientEvidence } from "@/lib/catalog";
+
+const ACANA_GRASSLANDS_SOURCE_URL =
+  "https://www.acana.com/en-CA/cats/cat-food/highest-protein%2C-grasslands/ds-aca-grasslands-new-cat.html";
 
 export const ACANA_MFG = `
 Guaranteed Analysis
@@ -83,5 +86,42 @@ export const SAMPLE_FOODS: FoodWithBrand[] = [
     },
     recalls: [],
     prices: [],
+  },
+];
+
+export const SAMPLE_ADVISOR_FOODS: FoodWithBrand[] = SAMPLE_FOODS[0]
+  ? [
+      {
+        ...SAMPLE_FOODS[0],
+        brand_id: 1,
+        brands: SAMPLE_FOODS[0].brands
+          ? { ...SAMPLE_FOODS[0].brands, id: 1 }
+          : null,
+        id: 1,
+      },
+    ]
+  : [];
+
+export const SAMPLE_FOOD_EVIDENCE: NutrientEvidence[] = [
+  {
+    captured_at: "2026-05-31T00:00:00.000Z",
+    excerpt: "Crude protein (min.) 36 %",
+    nutrient_key: "protein_pct",
+    source: {
+      capture_method: "fixture",
+      url: ACANA_GRASSLANDS_SOURCE_URL,
+    },
+    value: 36,
+  },
+  {
+    captured_at: "2026-05-31T00:00:00.000Z",
+    excerpt:
+      "METABOLIZABLE ENERGY: 3850 kcal/kg (439 kcal per 8 fl. oz cup), with 37% from protein, 23% from carbohydrates, and 40% from fat.",
+    nutrient_key: "kcal_per_kg",
+    source: {
+      capture_method: "fixture",
+      url: ACANA_GRASSLANDS_SOURCE_URL,
+    },
+    value: 3850,
   },
 ];

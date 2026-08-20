@@ -144,6 +144,7 @@ describe("nutritionFacts proofs", () => {
     ]);
 
     expect(facts.find((fact) => fact.key === "protein_pct")?.proof).toEqual({
+      bound: "unspecified",
       captureMethod: "fetch",
       capturedAt: "2026-08-18T00:00:00Z",
       excerpt: "Crude Protein 36.00%",
@@ -151,6 +152,27 @@ describe("nutritionFacts proofs", () => {
       url: "https://example.test/label",
       value: food.protein_pct!,
     });
+  });
+
+  it.each([
+    ["Crude Protein (min.) 36%", "minimum"],
+    ["Crude Protein 36% 이하", "maximum"],
+    ["Crude Protein 36%", "unspecified"],
+  ] as const)("인용 근거 %s의 값 관계를 %s로 보존한다", (excerpt, bound) => {
+    const proof = nutritionFacts(food, [
+      evidenceRow("protein_pct", food.protein_pct!, excerpt),
+    ]).find((fact) => fact.key === "protein_pct")?.proof;
+
+    expect(proof).toMatchObject({ bound, kind: "quoted" });
+  });
+
+  it("파생 탄수화물은 인용 경계가 아니라 계산 근거로 남긴다", () => {
+    const fact = nutritionFacts(food, []).find(
+      (candidate) => candidate.key === "carb_pct",
+    );
+
+    expect(fact?.evidence).toEqual({ label: "계산값", tone: "derived" });
+    expect(fact?.proof?.kind).toBe("computed");
   });
 
   it("computes carbohydrate when no evidence row exists", () => {
