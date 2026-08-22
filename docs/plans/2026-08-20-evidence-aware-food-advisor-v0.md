@@ -881,8 +881,10 @@ Expected: every non-null live target passes its DOM assertion, screenshots are a
 
 - [ ] **Step 5: Record the release decision**
 
-Run the separately approved [Advisor v0 observed pilot](./2026-08-20-advisor-v0-pilot.md) without product analytics and record this release decision only after its external ledger contains eight completed valid observed sessions.
-Proceed to a separately planned natural-language input only after the structured page demonstrates useful candidate coverage, the pilot outcome is `proceed`, and the operator approves the product behavior.
+The observed pilot this step depended on was retired on 2026-08-22 at 0 of 8 sessions, without running; see [Product Direction](../product-direction.md).
+The release gate is therefore no longer an eight-session observation, and this step is superseded.
+The next slice is the ingredient data slice, and a natural-language input decision waits on it.
+Proceed to a separately planned natural-language input only after the structured page demonstrates useful candidate coverage, the ingredient data slice has landed, and the operator approves the product behavior.
 Keep MCP later than the natural-language decision.
 If users repeatedly request ingredient exclusions, create a separate ingredient form/specificity and evidence-ingest plan before exposing that filter.
 If too many requested nutrient comparisons remain `unspecified`, create a separate persistent qualifier and interval-propagation design instead of weakening the literal-evidence rule.
