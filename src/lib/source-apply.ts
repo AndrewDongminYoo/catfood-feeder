@@ -75,3 +75,54 @@ export function conflictCandidates(
       : [],
   );
 }
+
+/**
+ * 원재료 목록의 적용 요청.
+ *
+ * 영양소는 값 아홉 개가 각자 충돌하지만 원재료는 목록 하나가 통째로 충돌한다.
+ * 그래서 근거도 항목마다가 아니라 목록 하나에 하나 붙는다.
+ */
+export const ingredientCandidateSchema = z
+  .object({
+    name: z.string().trim().min(1).max(200),
+    position: z.number().int().positive(),
+  })
+  .strict();
+
+export const ingredientDraftSchema = z
+  .object({
+    // 영양소 구절은 한 문구지만 원재료 구절은 문단이다. 상한이 다르다.
+    excerpt: z.string().trim().min(1).max(4000),
+    ingredients: z.array(ingredientCandidateSchema).min(1).max(200),
+    sourceId: z.number().int().positive(),
+  })
+  .strict()
+  // 순서가 이 데이터의 값이므로 RPC 에 닿기 전에 여기서도 막는다. 어긋난 순서가
+  // 통과하면 조용히 잘못 정렬된 목록이 발행된다.
+  .refine(
+    (draft) =>
+      draft.ingredients.every(
+        (ingredient, index) => ingredient.position === index + 1,
+      ),
+    { message: "position 은 배열 순서와 같은 1..n 이어야 합니다." },
+  );
+
+export type IngredientDraft = Readonly<z.infer<typeof ingredientDraftSchema>>;
+
+export type IngredientApplyResult = Readonly<{
+  count: number;
+  status: "applied" | "skipped" | "conflict";
+}>;
+
+const databaseIngredientApplyResultSchema = z
+  .object({
+    count: z.number().int().nonnegative(),
+    status: z.enum(["applied", "skipped", "conflict"]),
+  })
+  .strict();
+
+export function parseIngredientApplyResult(
+  value: unknown,
+): IngredientApplyResult {
+  return databaseIngredientApplyResultSchema.parse(value);
+}

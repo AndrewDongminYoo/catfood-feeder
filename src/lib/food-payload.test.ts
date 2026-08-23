@@ -19,7 +19,7 @@ function payloadFromNewPage(overrides: Record<string, unknown> = {}) {
     kcal_per_kg: null,
     mfg_energy: null,
     nutrient_sources: { protein_pct: "manufacturer", fat_pct: "manufacturer" },
-    ingredients: [{ name: "Fresh poultry meat", pct: 30, type: "meat" }],
+    ingredients: [{ name: "Fresh poultry meat", position: 1 }],
     flags: { grain_free: true, has_cranberry: true },
     source_conflicts: [],
     ...overrides,

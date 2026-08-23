@@ -438,3 +438,114 @@ describe("parseModelOutput", () => {
     expect(parseModelOutput('설명 { "nutrients": 42 } 끝')).toBeNull();
   });
 });
+
+describe("원재료 추출", () => {
+  it("배열 순서로 position 을 매기고 사라진 pct 와 type 은 버린다", () => {
+    const parsed = parseModelOutput(
+      JSON.stringify({
+        ingredients: [
+          { name: "chicken", pct: 30, type: "meat" },
+          { name: " chicken meal ", pct: null, type: "meat" },
+          { name: "peas", pct: null, type: "plant" },
+        ],
+        nutrients: {},
+      }),
+    );
+
+    expect(parsed?.ingredients).toEqual([
+      { name: "chicken", position: 1 },
+      { name: "chicken meal", position: 2 },
+      { name: "peas", position: 3 },
+    ]);
+  });
+
+  const source = {
+    capturedText:
+      "Ingredients chicken, chicken meal, peas, pea flour, natural flavor.",
+    id: 7,
+    kind: "manufacturer" as const,
+  };
+
+  async function extractWith(modelOutput: unknown) {
+    vi.stubEnv("ANTHROPIC_API_KEY", "test-api-key");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            content: [{ text: JSON.stringify(modelOutput), type: "text" }],
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+    return extractCapturedSources([source]);
+  }
+
+  it("근거 문구가 증명하는 목록만 draft 로 넘긴다", async () => {
+    const result = await extractWith({
+      ingredient_excerpt: "chicken, chicken meal, peas",
+      ingredient_source_id: 7,
+      ingredients: [
+        { name: "chicken" },
+        { name: "chicken meal" },
+        { name: "peas" },
+      ],
+      nutrients: {},
+    });
+
+    expect(result.kind === "success" && result.ingredientDraft).toEqual({
+      excerpt: "chicken, chicken meal, peas",
+      ingredients: [
+        { name: "chicken", position: 1 },
+        { name: "chicken meal", position: 2 },
+        { name: "peas", position: 3 },
+      ],
+      sourceId: 7,
+    });
+  });
+
+  it("구절이 없으면 목록을 통째로 버린다", async () => {
+    const result = await extractWith({
+      ingredient_excerpt: null,
+      ingredient_source_id: 7,
+      ingredients: [{ name: "chicken" }],
+      nutrients: {},
+    });
+
+    expect(result.kind === "success" && result.ingredientDraft).toBe(null);
+  });
+
+  it("캡처에 없는 구절을 버린다", async () => {
+    const result = await extractWith({
+      ingredient_excerpt: "salmon, potato, quinoa",
+      ingredient_source_id: 7,
+      ingredients: [{ name: "salmon" }],
+      nutrients: {},
+    });
+
+    expect(result.kind === "success" && result.ingredientDraft).toBe(null);
+  });
+
+  it("구절이 증명하지 못하는 이름이 하나라도 있으면 목록을 버린다", async () => {
+    const result = await extractWith({
+      ingredient_excerpt: "chicken, chicken meal",
+      ingredient_source_id: 7,
+      ingredients: [{ name: "chicken" }, { name: "salmon" }],
+      nutrients: {},
+    });
+
+    expect(result.kind === "success" && result.ingredientDraft).toBe(null);
+  });
+
+  it("공급되지 않은 소스를 가리키면 버린다", async () => {
+    const result = await extractWith({
+      ingredient_excerpt: "chicken, chicken meal",
+      ingredient_source_id: 999,
+      ingredients: [{ name: "chicken" }, { name: "chicken meal" }],
+      nutrients: {},
+    });
+
+    expect(result.kind === "success" && result.ingredientDraft).toBe(null);
+  });
+});

@@ -157,6 +157,51 @@ export type Database = {
           },
         ];
       };
+      food_ingredient_evidence: {
+        Row: {
+          captured_at: string;
+          created_at: string;
+          excerpt: string;
+          food_id: number;
+          id: number;
+          is_current: boolean;
+          source_id: number;
+        };
+        Insert: {
+          captured_at: string;
+          created_at?: string;
+          excerpt: string;
+          food_id: number;
+          id?: never;
+          is_current?: boolean;
+          source_id: number;
+        };
+        Update: {
+          captured_at?: string;
+          created_at?: string;
+          excerpt?: string;
+          food_id?: number;
+          id?: never;
+          is_current?: boolean;
+          source_id?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "food_ingredient_evidence_food_id_fkey";
+            columns: ["food_id"];
+            isOneToOne: false;
+            referencedRelation: "foods";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "food_ingredient_evidence_source_id_fkey";
+            columns: ["source_id"];
+            isOneToOne: false;
+            referencedRelation: "food_sources";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       food_nutrient_evidence: {
         Row: {
           captured_at: string;
@@ -559,6 +604,16 @@ export type Database = {
           p_evidence: Json;
           p_food_id: number;
           p_owned_source_ids?: number[];
+        };
+        Returns: Json;
+      };
+      apply_food_ingredients_draft: {
+        Args: {
+          p_excerpt: string;
+          p_food_id: number;
+          p_ingredients: Json;
+          p_owned_source_ids?: number[];
+          p_source_id: number;
         };
         Returns: Json;
       };

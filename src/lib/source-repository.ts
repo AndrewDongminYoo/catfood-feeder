@@ -1,6 +1,13 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { parseEvidenceApplyResults } from "./source-apply";
-import type { EvidenceApplyResult } from "./source-apply";
+import {
+  parseEvidenceApplyResults,
+  parseIngredientApplyResult,
+} from "./source-apply";
+import type {
+  EvidenceApplyResult,
+  IngredientApplyResult,
+  IngredientDraft,
+} from "./source-apply";
 import {
   parseResearchSourceReplacement,
   parseSourceReplacementResult,
@@ -265,6 +272,29 @@ export async function applyFoodEvidenceDraft(
       "Evidence RPC returned an incomplete result",
     );
   return results;
+}
+
+/**
+ * 원재료 목록을 적용한다. 영양소와 달리 목록 하나가 통째로 판정 단위이므로
+ * 결과도 항목별 배열이 아니라 상태 하나다.
+ */
+export async function applyFoodIngredientsDraft(
+  foodId: number,
+  draft: IngredientDraft,
+): Promise<IngredientApplyResult> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.rpc("apply_food_ingredients_draft", {
+    p_excerpt: draft.excerpt,
+    p_food_id: foodId,
+    p_ingredients: draft.ingredients.map((ingredient) => ({
+      name: ingredient.name,
+      position: ingredient.position,
+    })),
+    p_source_id: draft.sourceId,
+  });
+  if (error)
+    throw new SourceRepositoryError("apply_food_ingredients", error.message);
+  return parseIngredientApplyResult(data);
 }
 
 function toSourceInsert(source: SourceWrite, isCurrent: boolean) {

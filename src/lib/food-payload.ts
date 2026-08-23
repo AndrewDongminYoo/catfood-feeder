@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { COOKING_METHOD_VALUES, SOURCE_VALUES } from "./domain";
+import { ingredientCandidateSchema } from "./source-apply";
 
 const sourceSchema = z.enum(SOURCE_VALUES);
 const finiteNumberSchema = z.number().finite().nullable().optional();
@@ -45,7 +46,7 @@ export const foodPayloadSchema = z
       .nullish()
       .transform((value) => value ?? undefined),
     nutrient_sources: z.record(z.string(), sourceSchema).default({}),
-    ingredients: z.array(z.json()).max(200).default([]),
+    ingredients: z.array(ingredientCandidateSchema).max(200).default([]),
     flags: z
       .object({
         grain_free: z.boolean().optional(),
