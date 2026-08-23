@@ -81,10 +81,17 @@ The gap is missing plumbing, not missing data.
 - Every product published through that pipeline therefore lands with `ingredients: []` regardless of what the extractor found.
 
 Retained captures already hold the source text.
-Of the 125 published products, 75 have a comma-separated ingredient run inside the capture of their current (`is_current`) source; including retired sources raises that to 77.
-That count was measured with a regular expression requiring at least seven comma-separated items, then validated by reading the matched region of six randomly sampled products.
-It proves a capture contains an ingredient list, not that the list belongs to that product, so **75 is an upper bound**.
-The real yield is set by a measured extraction pass, not by this figure.
+Of the 125 published products, **104 have a comma-separated ingredient run inside the capture of their current (`is_current`) source**, and 21 have none.
+Of those 104, sixty hold exactly one such run and forty-four hold several.
+
+An earlier pass reported 75 rather than 104.
+That count capped an ingredient entry at 40 characters, so a long parenthetical such as `chicken fat (preserved with tocopherols and citric acid)` broke the chain and split one list into fragments — which also inflated the apparent per-page ambiguity.
+Widening the entry pattern to break only on commas, semicolons, and newlines corrected both.
+
+The 104 is still an upper bound, and the residual failures are semantic rather than syntactic.
+Reading fourteen samples by hand on 2026-08-23: of ten one-run captures, seven held a real ingredient list, two matched only a parenthetical herb sub-list, and one was marketing prose; among several-run captures the first match is sometimes site navigation.
+No regular expression separates those cases, so this figure selects and orders candidates while the extraction pass settles identity and completeness.
+The real yield is set by that pass, not by this figure.
 
 ## Slice scope
 

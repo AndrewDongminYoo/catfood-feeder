@@ -138,7 +138,9 @@ Run: `node scripts/measure-ingredient-tranche.mjs`
 
 Do not accept the printed `identity matched` count on its own — the direction doc records that a marker count already lied once. Read all ten matched samples and all five excluded samples. For each matched sample, confirm the run really is that product's ingredient list and not another product on the same page. If more than one of the ten is wrong, tighten `identityTokens` or raise the token threshold and re-run before continuing.
 
-Record the validated count and the `matched food ids` list; Task 7 consumes that list.
+Record the validated counts and both id lists; Task 7 consumes them.
+
+The check cannot establish identity on its own, and tightening the pattern does not fix that — the residual failures are semantic. Treat tranche A (one run) as the higher-yield set and tranche B (several runs) as the set where the model must disambiguate, and let Task 7's extraction be the arbiter for both.
 
 - [ ] **Step 3: Commit**
 
@@ -1336,9 +1338,15 @@ Start the dev server (`pnpm dev`), then run with three ids from Task 1's matched
 
 Run: `node scripts/backfill-ingredients.mjs --dry-run <id>,<id>,<id>`
 
-- [ ] **Step 3: Run the full tranche**
+- [ ] **Step 3: Run tranche A, then tranche B**
 
-Run: `node scripts/backfill-ingredients.mjs <matched ids from Task 1>`
+Run tranche A first — one run per capture, the higher-yield set:
+
+Run: `node scripts/backfill-ingredients.mjs <tranche A ids from Task 1>`
+
+Read the tally before starting tranche B. If tranche A's `no_draft` share is above half, stop and report rather than spending the second tranche's budget on the same failure.
+
+Run: `node scripts/backfill-ingredients.mjs <tranche B ids from Task 1>`
 
 Record the printed tally. `applied / 대상` is the measured yield, and it — not the 75 upper bound — is the number that goes into the direction doc.
 
