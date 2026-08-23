@@ -19,9 +19,10 @@ export interface BrandSummary {
 }
 
 export interface Ingredient {
+  /** 라벨이 쓴 표기 그대로. 형태와 특이성은 여기서 파생한다 — `@/lib/ingredient-form`. */
   name: string;
-  pct: number | null;
-  type: "meat" | "fish" | "plant" | "other";
+  /** 라벨의 함량 내림차순 기재 순서. 1부터 시작하고 배열 순서와 같다. */
+  position: number;
 }
 
 export interface RecallSummary {

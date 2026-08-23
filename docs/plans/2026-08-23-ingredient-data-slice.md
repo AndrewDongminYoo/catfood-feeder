@@ -1111,9 +1111,11 @@ git commit -m "feat(ingredients): extract names in declared order with a literal
 
 ---
 
-### Task 6: Render order and derived form
+### Task 6: Render order and derived form — FOLDED INTO TASK 2
 
-The two components still read `ingredient.pct` and have been failing typecheck since Task 2. They are fixed here, and the derived axes become visible.
+Done as part of Task 2 on 2026-08-23, because deferring it left `pnpm typecheck` and one dossier test red across four commits, which makes every commit in between unbisectable and unshippable. The chip block was identical in both components, so it was extracted to `src/components/ingredient-chips.tsx` rather than edited twice.
+
+The original task text follows for reference; do not execute it again.
 
 **Files:**
 

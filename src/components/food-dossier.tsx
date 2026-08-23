@@ -7,6 +7,7 @@ import {
   nutritionFacts,
 } from "@/lib/catalog-presentation";
 import { matchExcerptValue, normalizeExcerpt } from "@/lib/excerpt-match";
+import { IngredientChips } from "./ingredient-chips";
 import { RecallHistory } from "./recall-history";
 
 export function FoodDossier({
@@ -58,15 +59,7 @@ export function FoodDossier({
 
       <section className="card dossier-section">
         <h2>원재료와 다음 질문</h2>
-        <div className="chips">
-          {food.ingredients.map((ingredient, index) => (
-            <span key={`${ingredient.name}-${index}`}>
-              {ingredient.name}
-              {ingredient.pct !== null ? ` ${ingredient.pct}%` : ""}
-            </span>
-          ))}
-          {food.ingredients.length === 0 && <span>원재료 미기록</span>}
-        </div>
+        <IngredientChips ingredients={food.ingredients} />
         <p className="learning-note">
           원재료 한 가지나 마케팅 표현만으로 품질을 단정할 수 없습니다.
         </p>

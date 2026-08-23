@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { FoodWithBrand } from "@/lib/catalog";
 import { type EvidenceTone, nutritionFacts } from "@/lib/catalog-presentation";
+import { IngredientChips } from "./ingredient-chips";
 import { RecallHistory } from "./recall-history";
 
 export function FoodComparison({ foods }: { foods: readonly FoodWithBrand[] }) {
@@ -73,15 +74,7 @@ export function FoodComparison({ foods }: { foods: readonly FoodWithBrand[] }) {
         {foods.map((food) => (
           <article className="comparison-context-card" key={food.id}>
             <h3>{food.product_name}의 원재료와 이력</h3>
-            <div className="chips">
-              {food.ingredients.map((ingredient, index) => (
-                <span key={`${ingredient.name}-${index}`}>
-                  {ingredient.name}
-                  {ingredient.pct !== null ? ` ${ingredient.pct}%` : ""}
-                </span>
-              ))}
-              {food.ingredients.length === 0 && <span>원재료 미기록</span>}
-            </div>
+            <IngredientChips ingredients={food.ingredients} />
             <RecallHistory recalls={food.recalls ?? []} />
             <p className="learning-note">
               연결된 기록은 공개 이력의 범위이며 실시간 경보가 아닙니다. 연결된

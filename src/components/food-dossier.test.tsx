@@ -27,12 +27,43 @@ describe("FoodDossier", () => {
     ).toBeTruthy();
     expect(screen.getAllByText("제조사 표기").length).toBeGreaterThan(0);
     expect(screen.getAllByText("계산값").length).toBeGreaterThan(0);
-    expect(screen.getByText("Duck 11%")).toBeTruthy();
+    expect(screen.getByText("Duck")).toBeTruthy();
     expect(
       screen.getByText(
         /보증성분의 최소\/최대값을 포함할 수 있어 실제 함량이나 정밀한 점값을 뜻하지 않습니다/,
       ),
     ).toBeTruthy();
+  });
+
+  it("원재료를 라벨 기재 순서대로 보여준다", () => {
+    render(
+      <FoodDossier
+        food={{
+          ...acana,
+          ingredients: [
+            { name: "chicken meal", position: 2 },
+            { name: "deboned chicken", position: 1 },
+          ],
+        }}
+      />,
+    );
+
+    expect(
+      screen.getAllByTestId("ingredient-chip").map((chip) => chip.textContent),
+    ).toEqual(["deboned chicken생", "chicken meal분말"]);
+  });
+
+  it("파생된 형태를 이름과 구분해 표기한다", () => {
+    render(
+      <FoodDossier
+        food={{
+          ...acana,
+          ingredients: [{ name: "chicken meal", position: 1 }],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("분말").tagName).toBe("EM");
   });
 
   it("비어 있는 영양소와 리콜 목록을 유리한 결론으로 바꾸지 않는다", () => {

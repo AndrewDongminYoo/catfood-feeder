@@ -65,9 +65,9 @@ export const SAMPLE_FOODS: FoodWithBrand[] = [
       carb_pct: "derived",
     },
     ingredients: [
-      { name: "Duck", pct: 11, type: "meat" },
-      { name: "Chicken", pct: 11, type: "meat" },
-      { name: "Eggs", pct: 8, type: "other" },
+      { name: "Duck", position: 1 },
+      { name: "Chicken", position: 2 },
+      { name: "Eggs", position: 3 },
     ],
     grain_free: true,
     meal_free: false,
