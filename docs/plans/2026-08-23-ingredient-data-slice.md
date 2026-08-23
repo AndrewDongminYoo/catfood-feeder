@@ -1244,6 +1244,13 @@ git commit -m "feat(ingredients): render declared order with the derived form"
 
 This is the paid pass, and it doubles as the real yield measurement the direction doc asked for.
 
+Two hard preconditions, both measured on 2026-08-24:
+
+1. **The migration must be live on the remote project first.** `createAdminClient()` writes to the linked project, where `to_regclass('public.food_ingredient_evidence')` is still null, so every apply would fail. Supabase's GitHub integration deploys migrations on merge to `main`, and per the `merge-to-main-deploys-the-schema` memory the CLI's own "up to date" output is not evidence of that. Gate this task on re-running the `to_regclass` check plus a `schema_migrations` lookup for `20260823090000` against the remote database.
+2. **`/api/foods/[id]/sources/extract` consumes a rate limit of 8 requests per 60 seconds** (`consumeRateLimit` defaults in `src/lib/request-rate-limit.ts`). A 104-food run hits it at the ninth food. The script must pace itself under that ceiling and count a 429 as its own outcome, honouring `Retry-After`; folding it into `refused` would report a throttle as a rejected draft and corrupt the yield number this task exists to produce.
+
+This task also writes to production rows and spends API budget, so it needs explicit approval before it runs.
+
 **Files:**
 
 - Create: `scripts/backfill-ingredients.mjs`
@@ -1286,14 +1293,34 @@ const HEADERS = {
   "content-type": "application/json",
   "x-admin-secret": SECRET,
 };
-const tally = { applied: 0, conflict: 0, no_draft: 0, refused: 0, skipped: 0 };
+const tally = {
+  applied: 0,
+  conflict: 0,
+  no_draft: 0,
+  rate_limited: 0,
+  refused: 0,
+  skipped: 0,
+};
+
+// /api/foods/[id]/sources/extract 는 60초당 8건까지만 받는다. 그 아래로 스스로
+// 속도를 맞춘다 — 429 를 refused 로 세면 스로틀이 거절로 둔갑해 수율이 망가진다.
+const PACE_MS = 8_000;
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 for (const id of ids) {
+  await wait(PACE_MS);
   const extracted = await fetch(`${BASE}/api/foods/${id}/sources/extract`, {
     body: JSON.stringify({}),
     headers: HEADERS,
     method: "POST",
   });
+  if (extracted.status === 429) {
+    const retryAfter = Number(extracted.headers.get("Retry-After") ?? 60);
+    console.log(`[${id}] 한도 초과, ${retryAfter}초 후 재시도`);
+    tally.rate_limited += 1;
+    await wait((retryAfter + 1) * 1000);
+    continue;
+  }
   if (!extracted.ok) {
     console.log(`[${id}] extract 실패 ${extracted.status}`);
     tally.refused += 1;

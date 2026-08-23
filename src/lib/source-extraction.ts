@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { computeDerived, NUTRIENT_FIELDS, validate } from "./domain";
 import { DECIMAL_COMMA, normalizeDecimalLiteral } from "./excerpt-match";
-import { isEvidenceExcerpt } from "./source-collection";
+import { isEvidenceExcerpt, normalizeSourceText } from "./source-collection";
 import type { Ingredient } from "./catalog";
 import type { CookingMethod, NutrientKey, Source } from "./domain";
 import type { IngredientDraft } from "./source-apply";
@@ -182,20 +182,15 @@ function toIngredientDraft(
   const source = sources.find((candidate) => candidate.id === sourceId);
   if (!source || !isEvidenceExcerpt(source.capturedText, excerpt)) return null;
 
-  const normalizedExcerpt = normalizeForLiteralMatch(excerpt);
+  // isEvidenceExcerpt 가 쓰는 것과 같은 정규화를 이름 대조에도 그대로 쓴다. 두
+  // 규칙이 갈라지면 추출이 받아들인 draft 를 서버가 거절하고, 배치는 그 거절을
+  // "근거 없음"이 아니라 "실패"로 집계한다.
+  const normalizedExcerpt = normalizeSourceText(excerpt);
   const proven = ingredients.every((ingredient) =>
-    normalizedExcerpt.includes(normalizeForLiteralMatch(ingredient.name)),
+    normalizedExcerpt.includes(normalizeSourceText(ingredient.name)),
   );
 
   return proven ? { excerpt, ingredients, sourceId } : null;
-}
-
-/**
- * RPC 의 문자열 비교와 같은 정규화. 여기서 통과한 draft 가 서버에서 거절되면
- * 배치는 그것을 "근거 없음"이 아니라 "실패"로 집계하므로, 두 규칙은 같아야 한다.
- */
-function normalizeForLiteralMatch(value: string): string {
-  return value.normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase();
 }
 
 type ExtractionAttempt =
