@@ -140,3 +140,22 @@ export function parseIngredientApplyResult(
 ): IngredientApplyResult {
   return databaseIngredientApplyResultSchema.parse(value);
 }
+
+/**
+ * `apply_food_ingredients_draft` 가 검증 거절에 다는 SQLSTATE.
+ *
+ * 거절과 장애를 문구로 가르면 규칙이 하나 늘 때마다 분류가 조용히 낡는다. 실제로
+ * 완전성 검사를 추가하자마자 그 메시지가 목록에서 빠져, 400 이어야 할 응답이
+ * 500 이 됐다. 새 RPC 는 계약을 이쪽이 소유하므로 코드로 가른다.
+ */
+const INGREDIENT_REFUSAL_SQLSTATE = "CFING";
+
+/** RPC 가 근거를 거절한 것인가, 아니면 진짜 장애인가. */
+export function isIngredientRefusal(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code: unknown }).code === INGREDIENT_REFUSAL_SQLSTATE
+  );
+}

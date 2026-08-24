@@ -43,6 +43,8 @@ export class SourceRepositoryError extends Error {
   constructor(
     readonly operation: string,
     message: string,
+    /** RPC 의 SQLSTATE. 호출자가 거절과 장애를 문구가 아니라 코드로 가르게 한다. */
+    readonly code?: string,
   ) {
     super(message);
   }
@@ -293,7 +295,11 @@ export async function applyFoodIngredientsDraft(
     p_source_id: draft.sourceId,
   });
   if (error)
-    throw new SourceRepositoryError("apply_food_ingredients", error.message);
+    throw new SourceRepositoryError(
+      "apply_food_ingredients",
+      error.message,
+      error.code,
+    );
   return parseIngredientApplyResult(data);
 }
 

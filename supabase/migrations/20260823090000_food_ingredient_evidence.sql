@@ -3,6 +3,11 @@
 -- nutrient_key 로 밀어 넣으면 kind 를 슬롯으로 쓰는 것과 같은 실수가 된다
 -- (20260810030000_source_kind_is_meaning_not_slot.sql 이 이미 한 번 바로잡았다).
 -- 그래서 형제 함수를 두고, 지켜야 할 불변식만 그대로 따라 간다.
+--
+-- 이 함수의 검증 거절은 전부 SQLSTATE 'CFING' 을 단다. 호출자가 거절과 장애를
+-- 문구로 가르면 목록이 하나 늘 때마다 분류가 조용히 낡는다 — 실제로 완전성 검사를
+-- 추가하자마자 그 메시지가 목록에서 빠져 400 이어야 할 응답이 500 이 됐다.
+-- 소유권 상실만 기존 규약대로 'CFCLM' 을 유지한다.
 
 CREATE TABLE public.food_ingredient_evidence (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -63,11 +68,13 @@ BEGIN
   IF p_ingredients IS NULL
     OR jsonb_typeof(p_ingredients) <> 'array'
     OR jsonb_array_length(p_ingredients) = 0 THEN
-    RAISE EXCEPTION 'Ingredients must be a non-empty JSON array';
+    RAISE EXCEPTION 'Ingredients must be a non-empty JSON array'
+    USING ERRCODE = 'CFING';
   END IF;
 
   IF v_excerpt = '' THEN
-    RAISE EXCEPTION 'Each ingredient draft requires a non-empty excerpt';
+    RAISE EXCEPTION 'Each ingredient draft requires a non-empty excerpt'
+    USING ERRCODE = 'CFING';
   END IF;
 
   -- 영양소 경로는 발행 전 draft 를 채우므로 data_verified_at IS NULL 을 요구한다.
@@ -82,7 +89,8 @@ BEGIN
   FOR UPDATE;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Food % does not exist', p_food_id;
+    RAISE EXCEPTION 'Food % does not exist', p_food_id
+    USING ERRCODE = 'CFING';
   END IF;
 
   -- 수집 시점에 잡은 소유권을 적용 시점에 다시 확인한다. 영양소 경로와 같은 이유다.
@@ -108,7 +116,8 @@ BEGIN
   FOR SHARE;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Source % is not a current fetched source for food %', p_source_id, p_food_id;
+    RAISE EXCEPTION 'Source % is not a current fetched source for food %', p_source_id, p_food_id
+    USING ERRCODE = 'CFING';
   END IF;
 
   v_norm_excerpt := lower(btrim(regexp_replace(normalize(v_excerpt, NFKC), E'\\s+', ' ', 'g')));
@@ -117,7 +126,8 @@ BEGIN
     v_norm_excerpt
     IN lower(btrim(regexp_replace(normalize(v_captured_text, NFKC), E'\\s+', ' ', 'g')))
   ) = 0 THEN
-    RAISE EXCEPTION 'Evidence excerpt is absent from source %', p_source_id;
+    RAISE EXCEPTION 'Evidence excerpt is absent from source %', p_source_id
+    USING ERRCODE = 'CFING';
   END IF;
 
   FOR v_item IN
@@ -129,20 +139,23 @@ BEGIN
       IF coalesce(jsonb_typeof(v_item), '') <> 'object'
         OR NOT (v_item ? 'name')
         OR NOT (v_item ? 'position') THEN
-        RAISE EXCEPTION 'Each ingredient requires name and position';
+        RAISE EXCEPTION 'Each ingredient requires name and position'
+        USING ERRCODE = 'CFING';
       END IF;
 
       v_name := btrim(v_item ->> 'name');
 
       IF v_name = '' THEN
-        RAISE EXCEPTION 'Ingredient name must not be empty';
+        RAISE EXCEPTION 'Ingredient name must not be empty'
+        USING ERRCODE = 'CFING';
       END IF;
 
       -- 순서가 이 데이터의 값이다. 배열 순서와 position 이 어긋나면 조용히 잘못
       -- 정렬된 목록이 발행되므로, 1..n 연속만 받는다.
       IF jsonb_typeof(v_item -> 'position') <> 'number'
         OR (v_item ->> 'position')::numeric <> v_index THEN
-        RAISE EXCEPTION 'Ingredient positions must be 1..n in array order';
+        RAISE EXCEPTION 'Ingredient positions must be 1..n in array order'
+        USING ERRCODE = 'CFING';
       END IF;
 
       -- 구절은 라벨이 쓴 그대로이므로, 이름들이 구절을 빈틈없이 덮어야 한다.
@@ -159,7 +172,8 @@ BEGIN
         END LOOP;
 
       IF substr(v_norm_excerpt, v_cursor, length(v_norm_name)) <> v_norm_name THEN
-        RAISE EXCEPTION 'Ingredient name % does not continue the excerpt at its declared position', v_name;
+        RAISE EXCEPTION 'Ingredient name % does not continue the excerpt at its declared position', v_name
+        USING ERRCODE = 'CFING';
       END IF;
 
       v_cursor := v_cursor + length(v_norm_name);
@@ -173,7 +187,8 @@ BEGIN
     END LOOP;
 
   IF v_cursor <= length(v_norm_excerpt) THEN
-    RAISE EXCEPTION 'Ingredient list does not cover the whole excerpt';
+    RAISE EXCEPTION 'Ingredient list does not cover the whole excerpt'
+    USING ERRCODE = 'CFING';
   END IF;
 
   SELECT ingredients INTO v_existing FROM public.foods WHERE id = p_food_id;

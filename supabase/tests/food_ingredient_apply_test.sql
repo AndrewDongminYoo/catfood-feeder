@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(18);
+SELECT plan(19);
 
 -- 로컬 스택의 기본 권한에는 SELECT 가 없다. 트랜잭션 안에서만 부여한다.
 GRANT SELECT ON public.foods, public.food_sources, public.food_ingredient_evidence TO service_role;
@@ -183,6 +183,18 @@ SELECT throws_ok(
   )$$,
   'Ingredient list does not cover the whole excerpt',
   '구절의 뒷부분을 남긴 잘린 목록은 거절된다'
+);
+
+-- 7e. 검증 거절은 전용 SQLSTATE 를 단다. 호출자가 문구로 가르면 규칙이 하나 늘
+-- 때마다 분류가 조용히 낡고, 400 이어야 할 응답이 500 이 된다.
+SELECT throws_ok(
+  $$SELECT public.apply_food_ingredients_draft(
+    -93001, -93001, 'chicken, chicken meal, peas, pea flour',
+    '[{"name":"chicken","position":1}]'::jsonb
+  )$$,
+  'CFING',
+  'Ingredient list does not cover the whole excerpt',
+  '검증 거절은 CFING SQLSTATE 를 단다'
 );
 
 -- 8. 출처 종류가 다르면 기존 값과 provenance 를 지킨다.
