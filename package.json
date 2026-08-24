@@ -7,6 +7,7 @@
     "dev": "node scripts/with-secrets.mjs next dev --webpack",
     "build": "node scripts/with-secrets.mjs next build",
     "start": "node scripts/with-secrets.mjs next start",
+    "ingredients:backfill": "node scripts/backfill-ingredients.mjs",
     "lint": "eslint .",
     "research:run": "node scripts/research-run.mjs",
     "test": "vitest run",

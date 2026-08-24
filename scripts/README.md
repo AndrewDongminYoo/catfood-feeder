@@ -71,6 +71,21 @@ What holds the boundary:
 - A partial capture (manufacturer succeeds, importer page fails) still makes the row non-skeleton, so the agent path will not revisit it; register the missing half by hand in `/new/research`.
 - Publication stays human-only. This path writes DRAFT nutrient values and never sets `published_at`.
 
+## Retained-capture ingredient backfill
+
+`measure-ingredient-tranche.mjs` selects candidate published foods from their current fetched captures without model calls and prints an explicit `foodId:sourceId` target list.
+Review its samples for product identity before using that list; the comma-run heuristic alone does not prove that a captured list belongs to the target product.
+`backfill-ingredients.mjs` sends only those explicit source IDs to the existing extraction boundary, paces calls below its request limit, and never performs new research or capture.
+
+```bash
+node scripts/measure-ingredient-tranche.mjs
+pnpm ingredients:backfill --dry-run FOOD_ID:SOURCE_ID,...
+pnpm ingredients:backfill FOOD_ID:SOURCE_ID,...
+```
+
+The dry-run still spends extraction quota and model budget, but it does not call the ingredient apply route.
+Run a small dry-run and inspect the printed ingredient names before approving any non-dry production tranche.
+
 ## Reference data — `수입사료정리 - DB.csv`
 
 The founder's 2023 curated nutrient sheet (~290 rows, English brand names).

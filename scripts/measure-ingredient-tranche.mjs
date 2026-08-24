@@ -157,6 +157,7 @@ function sample(rows, title, count) {
   console.log(`\n--- ${title} ---`);
   for (const row of rows.slice(0, count)) {
     console.log(`\n[${row.food.id}] ${row.food.product_name}`);
+    console.log(`  source: ${row.sourceId}`);
     console.log(`  url:    ${row.url}`);
     console.log(`  runs:   ${row.runs.length}`);
     console.log(`  tokens: ${row.found.join(", ") || "(none)"}`);
@@ -168,5 +169,9 @@ sample(single, "무리 A 표본 10건 (손으로 검증)", 10);
 sample(multiple, "무리 B 표본 5건", 5);
 
 const ids = (rows) => rows.map((row) => row.food.id).join(",");
+const targets = (rows) =>
+  rows.map((row) => `${row.food.id}:${row.sourceId}`).join(",");
 console.log(`\ntranche A ids: ${ids(single)}`);
 console.log(`\ntranche B ids: ${ids(multiple)}`);
+console.log(`\ntranche A targets: ${targets(single)}`);
+console.log(`\ntranche B targets: ${targets(multiple)}`);
