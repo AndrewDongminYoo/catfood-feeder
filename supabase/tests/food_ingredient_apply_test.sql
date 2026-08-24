@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(15);
+SELECT plan(16);
 
 -- 로컬 스택의 기본 권한에는 SELECT 가 없다. 트랜잭션 안에서만 부여한다.
 GRANT SELECT ON public.foods, public.food_sources, public.food_ingredient_evidence TO service_role;
@@ -146,6 +146,18 @@ SELECT throws_ok(
   )$$,
   'Ingredient name peas is absent from its excerpt in declared order',
   '낱말 중간에 걸린 일치는 세지 않는다'
+);
+
+-- 7b. 한글도 같은 규칙이다. 경계 판정을 [a-z0-9] 로 하면 한글은 모든 음절이
+-- 경계로 읽혀 "닭"이 "닭고기" 안에서 잡히고, 잘린 이름이 근거가 증명한 값으로
+-- 저장된다. [[:alnum:]] 는 UTF-8 에서 한글을 글자로 본다.
+SELECT throws_ok(
+  $$SELECT public.apply_food_ingredients_draft(
+    -93001, -93002, '닭고기, 닭고기분, 완두',
+    '[{"name":"닭","position":1}]'::jsonb
+  )$$,
+  'Ingredient name 닭 is absent from its excerpt in declared order',
+  '잘린 한글 이름은 낱말 중간 일치로 통과하지 않는다'
 );
 
 -- 8. 출처 종류가 다르면 기존 값과 provenance 를 지킨다.

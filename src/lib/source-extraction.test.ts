@@ -563,6 +563,43 @@ describe("원재료 추출", () => {
     expect(result.kind === "success" && result.ingredientDraft).toBe(null);
   });
 
+  it("한글 이름이 잘려도 낱말 중간 일치로 통과시키지 않는다", async () => {
+    // 경계 판정을 [a-z0-9] 로 하면 한글은 모든 음절이 경계로 읽혀
+    // "닭"이 "닭고기" 안에서 잡힌다.
+    vi.stubEnv("ANTHROPIC_API_KEY", "test-api-key");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            content: [
+              {
+                text: JSON.stringify({
+                  ingredient_excerpt: "닭고기, 닭고기분, 완두",
+                  ingredient_source_id: 8,
+                  ingredients: [{ name: "닭" }],
+                  nutrients: {},
+                }),
+                type: "text",
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    const result = await extractCapturedSources([
+      {
+        capturedText: "원재료 닭고기, 닭고기분, 완두, 타피오카.",
+        id: 8,
+        kind: "kr_label" as const,
+      },
+    ]);
+
+    expect(result.kind === "success" && result.ingredientDraft).toBe(null);
+  });
+
   it("공급되지 않은 소스를 가리키면 버린다", async () => {
     const result = await extractWith({
       ingredient_excerpt: "chicken, chicken meal",

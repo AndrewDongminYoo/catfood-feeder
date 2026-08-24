@@ -216,6 +216,10 @@ function provenInOrder(
 /**
  * 낱말 중간에 걸린 일치는 건너뛴다. 그러지 않으면 "pea" 가 "peas" 안에서 잡혀
  * 뒤에 오는 진짜 "pea flour" 를 가린다. 없으면 -1.
+ *
+ * 경계 판정은 유니코드 글자·숫자로 한다. [a-z0-9] 로 하면 한글이 그 클래스에 들지
+ * 않아 모든 음절이 경계로 읽히고, 모델이 "닭고기"를 "닭"으로 잘라 답해도 근거가
+ * 증명한 값으로 통과한다. RPC 의 [[:alnum:]] 과 같은 규칙이다.
  */
 function indexAtWordBoundary(
   haystack: string,
@@ -224,7 +228,7 @@ function indexAtWordBoundary(
 ): number {
   if (needle === "") return -1;
   const isAlphanumeric = (character: string | undefined) =>
-    character !== undefined && /[a-z0-9]/.test(character);
+    character !== undefined && /[\p{L}\p{N}]/u.test(character);
   for (
     let at = haystack.indexOf(needle, from);
     at !== -1;

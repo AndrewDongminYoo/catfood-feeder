@@ -89,6 +89,24 @@ export const ingredientCandidateSchema = z
   })
   .strict();
 
+/**
+ * 배열 순서와 position 이 1..n 으로 맞물리는가.
+ *
+ * 순서가 이 데이터의 값이므로, 카탈로그에 원재료를 쓰는 두 경로가 같은 규칙을
+ * 써야 한다. 조사 경로만 검사하면 큐레이터 경로로 들어온 중복·결번·역순이
+ * 그대로 발행된다.
+ */
+export function hasContiguousPositions(
+  ingredients: readonly { readonly position: number }[],
+): boolean {
+  return ingredients.every(
+    (ingredient, index) => ingredient.position === index + 1,
+  );
+}
+
+export const POSITION_ORDER_MESSAGE =
+  "position 은 배열 순서와 같은 1..n 이어야 합니다.";
+
 export const ingredientDraftSchema = z
   .object({
     // 영양소 구절은 한 문구지만 원재료 구절은 문단이다. 상한이 다르다.
@@ -99,13 +117,9 @@ export const ingredientDraftSchema = z
   .strict()
   // 순서가 이 데이터의 값이므로 RPC 에 닿기 전에 여기서도 막는다. 어긋난 순서가
   // 통과하면 조용히 잘못 정렬된 목록이 발행된다.
-  .refine(
-    (draft) =>
-      draft.ingredients.every(
-        (ingredient, index) => ingredient.position === index + 1,
-      ),
-    { message: "position 은 배열 순서와 같은 1..n 이어야 합니다." },
-  );
+  .refine((draft) => hasContiguousPositions(draft.ingredients), {
+    message: POSITION_ORDER_MESSAGE,
+  });
 
 export type IngredientDraft = Readonly<z.infer<typeof ingredientDraftSchema>>;
 

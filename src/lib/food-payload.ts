@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { COOKING_METHOD_VALUES, SOURCE_VALUES } from "./domain";
-import { ingredientCandidateSchema } from "./source-apply";
+import {
+  POSITION_ORDER_MESSAGE,
+  hasContiguousPositions,
+  ingredientCandidateSchema,
+} from "./source-apply";
 
 const sourceSchema = z.enum(SOURCE_VALUES);
 const finiteNumberSchema = z.number().finite().nullable().optional();
@@ -46,7 +50,13 @@ export const foodPayloadSchema = z
       .nullish()
       .transform((value) => value ?? undefined),
     nutrient_sources: z.record(z.string(), sourceSchema).default({}),
-    ingredients: z.array(ingredientCandidateSchema).max(200).default([]),
+    ingredients: z
+      .array(ingredientCandidateSchema)
+      .max(200)
+      .default([])
+      // 조사 경로와 같은 규칙. 순서가 이 데이터의 값이므로 한쪽만 검사하면
+      // 다른 쪽으로 들어온 중복·결번·역순이 그대로 발행된다.
+      .refine(hasContiguousPositions, { message: POSITION_ORDER_MESSAGE }),
     flags: z
       .object({
         grain_free: z.boolean().optional(),

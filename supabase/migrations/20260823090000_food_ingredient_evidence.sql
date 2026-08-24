@@ -34,8 +34,13 @@ COMMENT ON TABLE public.food_ingredient_evidence IS
 '사료별 원재료 목록의 현재 근거. 목록은 사료당 하나이므로 nutrient_key 축이 없다.';
 
 -- 정규화된 haystack 에서 needle 이 from_pos 이후 처음 나타나는 1-기반 위치.
--- 앞뒤가 영숫자면 낱말 중간에 걸린 것이므로 건너뛴다 — 그러지 않으면 "pea" 가
+-- 앞뒤가 글자나 숫자면 낱말 중간에 걸린 것이므로 건너뛴다 — 그러지 않으면 "pea" 가
 -- "peas" 안에서 잡혀 뒤에 오는 진짜 "pea flour" 를 가린다. 없으면 0.
+--
+-- 경계 판정에 [a-z0-9] 를 쓰면 안 된다. 한글은 그 클래스에 들지 않아 모든 음절이
+-- 경계로 읽히고, 모델이 "닭고기"를 "닭"으로 잘라 답해도 근거가 증명한 값으로
+-- 저장된다. [[:alnum:]] 는 UTF-8 데이터베이스에서 한글을 글자로 보고 쉼표와
+-- 공백은 보지 않으므로, 두 언어에 같은 규칙이 걸린다.
 CREATE OR REPLACE FUNCTION public.ordered_excerpt_offset(
   haystack text,
   needle text,
@@ -64,8 +69,8 @@ BEGIN
     v_hit := v_at + v_hit - 1;
 
     IF NOT (
-      (v_hit > 1 AND substr(haystack, v_hit - 1, 1) ~ '[a-z0-9]')
-      OR substr(haystack, v_hit + length(needle), 1) ~ '[a-z0-9]'
+      (v_hit > 1 AND substr(haystack, v_hit - 1, 1) ~ '[[:alnum:]]')
+      OR substr(haystack, v_hit + length(needle), 1) ~ '[[:alnum:]]'
     ) THEN
       RETURN v_hit;
     END IF;
