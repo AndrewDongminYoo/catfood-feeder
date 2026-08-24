@@ -138,7 +138,7 @@ Run: `node scripts/measure-ingredient-tranche.mjs`
 
 Do not accept the printed `identity matched` count on its own — the direction doc records that a marker count already lied once. Read all ten matched samples and all five excluded samples. For each matched sample, confirm the run really is that product's ingredient list and not another product on the same page. If more than one of the ten is wrong, tighten `identityTokens` or raise the token threshold and re-run before continuing.
 
-Record the validated counts and both id lists; Task 7 consumes them.
+Record the validated counts and both `foodId:sourceId` target lists; Task 7 consumes them without rediscovering or guessing a source.
 
 The check cannot establish identity on its own, and tightening the pattern does not fix that — the residual failures are semantic. Treat tranche A (one run) as the higher-yield set and tranche B (several runs) as the set where the model must disambiguate, and let Task 7's extraction be the arbiter for both.
 
@@ -1246,140 +1246,52 @@ This is the paid pass, and it doubles as the real yield measurement the directio
 
 Two hard preconditions, both measured on 2026-08-24:
 
-1. **The migration must be live on the remote project first.** `createAdminClient()` writes to the linked project, where `to_regclass('public.food_ingredient_evidence')` is still null, so every apply would fail. Supabase's GitHub integration deploys migrations on merge to `main`, and per the `merge-to-main-deploys-the-schema` memory the CLI's own "up to date" output is not evidence of that. Gate this task on re-running the `to_regclass` check plus a `schema_migrations` lookup for `20260823090000` against the remote database.
+1. **The migration must be live on the remote project first.** This was confirmed after the merge: `public.food_ingredient_evidence` exists and `schema_migrations` contains `20260823090000`. Re-run both checks immediately before the first non-dry apply because the dry-run does not exercise that write path.
 2. **`/api/foods/[id]/sources/extract` consumes a rate limit of 8 requests per 60 seconds** (`consumeRateLimit` defaults in `src/lib/request-rate-limit.ts`). A 104-food run hits it at the ninth food. The script must pace itself under that ceiling and count a 429 as its own outcome, honouring `Retry-After`; folding it into `refused` would report a throttle as a rejected draft and corrupt the yield number this task exists to produce.
 
-This task also writes to production rows and spends API budget, so it needs explicit approval before it runs.
+The three-food dry-run and the non-dry tranche are separate approval boundaries. The dry-run spends extraction quota and model budget but does not call the ingredient apply route; the non-dry tranche writes production rows and must not inherit dry-run approval.
 
 **Files:**
 
 - Create: `scripts/backfill-ingredients.mjs`
+- Create: `src/lib/backfill-ingredients.test.ts`
+- Modify: `scripts/measure-ingredient-tranche.mjs` (print the selected source ID with each food)
 - Modify: `package.json` (one script entry)
 - Modify: `scripts/README.md`
+- Modify: `docs/plans/2026-08-23-ingredient-data-slice.md` (align this task with the live API contract)
 
 **Interfaces:**
 
-- Consumes: the matched food id list from Task 1, `POST /api/foods/[id]/sources/extract`, and `POST /api/foods/[id]/sources/ingredients` from Task 4.
+- Consumes: the identity-matched `foodId:sourceId` target list from Task 1, `POST /api/foods/[id]/sources/extract`, and `POST /api/foods/[id]/sources/ingredients` from Task 4.
 - Produces: filled `foods.ingredients` rows and a printed per-food outcome tally.
 
-- [ ] **Step 1: Write the backfill script**
+- [x] **Step 1: Write the backfill script**
 
-Curator-side family, like `scripts/research-missing.mjs`: it reads Supabase directly and writes only through the admin-authenticated HTTP boundary.
+Curator-side family, like `scripts/research-missing.mjs`: it uses only the admin-authenticated HTTP boundary and never performs source discovery or capture.
 
-```javascript
-// Task 1이 식별 확인까지 마친 사료만 대상으로, 보관된 캡처에서 원재료를 다시 뽑아
-// 적용한다. 새 조사도 새 수집도 하지 않는다.
-//
-// 사용법: node scripts/backfill-ingredients.mjs 22,38,51
-//         node scripts/backfill-ingredients.mjs --dry-run 22,38,51
-import { loadSecrets } from "./with-secrets.mjs";
-
-loadSecrets();
-
-const BASE = process.env.CATFOOD_BASE_URL ?? "http://localhost:3000";
-const SECRET = process.env.ADMIN_WRITE_SECRET;
-if (!SECRET) throw new Error("ADMIN_WRITE_SECRET 를 찾을 수 없습니다.");
-
-const args = process.argv.slice(2);
-const dryRun = args.includes("--dry-run");
-const ids = (args.find((arg) => !arg.startsWith("--")) ?? "")
-  .split(",")
-  .map((id) => Number.parseInt(id, 10))
-  .filter((id) => Number.isInteger(id) && id > 0);
-if (ids.length === 0)
-  throw new Error("대상 사료 ID를 쉼표로 구분해 넘겨 주세요.");
-
-const HEADERS = {
-  "content-type": "application/json",
-  "x-admin-secret": SECRET,
-};
-const tally = {
-  applied: 0,
-  conflict: 0,
-  no_draft: 0,
-  rate_limited: 0,
-  refused: 0,
-  skipped: 0,
-};
-
-// /api/foods/[id]/sources/extract 는 60초당 8건까지만 받는다. 그 아래로 스스로
-// 속도를 맞춘다 — 429 를 refused 로 세면 스로틀이 거절로 둔갑해 수율이 망가진다.
-const PACE_MS = 8_000;
-const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-for (const id of ids) {
-  await wait(PACE_MS);
-  const extracted = await fetch(`${BASE}/api/foods/${id}/sources/extract`, {
-    body: JSON.stringify({}),
-    headers: HEADERS,
-    method: "POST",
-  });
-  if (extracted.status === 429) {
-    const retryAfter = Number(extracted.headers.get("Retry-After") ?? 60);
-    console.log(`[${id}] 한도 초과, ${retryAfter}초 후 재시도`);
-    tally.rate_limited += 1;
-    await wait((retryAfter + 1) * 1000);
-    continue;
-  }
-  if (!extracted.ok) {
-    console.log(`[${id}] extract 실패 ${extracted.status}`);
-    tally.refused += 1;
-    continue;
-  }
-  const { ingredientDraft } = await extracted.json();
-  if (!ingredientDraft) {
-    // 근거로 증명되지 않은 목록은 추출 단계에서 이미 버려졌다.
-    console.log(`[${id}] 원재료 근거 없음`);
-    tally.no_draft += 1;
-    continue;
-  }
-  if (dryRun) {
-    console.log(
-      `[${id}] dry-run: ${ingredientDraft.ingredients.length}개 항목`,
-    );
-    continue;
-  }
-  const applied = await fetch(`${BASE}/api/foods/${id}/sources/ingredients`, {
-    body: JSON.stringify(ingredientDraft),
-    headers: HEADERS,
-    method: "POST",
-  });
-  if (!applied.ok) {
-    console.log(`[${id}] apply 거절 ${applied.status}`);
-    tally.refused += 1;
-    continue;
-  }
-  const { result } = await applied.json();
-  tally[result.status] += 1;
-  console.log(`[${id}] ${result.status} (${result.count}개 항목)`);
-}
-
-console.log("\n--- 수율 ---");
-console.log(`대상:      ${ids.length}`);
-for (const [key, value] of Object.entries(tally)) {
-  console.log(`${key.padEnd(10)} ${value}`);
-}
-```
+The CLI accepts `foodId:sourceId` entries, with `foodId:sourceId+sourceId` reserved for the API's two-source form. It rejects food-only input, duplicate foods, duplicate sources, unknown flags, and more than two sources before making a request. Each extraction request posts `{ sourceIds: target.sourceIds }`; the dry-run prints the returned names and never calls `/sources/ingredients`. Calls are paced at 8 seconds, a 429 increments `rate_limited` and honours `Retry-After`, and a 5xx boundary failure increments `failed` rather than misreporting infrastructure failure as `refused`.
 
 - [ ] **Step 2: Dry-run against three foods first**
 
-Start the dev server (`pnpm dev`), then run with three ids from Task 1's matched list and `--dry-run`. Read the printed item counts and confirm they look like ingredient lists rather than navigation fragments. Do not proceed to the full tranche until all three look right.
+Start the dev server (`pnpm dev`), then run with three targets from Task 1's matched list and `--dry-run`. Read the printed item names and confirm they look like ingredient lists rather than navigation fragments. Do not proceed to the full tranche until all three look right.
 
-Run: `node scripts/backfill-ingredients.mjs --dry-run <id>,<id>,<id>`
+Run: `node scripts/backfill-ingredients.mjs --dry-run <foodId:sourceId>,<foodId:sourceId>,<foodId:sourceId>`
+
+Attempted on 2026-08-24 with `22:477,51:47,58:46`. All three reached the extraction boundary but returned 502 because the monthly Anthropic limit was exhausted; the apply route was not called. The operator expects access to recover in about one week. After the limit resets, re-run the same three targets before checking this step or authorizing Step 3.
 
 - [ ] **Step 3: Run tranche A, then tranche B**
 
 Run tranche A first — one run per capture, the higher-yield set:
 
-Run: `node scripts/backfill-ingredients.mjs <tranche A ids from Task 1>`
+Run: `node scripts/backfill-ingredients.mjs <tranche A targets from Task 1>`
 
 Read the tally before starting tranche B. If tranche A's `no_draft` share is above half, stop and report rather than spending the second tranche's budget on the same failure.
 
-Run: `node scripts/backfill-ingredients.mjs <tranche B ids from Task 1>`
+Run: `node scripts/backfill-ingredients.mjs <tranche B targets from Task 1>`
 
 Record the printed tally. `applied / 대상` is the measured yield, and it — not the 75 upper bound — is the number that goes into the direction doc.
 
-- [ ] **Step 4: Register the script**
+- [x] **Step 4: Register the script**
 
 Add to `package.json` scripts:
 
