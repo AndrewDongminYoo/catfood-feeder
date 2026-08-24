@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { computeDerived, NUTRIENT_FIELDS, validate } from "./domain";
 import { DECIMAL_COMMA, normalizeDecimalLiteral } from "./excerpt-match";
-import { isEvidenceExcerpt } from "./source-collection";
+import { isEvidenceExcerpt, normalizeSourceText } from "./source-collection";
+import type { Ingredient } from "./catalog";
 import type { CookingMethod, NutrientKey, Source } from "./domain";
+import type { IngredientDraft } from "./source-apply";
 import type { SourceKind } from "./source-collection";
 
 export type CapturedExtractionSource = {
@@ -23,6 +25,8 @@ type ExtractionFailureCode =
 
 type ExtractionSuccess = {
   readonly candidates: readonly ExtractedEvidence[];
+  /** 근거가 증명하지 못한 목록은 여기 오지 않는다. 증명되지 않은 값은 없는 값이다. */
+  readonly ingredientDraft: IngredientDraft | null;
   readonly kind: "success";
   readonly metadata: ExtractionMetadata;
 };
@@ -44,11 +48,7 @@ type ExtractionMetadata = {
     readonly has_yucca?: boolean;
     readonly meal_free?: boolean;
   };
-  readonly ingredients: readonly {
-    readonly name: string;
-    readonly pct: number | null;
-    readonly type: "meat" | "fish" | "plant" | "other";
-  }[];
+  readonly ingredients: readonly Ingredient[];
   readonly manufacturer: string | null;
   readonly productName: string | null;
 };
@@ -73,15 +73,17 @@ const modelOutputSchema = z.object({
       meal_free: z.boolean().optional(),
     })
     .default({}),
+  ingredient_excerpt: z.string().nullable().default(null),
+  ingredient_source_id: z.number().int().positive().nullable().default(null),
+  // 순서를 모델에게 묻지 않는다. 배열 순서가 곧 기재 순서이므로 코드에서 매겨야
+  // 모델이 번호를 잘못 붙여도 순서가 어긋나지 않는다. pct 와 type 은 더 이상
+  // 받지 않으며, 옛 형태로 답해도 여기서 조용히 떨어진다.
   ingredients: z
-    .array(
-      z.object({
-        name: z.string(),
-        pct: z.number().finite().nullable(),
-        type: z.enum(["meat", "fish", "plant", "other"]),
-      }),
-    )
-    .default([]),
+    .array(z.object({ name: z.string().trim().min(1) }))
+    .default([])
+    .transform((items) =>
+      items.map((item, index) => ({ name: item.name, position: index + 1 })),
+    ),
   manufacturer: z.string().nullable().default(null),
   nutrients: z.record(z.string(), extractionCellSchema).default({}),
   product_name: z.string().nullable().default(null),
@@ -149,6 +151,7 @@ export async function extractCapturedSources(
   return {
     kind: "success",
     candidates: validateExtractedEvidence(candidates, sources),
+    ingredientDraft: toIngredientDraft(modelOutput, sources),
     metadata: {
       brand: modelOutput.brand,
       cookingMethod: modelOutput.cooking_method,
@@ -159,6 +162,79 @@ export async function extractCapturedSources(
     },
   };
 }
+
+/**
+ * 근거가 증명하는 원재료 목록만 draft 로 만든다.
+ *
+ * 영양소와 같은 규칙이다: 구절이 없으면 값도 없고, 구절이 캡처에 없으면 그 구절은
+ * 근거가 아니며, 구절이 증명하지 못하는 이름이 하나라도 있으면 목록 전체를 버린다.
+ * 목록은 통째로 하나의 값이므로 항목별로 골라 담지 않는다.
+ */
+function toIngredientDraft(
+  modelOutput: z.infer<typeof modelOutputSchema>,
+  sources: readonly CapturedExtractionSource[],
+): IngredientDraft | null {
+  const excerpt = modelOutput.ingredient_excerpt?.trim();
+  const sourceId = modelOutput.ingredient_source_id;
+  const ingredients = modelOutput.ingredients;
+  if (!excerpt || sourceId === null || ingredients.length === 0) return null;
+
+  const source = sources.find((candidate) => candidate.id === sourceId);
+  if (!source || !isEvidenceExcerpt(source.capturedText, excerpt)) return null;
+
+  return tilesExcerpt(excerpt, ingredients)
+    ? { excerpt, ingredients, sourceId }
+    : null;
+}
+
+/**
+ * 이름들이 구절을 빈틈없이 덮는가.
+ *
+ * 이름 사이에는 진짜 구분자가 하나 있어야 하고, 마지막 이름 뒤에는 구분자 말고
+ * 아무것도 남으면 안 된다. 이 한 가지 규칙이 네 가지를 함께 막는다.
+ *
+ * - 뒤섞인 순서: 구절은 라벨이 쓴 그대로이므로 구절 안의 순서가 곧 기재 순서다.
+ * - 낱말 중간에 걸린 부분 일치: "chicken" 이 "chicken meal" 안에서 잡히면 라벨이
+ *   쓰지 않은 이름이 저장되고, 파생되는 형태까지 meal 에서 unspecified 로 바뀐다.
+ * - 여러 낱말 이름의 분해: 공백을 구분자로 치면 "chicken meal" 한 항목이
+ *   "chicken" 과 "meal" 두 항목으로 저장된다. 공백은 구분자가 아니라 이름의 일부다.
+ * - 잘린 목록: "chicken, peas" 가 "chicken, peas, rice" 를 대표해 저장되면, 목록을
+ *   통째로 하나의 값으로 다루면서 그 값의 일부만 증명한 것이 된다.
+ *
+ * RPC 가 같은 규칙을 다시 검사한다. 두 규칙이 갈라지면 추출이 받아들인 draft 를
+ * 서버가 거절하고, 배치는 그 거절을 "근거 없음"이 아니라 "실패"로 집계한다.
+ */
+function tilesExcerpt(
+  excerpt: string,
+  ingredients: readonly Ingredient[],
+): boolean {
+  const haystack = normalizeSourceText(excerpt);
+  let cursor = 0;
+
+  for (const [index, ingredient] of ingredients.entries()) {
+    const needle = normalizeSourceText(ingredient.name);
+    if (needle === "") return false;
+
+    // 유효한 간격이 아니라면 더 뒤의 등장도 유효할 수 없다. 간격은 길어질 뿐이고,
+    // 짧은 간격이 이미 담고 있던 구분자 아닌 글자를 계속 담기 때문이다.
+    const at = haystack.indexOf(needle, cursor);
+    if (at === -1) return false;
+
+    const gap = haystack.slice(cursor, at);
+    if (!(index === 0 ? LEADING_GAP : ITEM_GAP).test(gap)) return false;
+
+    cursor = at + needle.length;
+  }
+
+  return TRAILING_GAP.test(haystack.slice(cursor));
+}
+
+/** 첫 항목 앞에는 공백만 올 수 있다. */
+const LEADING_GAP = /^\s*$/;
+/** 항목 사이에는 구분자가 정확히 하나 있어야 한다. 공백은 구분자가 아니다. */
+const ITEM_GAP = /^\s*[,;]\s*$/;
+/** 마지막 항목 뒤에는 마침표나 구분자 하나까지만 허용한다. */
+const TRAILING_GAP = /^\s*[.,;]?\s*$/;
 
 type ExtractionAttempt =
   | { readonly body: unknown; readonly kind: "response"; readonly ok: boolean }
@@ -339,8 +415,9 @@ kcal_per_kg is a stated metabolizable energy figure and usually sits in prose ou
 carb_pct is ONLY for a carbohydrate the label states itself, which Korean 등록성분량 declarations write as "NFE" or "가용무질소물" — quote just that part, e.g. "NFE 30.5%". Never compute it, and never derive it from the other values.
 Take values only from a guaranteed analysis / analytical constituents table, never from a dry-matter table. Hill's Korean pages print "Nutrient Dry Matter¹ %" footnoted "수분을 제거한 후", and those figures run about 10% high against the as-fed label this catalog stores; if a page offers only those, report nothing.
 Do not infer the P/F/C energy split or Ca:P, and never calculate carbohydrate yourself. This does not restrict kcal_per_kg or a stated carb_pct above.
+Copy the ingredient list in the exact order the label declares it, one entry per ingredient, using the label's own wording. Do not translate, normalize, reorder, number, or classify the entries. Set ingredient_excerpt to the literal run of text you read the names from, containing the whole declared list and nothing else — no heading such as "Ingredients", no trailing sentence, and no part of the list left out. The entries you return must account for every item in that run, because a partial list is stored as if it were the whole composition. Set ingredient_source_id to the source record it came from. If you cannot quote that literal run in full, return "ingredients": [].
 Return only JSON in this exact shape:
-{"product_name":string|null,"brand":string|null,"manufacturer":string|null,"cooking_method":"extrusion"|"baked"|"freeze_dried"|"dried"|null,"nutrients":{"protein_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"fat_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"fiber_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"ash_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"moisture_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"calcium_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"phosphorus_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"kcal_per_kg":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"carb_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null}},"flags":{"grain_free":boolean,"meal_free":boolean,"has_probiotics":boolean,"has_cranberry":boolean,"has_yucca":boolean},"ingredients":[{"name":string,"pct":number|null,"type":"meat"|"fish"|"plant"|"other"}]}
+{"product_name":string|null,"brand":string|null,"manufacturer":string|null,"cooking_method":"extrusion"|"baked"|"freeze_dried"|"dried"|null,"nutrients":{"protein_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"fat_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"fiber_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"ash_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"moisture_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"calcium_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"phosphorus_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"kcal_per_kg":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"carb_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null}},"flags":{"grain_free":boolean,"meal_free":boolean,"has_probiotics":boolean,"has_cranberry":boolean,"has_yucca":boolean},"ingredient_excerpt":string|null,"ingredient_source_id":number|null,"ingredients":[{"name":string}]}
 
 Source records:
 ${JSON.stringify(sources)}`;

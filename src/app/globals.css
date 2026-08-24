@@ -957,6 +957,11 @@ button:active:not(:disabled),
   color: #44403c;
   font-size: 11px;
 }
+.ingredient-form {
+  margin-left: 4px;
+  font-style: normal;
+  opacity: 0.6;
+}
 .recall-list {
   display: grid;
   gap: 8px;

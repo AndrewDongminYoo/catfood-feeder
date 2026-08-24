@@ -15,23 +15,23 @@
 - 급여 기록으로 "교체 시 영양/열량 급변"을 감지해 인사이트를 준다.
 - 반복 가능한 조사와 입력을 로컬 에이전트가 수행하여, 어드민 한 명이 값을 다시 타이핑하지 않고도 지속 업데이트할 수 있다 (= 2023년의 정체를 반복하지 않는다).
 
-## Next Product Slice — Evidence-aware Food Advisor v0
+## Next Product Slice — 원재료 데이터 슬라이스
 
-다음 사용자 기능은 보호자가 현재 급여 중인 수입 건사료와 명시적인 결정론적 조건을 충족하는 후보를 최대 3개까지 비교하도록 돕는다.
-v0는 kcal/kg 절대 변화율만으로 정렬하고, 동률이면 안정적인 사료 ID 순서를 사용한다.
-제조사·국내 라벨 표기값, 추정값, 계산값, 미확인값을 구분하고, 보존된 근거 문구가 증명할 때만 최소·최대 경계를 표시한다.
-건강·안전·종합 품질을 추론하지 않으며, 탄수화물·단백질·원재료 순서·리콜·종합 점수로 후보를 정렬하지 않는다.
+제품 방향, 비목표, 측정된 커버리지 기준선, 수익화 태세는 [Product Direction](docs/product-direction.md)이 소유한다.
+이 절은 그 문서를 인용하며 내용을 다시 적지 않는다.
 
-원재료 제외, 그레인프리·육분프리 주장, 챗봇 입력, 공개 API, MCP는 각각의 데이터와 인터페이스 계약이 검증될 때까지 보류한다.
+다음 슬라이스는 발행된 사료의 원재료 구성을 채우는 작업이다.
+원재료는 그 자체가 수익 모델이 아니라 B2B 데이터 API, 제외 원료 소비자 필터, 제휴라는 세 경로의 공통 선행조건이므로, 이 슬라이스는 세 경로를 모두 열어 둔 채 진행한다.
+원재료가 비어 있는 원인은 데이터 부재가 아니라 근거 적용 경로에 원재료 통로가 없다는 배관 부재다.
 
-### Advisor v0 관찰 파일럿 게이트
+작업 순서는 수율 측정, 스키마 확정(`{name, position, form}`), 적용 통로 개설, 보관된 캡처만 사용하는 재추출, 나머지 집합의 후속 분리다.
+자연어 입력과 MCP는 이 슬라이스가 동작한 뒤로 미룬다.
 
-Advisor v0의 다음 단계는 일반 방문자 분석이 아니라 직접 관찰하는 8개의 유효 완료 세션이다.
-이 파일럿에는 Vercel 커스텀 이벤트, GA4 등 제품 애널리틱스를 추가하지 않으며, 관찰자가 판정한 비식별 행동 근거만 Git 외부의 소유자 전용 원장에 기록한다.
-원본 세션에는 참여자·고양이·사료 식별정보, 연락처, 계정, URL·검색 파라미터를 기록하지 않고, 저장소에는 8개 세션 종료 후 익명 집계와 `proceed`, `revise`, `stop` 결정만 남긴다.
+### Advisor v0 관찰 파일럿 게이트 (은퇴)
 
-구조화된 advisor가 `proceed` 결정을 받아야 자연어 입력을 별도 계획할 수 있다.
-MCP, 원재료 필터, 영양소 경계 스키마 확장은 각각의 반복 요구와 근거가 확인된 후 독립적으로 결정한다.
+8개 유효 완료 세션을 다음 슬라이스의 판정 기준으로 삼던 관찰 파일럿은 **한 번도 실행하지 않은 채 0/8에서 은퇴**했다 (2026-08-22).
+이후 세션이 남은 스캐폴딩을 진행 중인 작업으로 오해하지 않도록 삭제 대신 은퇴로 기록한다.
+발행된 `/advisor` 화면 자체는 철회하지 않으며, 철회된 것은 다음 슬라이스를 결정하는 게이트로서의 8세션 관찰이다.
 
 ## Constraints / Non-goals
 
@@ -72,6 +72,9 @@ MCP, 원재료 필터, 영양소 경계 스키마 확장은 각각의 반복 요
   동일 출처 종류를 갱신할 때 값이 같으면 current evidence만 새 capture로 교체하고, 값이 다르면 자동 덮어쓰기 없이 conflict 후보로 남긴다.
 - 위험성분(에톡시퀸 등)은 **라벨 미표기·사후 검출**이라 필터 가치 낮음 → 컬럼 강등. 대신 **리콜 이력**을 1급으로.
 
+> Phase 체크박스는 코드가 존재한다는 증명이며, 그 뒤의 데이터가 존재한다는 증명이 아니다.
+> 완료 표시된 Phase 2·3·4 중 실제 커버리지가 비어 있는 항목은 [Product Direction](docs/product-direction.md)의 측정 기준선이 소유한다.
+
 ## Phase 0 — 데이터 모델 확정
 
 - [x] `brands` (수입사 nullable, 변경 잦음) / `foods` / `prices`(보류) / `recalls` 스키마 마이그레이션 SQL 작성
@@ -79,7 +82,7 @@ MCP, 원재료 필터, 영양소 경계 스키마 확장은 각각의 반복 요
 - [x] `carb_pct`는 generated stored 해제 → 일반 컬럼(회분 유무로 계산 가능 여부 갈림) + `carb_is_estimated boolean`
 - [x] `ca_p_ratio`만 generated stored 유지 (calcium/phosphorus, 단 phosphorus>0)
 - [x] `nutrient_sources jsonb` 컬럼: 항목별 출처 메타 {protein_pct:"manufacturer", ash_pct:"kr_label", ...}
-- [x] `ingredients jsonb`: [{name, pct, type:"meat"|"fish"|"plant"|"other"}]
+- [x] `ingredients jsonb` 컬럼 존재. 저장 형태는 [Product Direction](docs/product-direction.md)이 소유하며, 다음 슬라이스에서 교체한다(현재 발행 행은 전부 비어 있다).
 - [x] `cooking_method` enum(extrusion/baked/freeze_dried/dried) — 회분 추정 허용 여부 결정에 사용
 - [x] `data_verified_at timestamptz` — 오래된 데이터 갱신 우선순위 쿼리용
 - [x] 기능성 불리언: grain_free / meal_free / has_probiotics / has_cranberry / has_yucca

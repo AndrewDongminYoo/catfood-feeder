@@ -19,7 +19,7 @@ function payloadFromNewPage(overrides: Record<string, unknown> = {}) {
     kcal_per_kg: null,
     mfg_energy: null,
     nutrient_sources: { protein_pct: "manufacturer", fat_pct: "manufacturer" },
-    ingredients: [{ name: "Fresh poultry meat", pct: 30, type: "meat" }],
+    ingredients: [{ name: "Fresh poultry meat", position: 1 }],
     flags: { grain_free: true, has_cranberry: true },
     source_conflicts: [],
     ...overrides,
@@ -76,5 +76,38 @@ describe("foodPayloadSchema", () => {
       payloadFromNewPage({ weight_kg: 2 }),
     );
     expect(parsed.success).toBe(false);
+  });
+});
+
+describe("foodPayloadSchema 의 원재료 순서", () => {
+  it("연속된 1..n 순서를 받는다", () => {
+    expect(
+      foodPayloadSchema.safeParse({
+        ...payloadFromNewPage(),
+        ingredients: [
+          { name: "Fresh poultry meat", position: 1 },
+          { name: "Rice", position: 2 },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it("중복·결번·역순을 거절한다", () => {
+    // 조사 경로만 검사하면 이 경로로 들어온 어긋난 순서가 그대로 발행된다.
+    for (const positions of [
+      [1, 1],
+      [1, 3],
+      [2, 1],
+    ]) {
+      expect(
+        foodPayloadSchema.safeParse({
+          ...payloadFromNewPage(),
+          ingredients: positions.map((position, index) => ({
+            name: `ingredient ${index}`,
+            position,
+          })),
+        }).success,
+      ).toBe(false);
+    }
   });
 });

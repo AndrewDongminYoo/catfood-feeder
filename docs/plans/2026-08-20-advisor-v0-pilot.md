@@ -1,4 +1,10 @@
-# Advisor v0 Observed Pilot Implementation Plan
+# Advisor V0 Observed Pilot Implementation Plan (RETIRED)
+
+> **Retired 2026-08-22 at 0 of 8 sessions, without ever running.**
+> Superseded by [Product Direction](../product-direction.md), which replaced the eight-session observation gate with the ingredient data slice.
+> The plan is kept, not deleted, so a later session does not read its scaffolding as work in flight.
+> Do not execute the tasks below.
+> The `/advisor` surface itself is not withdrawn; what is withdrawn is this pilot as the gate deciding the next slice.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

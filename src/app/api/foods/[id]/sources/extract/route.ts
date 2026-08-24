@@ -88,7 +88,10 @@ export async function POST(
     }
     const result = await extractCapturedSources(sources);
     if (result.kind === "success")
-      return NextResponse.json({ candidates: result.candidates });
+      return NextResponse.json({
+        candidates: result.candidates,
+        ingredientDraft: result.ingredientDraft,
+      });
     const errors = {
       api_error: "Claude API 추출에 실패했습니다.",
       configuration_error: "ANTHROPIC_API_KEY 미설정",

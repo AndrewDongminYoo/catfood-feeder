@@ -330,7 +330,7 @@ export default function NewFoodPage() {
           </div>
 
           <label htmlFor="ingredients-json">
-            원료 구조화 JSON <span className="muted">(name, pct, type)</span>
+            원료 구조화 JSON <span className="muted">(name, position)</span>
           </label>
           <textarea
             id="ingredients-json"
