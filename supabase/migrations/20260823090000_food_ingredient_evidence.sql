@@ -63,6 +63,8 @@ DECLARE
   v_name text;
   v_cursor int := 1;
   v_norm_name text;
+  v_hit int;
+  v_gap text;
   v_status text;
 BEGIN
   IF p_ingredients IS NULL
@@ -159,34 +161,36 @@ BEGIN
       END IF;
 
       -- 구절은 라벨이 쓴 그대로이므로, 이름들이 구절을 빈틈없이 덮어야 한다.
-      -- 사이에 구분자와 공백만 남는지 확인하면 세 가지가 한 번에 걸린다:
-      -- 뒤섞인 순서, 낱말 중간에 걸린 부분 일치("chicken" 이 "chicken meal" 안에서),
-      -- 그리고 잘린 목록("chicken, peas" 가 "chicken, peas, rice" 를 대표하는 것).
-      -- 목록은 통째로 하나의 값이므로 일부만 증명된 목록은 증명되지 않은 목록이다.
+      -- 이름 사이에는 진짜 구분자가 하나 있어야 하고 공백은 구분자가 아니다 —
+      -- 공백을 구분자로 치면 "chicken meal" 한 항목이 "chicken" 과 "meal" 두
+      -- 항목으로 저장된다. 이 검사 하나가 뒤섞인 순서, 낱말 중간에 걸린 부분 일치,
+      -- 여러 낱말 이름의 분해, 잘린 목록을 함께 막는다.
       v_norm_name := lower(btrim(regexp_replace(normalize(v_name, NFKC), E'\\s+', ' ', 'g')));
 
-      WHILE v_cursor <= length(v_norm_excerpt)
-        AND substr(v_norm_excerpt, v_cursor, 1) ~ '[,;. ]'
-        LOOP
-          v_cursor := v_cursor + 1;
-        END LOOP;
+      v_hit := position(v_norm_name IN substr(v_norm_excerpt, v_cursor));
 
-      IF substr(v_norm_excerpt, v_cursor, length(v_norm_name)) <> v_norm_name THEN
+      IF v_hit = 0 THEN
         RAISE EXCEPTION 'Ingredient name % does not continue the excerpt at its declared position', v_name
         USING ERRCODE = 'CFING';
       END IF;
 
-      v_cursor := v_cursor + length(v_norm_name);
+      -- 유효한 간격이 아니라면 더 뒤의 등장도 유효할 수 없다. 간격은 길어질 뿐이고,
+      -- 짧은 간격이 이미 담고 있던 구분자 아닌 글자를 계속 담기 때문이다.
+      v_gap := substr(v_norm_excerpt, v_cursor, v_hit - 1);
+
+      IF NOT (CASE
+        WHEN v_index = 1 THEN v_gap ~ '^[[:space:]]*$'
+        ELSE v_gap ~ '^[[:space:]]*[,;][[:space:]]*$'
+      END) THEN
+        RAISE EXCEPTION 'Ingredient name % does not continue the excerpt at its declared position', v_name
+        USING ERRCODE = 'CFING';
+      END IF;
+
+      v_cursor := v_cursor + v_hit - 1 + length(v_norm_name);
     END LOOP;
 
-  -- 마지막 항목 뒤에 구분자 말고 무엇이 남아 있으면 목록이 잘린 것이다.
-  WHILE v_cursor <= length(v_norm_excerpt)
-    AND substr(v_norm_excerpt, v_cursor, 1) ~ '[,;. ]'
-    LOOP
-      v_cursor := v_cursor + 1;
-    END LOOP;
-
-  IF v_cursor <= length(v_norm_excerpt) THEN
+  -- 마지막 항목 뒤에 구분자나 마침표 말고 무엇이 남아 있으면 목록이 잘린 것이다.
+  IF substr(v_norm_excerpt, v_cursor) !~ '^[[:space:]]*[.,;]?[[:space:]]*$' THEN
     RAISE EXCEPTION 'Ingredient list does not cover the whole excerpt'
     USING ERRCODE = 'CFING';
   END IF;

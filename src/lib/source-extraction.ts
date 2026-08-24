@@ -190,12 +190,14 @@ function toIngredientDraft(
 /**
  * 이름들이 구절을 빈틈없이 덮는가.
  *
- * 이름 사이에 구분자와 공백만 남아야 하고, 마지막 이름 뒤에도 구분자 말고는
- * 아무것도 남으면 안 된다. 이 한 가지 규칙이 세 가지를 함께 막는다.
+ * 이름 사이에는 진짜 구분자가 하나 있어야 하고, 마지막 이름 뒤에는 구분자 말고
+ * 아무것도 남으면 안 된다. 이 한 가지 규칙이 네 가지를 함께 막는다.
  *
  * - 뒤섞인 순서: 구절은 라벨이 쓴 그대로이므로 구절 안의 순서가 곧 기재 순서다.
  * - 낱말 중간에 걸린 부분 일치: "chicken" 이 "chicken meal" 안에서 잡히면 라벨이
  *   쓰지 않은 이름이 저장되고, 파생되는 형태까지 meal 에서 unspecified 로 바뀐다.
+ * - 여러 낱말 이름의 분해: 공백을 구분자로 치면 "chicken meal" 한 항목이
+ *   "chicken" 과 "meal" 두 항목으로 저장된다. 공백은 구분자가 아니라 이름의 일부다.
  * - 잘린 목록: "chicken, peas" 가 "chicken, peas, rice" 를 대표해 저장되면, 목록을
  *   통째로 하나의 값으로 다루면서 그 값의 일부만 증명한 것이 된다.
  *
@@ -207,24 +209,32 @@ function tilesExcerpt(
   ingredients: readonly Ingredient[],
 ): boolean {
   const haystack = normalizeSourceText(excerpt);
-  const skipSeparators = (from: number) => {
-    let at = from;
-    while (at < haystack.length && SEPARATOR.test(haystack[at] ?? "")) at += 1;
-    return at;
-  };
-
   let cursor = 0;
-  for (const ingredient of ingredients) {
+
+  for (const [index, ingredient] of ingredients.entries()) {
     const needle = normalizeSourceText(ingredient.name);
-    cursor = skipSeparators(cursor);
-    if (needle === "" || !haystack.startsWith(needle, cursor)) return false;
-    cursor += needle.length;
+    if (needle === "") return false;
+
+    // 유효한 간격이 아니라면 더 뒤의 등장도 유효할 수 없다. 간격은 길어질 뿐이고,
+    // 짧은 간격이 이미 담고 있던 구분자 아닌 글자를 계속 담기 때문이다.
+    const at = haystack.indexOf(needle, cursor);
+    if (at === -1) return false;
+
+    const gap = haystack.slice(cursor, at);
+    if (!(index === 0 ? LEADING_GAP : ITEM_GAP).test(gap)) return false;
+
+    cursor = at + needle.length;
   }
-  return skipSeparators(cursor) === haystack.length;
+
+  return TRAILING_GAP.test(haystack.slice(cursor));
 }
 
-/** 원재료 나열에서 항목을 가르는 문자. 그 외의 잔여는 증명되지 않은 텍스트다. */
-const SEPARATOR = /[,;. ]/;
+/** 첫 항목 앞에는 공백만 올 수 있다. */
+const LEADING_GAP = /^\s*$/;
+/** 항목 사이에는 구분자가 정확히 하나 있어야 한다. 공백은 구분자가 아니다. */
+const ITEM_GAP = /^\s*[,;]\s*$/;
+/** 마지막 항목 뒤에는 마침표나 구분자 하나까지만 허용한다. */
+const TRAILING_GAP = /^\s*[.,;]?\s*$/;
 
 type ExtractionAttempt =
   | { readonly body: unknown; readonly kind: "response"; readonly ok: boolean }

@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(19);
+SELECT plan(20);
 
 -- 로컬 스택의 기본 권한에는 SELECT 가 없다. 트랜잭션 안에서만 부여한다.
 GRANT SELECT ON public.foods, public.food_sources, public.food_ingredient_evidence TO service_role;
@@ -195,6 +195,17 @@ SELECT throws_ok(
   'CFING',
   'Ingredient list does not cover the whole excerpt',
   '검증 거절은 CFING SQLSTATE 를 단다'
+);
+
+-- 7f. 공백은 구분자가 아니다. 공백으로 항목이 갈리면 "chicken meal" 한 항목이
+-- "chicken" 과 "meal" 두 항목으로 저장되어, 라벨이 둘이라 한 것을 셋으로 만든다.
+SELECT throws_ok(
+  $$SELECT public.apply_food_ingredients_draft(
+    -93001, -93001, 'chicken meal, peas, pea flour',
+    '[{"name":"chicken","position":1},{"name":"meal","position":2},{"name":"peas","position":3},{"name":"pea flour","position":4}]'::jsonb
+  )$$,
+  'Ingredient name meal does not continue the excerpt at its declared position',
+  '여러 낱말 이름을 공백에서 쪼개지 않는다'
 );
 
 -- 8. 출처 종류가 다르면 기존 값과 provenance 를 지킨다.

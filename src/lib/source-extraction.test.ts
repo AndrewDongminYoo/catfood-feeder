@@ -625,6 +625,18 @@ describe("원재료 추출", () => {
     expect(result.kind === "success" && result.ingredientDraft).toBe(null);
   });
 
+  it("여러 낱말 이름을 공백에서 쪼개지 않는다", async () => {
+    // 공백을 구분자로 치면 "chicken meal" 한 항목이 두 항목으로 저장된다.
+    const result = await extractWith({
+      ingredient_excerpt: "chicken meal, peas",
+      ingredient_source_id: 7,
+      ingredients: [{ name: "chicken" }, { name: "meal" }, { name: "peas" }],
+      nutrients: {},
+    });
+
+    expect(result.kind === "success" && result.ingredientDraft).toBe(null);
+  });
+
   it("공급되지 않은 소스를 가리키면 버린다", async () => {
     const result = await extractWith({
       ingredient_excerpt: "chicken, chicken meal",
