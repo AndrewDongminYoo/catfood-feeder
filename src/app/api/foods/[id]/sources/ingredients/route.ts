@@ -55,7 +55,14 @@ export async function POST(
         { error: "출처가 현재 수집본과 일치하지 않습니다." },
         { status: 400 },
       );
-    const result = await applyFoodIngredientsDraft(foodId.data, parsed.data);
+    // 대상은 이미 사람이 검증한 발행 행이고 그 검증 시각은 영양소로 얻은 것이다.
+    // 원재료를 누가 넣었는지 근거 행에 남겨야 사람 검증 도장이 검증한 적 없는
+    // 데이터까지 덮는 것처럼 읽히지 않는다.
+    const result = await applyFoodIngredientsDraft(
+      foodId.data,
+      parsed.data,
+      authorization.origin,
+    );
     return NextResponse.json({ result });
   } catch (error: unknown) {
     if (error instanceof RequestBodyTooLargeError)

@@ -283,9 +283,11 @@ export async function applyFoodEvidenceDraft(
 export async function applyFoodIngredientsDraft(
   foodId: number,
   draft: IngredientDraft,
+  appliedByOrigin: "human" | "automation",
 ): Promise<IngredientApplyResult> {
   const supabase = createAdminClient();
   const { data, error } = await supabase.rpc("apply_food_ingredients_draft", {
+    p_applied_by_origin: appliedByOrigin,
     p_excerpt: draft.excerpt,
     p_food_id: foodId,
     p_ingredients: draft.ingredients.map((ingredient) => ({

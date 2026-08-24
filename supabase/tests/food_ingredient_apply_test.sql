@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(20);
+SELECT plan(22);
 
 -- 로컬 스택의 기본 권한에는 SELECT 가 없다. 트랜잭션 안에서만 부여한다.
 GRANT SELECT ON public.foods, public.food_sources, public.food_ingredient_evidence TO service_role;
@@ -65,7 +65,8 @@ SELECT is(
     -93001,
     -93001,
     'chicken, chicken meal, peas, pea flour',
-    '[{"name":"chicken","position":1},{"name":"chicken meal","position":2},{"name":"peas","position":3},{"name":"pea flour","position":4}]'::jsonb
+    '[{"name":"chicken","position":1},{"name":"chicken meal","position":2},{"name":"peas","position":3},{"name":"pea flour","position":4}]'::jsonb,
+    'automation'
   ) ->> 'status'),
   'applied',
   '발행되고 검증된 사료의 빈 원재료에 적용된다'
@@ -81,6 +82,25 @@ SELECT is(
   (SELECT count(*)::int FROM public.food_ingredient_evidence WHERE food_id = -93001 AND is_current),
   1,
   '현재 근거가 하나 남는다'
+);
+
+-- 1b. 원재료를 누가 넣었는지 근거 행이 말한다. 대상 행의 사람 검증 시각은
+-- 영양소로 얻은 것이므로, 그 도장이 검증한 적 없는 데이터까지 덮으면 안 된다.
+SELECT is(
+  (SELECT applied_by_origin FROM public.food_ingredient_evidence
+   WHERE food_id = -93001 AND is_current),
+  'automation',
+  '적용 주체가 근거 행에 기록된다'
+);
+
+SELECT throws_ok(
+  $$SELECT public.apply_food_ingredients_draft(
+    -93001, -93001, 'chicken, chicken meal',
+    '[{"name":"chicken","position":1},{"name":"chicken meal","position":2}]'::jsonb, 'robot'
+  )$$,
+  'CFING',
+  'Each ingredient draft requires a known applying origin',
+  '알 수 없는 적용 주체는 거절된다'
 );
 
 -- 2. 발행 상태와 검증 시각은 이 함수가 건드리지 않는다.
@@ -100,7 +120,7 @@ SELECT is(
 SELECT throws_ok(
   $$SELECT public.apply_food_ingredients_draft(
     -93001, -93001, 'salmon, potato, quinoa',
-    '[{"name":"salmon","position":1}]'::jsonb
+    '[{"name":"salmon","position":1}]'::jsonb, 'automation'
   )$$,
   'Evidence excerpt is absent from source -93001',
   '캡처에 없는 구절은 거절된다'
@@ -110,7 +130,7 @@ SELECT throws_ok(
 SELECT throws_ok(
   $$SELECT public.apply_food_ingredients_draft(
     -93001, -93001, 'chicken, chicken meal',
-    '[{"name":"chicken","position":1},{"name":"salmon","position":2}]'::jsonb
+    '[{"name":"chicken","position":1},{"name":"salmon","position":2}]'::jsonb, 'automation'
   )$$,
   'Ingredient name salmon does not continue the excerpt at its declared position',
   '구절이 증명하지 못하는 이름은 거절된다'
@@ -120,7 +140,7 @@ SELECT throws_ok(
 SELECT throws_ok(
   $$SELECT public.apply_food_ingredients_draft(
     -93001, -93001, 'chicken, chicken meal',
-    '[{"name":"chicken","position":2},{"name":"chicken meal","position":1}]'::jsonb
+    '[{"name":"chicken","position":2},{"name":"chicken meal","position":1}]'::jsonb, 'automation'
   )$$,
   'Ingredient positions must be 1..n in array order',
   'position 은 배열 순서와 같은 1..n 이어야 한다'
@@ -131,7 +151,7 @@ SELECT throws_ok(
 SELECT throws_ok(
   $$SELECT public.apply_food_ingredients_draft(
     -93001, -93001, 'chicken, chicken meal, peas, pea flour',
-    '[{"name":"peas","position":1},{"name":"chicken meal","position":2}]'::jsonb
+    '[{"name":"peas","position":1},{"name":"chicken meal","position":2}]'::jsonb, 'automation'
   )$$,
   'Ingredient name peas does not continue the excerpt at its declared position',
   '구절 안의 순서와 어긋난 목록은 거절된다'
@@ -142,7 +162,7 @@ SELECT throws_ok(
 SELECT throws_ok(
   $$SELECT public.apply_food_ingredients_draft(
     -93001, -93001, 'peas, pea flour',
-    '[{"name":"pea","position":1},{"name":"peas","position":2}]'::jsonb
+    '[{"name":"pea","position":1},{"name":"peas","position":2}]'::jsonb, 'automation'
   )$$,
   'Ingredient name peas does not continue the excerpt at its declared position',
   '낱말 중간에 걸린 일치는 세지 않는다'
@@ -154,7 +174,7 @@ SELECT throws_ok(
 SELECT throws_ok(
   $$SELECT public.apply_food_ingredients_draft(
     -93001, -93002, '닭고기, 닭고기분, 완두',
-    '[{"name":"닭","position":1}]'::jsonb
+    '[{"name":"닭","position":1}]'::jsonb, 'automation'
   )$$,
   'Ingredient list does not cover the whole excerpt',
   '잘린 한글 이름은 낱말 중간 일치로 통과하지 않는다'
@@ -166,7 +186,7 @@ SELECT throws_ok(
 SELECT throws_ok(
   $$SELECT public.apply_food_ingredients_draft(
     -93001, -93001, 'chicken meal, peas, pea flour',
-    '[{"name":"chicken","position":1},{"name":"peas","position":2},{"name":"pea flour","position":3}]'::jsonb
+    '[{"name":"chicken","position":1},{"name":"peas","position":2},{"name":"pea flour","position":3}]'::jsonb, 'automation'
   )$$,
   -- "chicken" 은 "chicken meal" 의 접두사라 그 자리를 통과하고, 남은 " meal" 때문에
   -- 다음 이름이 이어지지 못한다. 거절되는 지점은 두 번째 이름이다.
@@ -179,7 +199,7 @@ SELECT throws_ok(
 SELECT throws_ok(
   $$SELECT public.apply_food_ingredients_draft(
     -93001, -93001, 'chicken, chicken meal, peas, pea flour',
-    '[{"name":"chicken","position":1},{"name":"chicken meal","position":2}]'::jsonb
+    '[{"name":"chicken","position":1},{"name":"chicken meal","position":2}]'::jsonb, 'automation'
   )$$,
   'Ingredient list does not cover the whole excerpt',
   '구절의 뒷부분을 남긴 잘린 목록은 거절된다'
@@ -190,7 +210,7 @@ SELECT throws_ok(
 SELECT throws_ok(
   $$SELECT public.apply_food_ingredients_draft(
     -93001, -93001, 'chicken, chicken meal, peas, pea flour',
-    '[{"name":"chicken","position":1}]'::jsonb
+    '[{"name":"chicken","position":1}]'::jsonb, 'automation'
   )$$,
   'CFING',
   'Ingredient list does not cover the whole excerpt',
@@ -202,7 +222,7 @@ SELECT throws_ok(
 SELECT throws_ok(
   $$SELECT public.apply_food_ingredients_draft(
     -93001, -93001, 'chicken meal, peas, pea flour',
-    '[{"name":"chicken","position":1},{"name":"meal","position":2},{"name":"peas","position":3},{"name":"pea flour","position":4}]'::jsonb
+    '[{"name":"chicken","position":1},{"name":"meal","position":2},{"name":"peas","position":3},{"name":"pea flour","position":4}]'::jsonb, 'automation'
   )$$,
   'Ingredient name meal does not continue the excerpt at its declared position',
   '여러 낱말 이름을 공백에서 쪼개지 않는다'
@@ -214,7 +234,8 @@ SELECT is(
     -93001,
     -93002,
     '닭고기, 닭고기분, 완두, 타피오카',
-    '[{"name":"닭고기","position":1},{"name":"닭고기분","position":2},{"name":"완두","position":3},{"name":"타피오카","position":4}]'::jsonb
+    '[{"name":"닭고기","position":1},{"name":"닭고기분","position":2},{"name":"완두","position":3},{"name":"타피오카","position":4}]'::jsonb,
+    'automation'
   ) ->> 'status'),
   'skipped',
   '출처 종류가 다르면 skipped 다'
@@ -228,7 +249,8 @@ SELECT is(
     -93001,
     -93001,
     'chicken, chicken meal',
-    '[{"name":"chicken","position":1},{"name":"chicken meal","position":2}]'::jsonb
+    '[{"name":"chicken","position":1},{"name":"chicken meal","position":2}]'::jsonb,
+    'automation'
   ) ->> 'status'),
   'conflict',
   '같은 출처 종류의 다른 목록은 conflict 다'
@@ -249,7 +271,8 @@ SELECT is(
     -93001,
     -93001,
     'chicken, chicken meal, peas, pea flour',
-    '[{"name":"chicken","position":1},{"name":"chicken meal","position":2},{"name":"peas","position":3},{"name":"pea flour","position":4}]'::jsonb
+    '[{"name":"chicken","position":1},{"name":"chicken meal","position":2},{"name":"peas","position":3},{"name":"pea flour","position":4}]'::jsonb,
+    'automation'
   ) ->> 'status'),
   'applied',
   '값이 같으면 applied 이고 근거만 새로 남는다'
@@ -259,7 +282,7 @@ SELECT is(
 SELECT throws_ok(
   $$SELECT public.apply_food_ingredients_draft(
     -93999, -93001, 'chicken, chicken meal',
-    '[{"name":"chicken","position":1},{"name":"chicken meal","position":2}]'::jsonb
+    '[{"name":"chicken","position":1},{"name":"chicken meal","position":2}]'::jsonb, 'automation'
   )$$,
   'Food -93999 does not exist',
   '없는 사료에는 적용하지 않는다'

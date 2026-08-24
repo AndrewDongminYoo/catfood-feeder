@@ -14,6 +14,10 @@ CREATE TABLE public.food_ingredient_evidence (
   food_id bigint NOT NULL REFERENCES public.foods (id) ON DELETE CASCADE,
   source_id bigint NOT NULL REFERENCES public.food_sources (id) ON DELETE RESTRICT,
   excerpt text NOT NULL CHECK (btrim(excerpt) <> ''),
+  -- 이 목록을 적용한 주체. 대상은 이미 사람이 검증한 발행 행이고 그 검증 시각은
+  -- 영양소로 얻은 것이므로, 원재료가 에이전트에서 왔다면 행이 그렇게 말해야 한다.
+  -- 그러지 않으면 사람 검증 도장이 검증한 적 없는 데이터까지 덮는 것처럼 읽힌다.
+  applied_by_origin text NOT NULL CHECK (applied_by_origin IN ('human', 'automation')),
   captured_at timestamptz NOT NULL,
   is_current boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now()
@@ -43,6 +47,7 @@ CREATE OR REPLACE FUNCTION public.apply_food_ingredients_draft(
   p_source_id bigint,
   p_excerpt text,
   p_ingredients jsonb,
+  p_applied_by_origin text,
   p_owned_source_ids bigint [] DEFAULT NULL::bigint []
 )
 RETURNS jsonb
@@ -76,6 +81,11 @@ BEGIN
 
   IF v_excerpt = '' THEN
     RAISE EXCEPTION 'Each ingredient draft requires a non-empty excerpt'
+    USING ERRCODE = 'CFING';
+  END IF;
+
+  IF p_applied_by_origin IS NULL OR p_applied_by_origin NOT IN ('human', 'automation') THEN
+    RAISE EXCEPTION 'Each ingredient draft requires a known applying origin'
     USING ERRCODE = 'CFING';
   END IF;
 
@@ -229,11 +239,13 @@ BEGIN
       food_id,
       source_id,
       excerpt,
+      applied_by_origin,
       captured_at
     ) VALUES (
       p_food_id,
       p_source_id,
       v_excerpt,
+      p_applied_by_origin,
       v_captured_at
     );
   END IF;
@@ -245,11 +257,11 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.apply_food_ingredients_draft(bigint, bigint, text, jsonb, bigint [])
+REVOKE ALL ON FUNCTION public.apply_food_ingredients_draft(bigint, bigint, text, jsonb, text, bigint [])
 FROM public, anon, authenticated, service_role;
 
-GRANT EXECUTE ON FUNCTION public.apply_food_ingredients_draft(bigint, bigint, text, jsonb, bigint [])
+GRANT EXECUTE ON FUNCTION public.apply_food_ingredients_draft(bigint, bigint, text, jsonb, text, bigint [])
 TO service_role;
 
-COMMENT ON FUNCTION public.apply_food_ingredients_draft(bigint, bigint, text, jsonb, bigint []) IS
+COMMENT ON FUNCTION public.apply_food_ingredients_draft(bigint, bigint, text, jsonb, text, bigint []) IS
 '보관된 캡처가 증명하는 원재료 목록만 사료에 적용한다. 기존 목록은 덮어쓰지 않는다.';

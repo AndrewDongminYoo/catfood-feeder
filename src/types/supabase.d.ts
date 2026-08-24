@@ -159,6 +159,7 @@ export type Database = {
       };
       food_ingredient_evidence: {
         Row: {
+          applied_by_origin: string;
           captured_at: string;
           created_at: string;
           excerpt: string;
@@ -168,6 +169,7 @@ export type Database = {
           source_id: number;
         };
         Insert: {
+          applied_by_origin: string;
           captured_at: string;
           created_at?: string;
           excerpt: string;
@@ -177,6 +179,7 @@ export type Database = {
           source_id: number;
         };
         Update: {
+          applied_by_origin?: string;
           captured_at?: string;
           created_at?: string;
           excerpt?: string;
@@ -609,6 +612,7 @@ export type Database = {
       };
       apply_food_ingredients_draft: {
         Args: {
+          p_applied_by_origin: string;
           p_excerpt: string;
           p_food_id: number;
           p_ingredients: Json;
