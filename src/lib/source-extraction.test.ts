@@ -600,6 +600,31 @@ describe("원재료 추출", () => {
     expect(result.kind === "success" && result.ingredientDraft).toBe(null);
   });
 
+  it("항목을 잘라 낸 이름을 버린다", async () => {
+    // "chicken" 은 "chicken meal" 의 앞부분이다. 낱말 경계만 보면 뒤의 공백이
+    // 경계로 읽혀 통과하고, 라벨이 쓰지 않은 이름이 저장된다.
+    const result = await extractWith({
+      ingredient_excerpt: "chicken meal, peas",
+      ingredient_source_id: 7,
+      ingredients: [{ name: "chicken" }, { name: "peas" }],
+      nutrients: {},
+    });
+
+    expect(result.kind === "success" && result.ingredientDraft).toBe(null);
+  });
+
+  it("구절의 뒷부분을 남긴 잘린 목록을 버린다", async () => {
+    // 목록은 통째로 하나의 값이므로, 일부만 증명된 목록은 증명되지 않은 목록이다.
+    const result = await extractWith({
+      ingredient_excerpt: "chicken, chicken meal, peas, pea flour",
+      ingredient_source_id: 7,
+      ingredients: [{ name: "chicken" }, { name: "chicken meal" }],
+      nutrients: {},
+    });
+
+    expect(result.kind === "success" && result.ingredientDraft).toBe(null);
+  });
+
   it("공급되지 않은 소스를 가리키면 버린다", async () => {
     const result = await extractWith({
       ingredient_excerpt: "chicken, chicken meal",

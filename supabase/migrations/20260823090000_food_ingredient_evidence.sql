@@ -33,56 +33,6 @@ GRANT SELECT ON TABLE public.food_ingredient_evidence TO service_role;
 COMMENT ON TABLE public.food_ingredient_evidence IS
 '사료별 원재료 목록의 현재 근거. 목록은 사료당 하나이므로 nutrient_key 축이 없다.';
 
--- 정규화된 haystack 에서 needle 이 from_pos 이후 처음 나타나는 1-기반 위치.
--- 앞뒤가 글자나 숫자면 낱말 중간에 걸린 것이므로 건너뛴다 — 그러지 않으면 "pea" 가
--- "peas" 안에서 잡혀 뒤에 오는 진짜 "pea flour" 를 가린다. 없으면 0.
---
--- 경계 판정에 [a-z0-9] 를 쓰면 안 된다. 한글은 그 클래스에 들지 않아 모든 음절이
--- 경계로 읽히고, 모델이 "닭고기"를 "닭"으로 잘라 답해도 근거가 증명한 값으로
--- 저장된다. [[:alnum:]] 는 UTF-8 데이터베이스에서 한글을 글자로 보고 쉼표와
--- 공백은 보지 않으므로, 두 언어에 같은 규칙이 걸린다.
-CREATE OR REPLACE FUNCTION public.ordered_excerpt_offset(
-  haystack text,
-  needle text,
-  from_pos int
-)
-RETURNS int
-LANGUAGE plpgsql
-IMMUTABLE
-STRICT
-SET search_path TO ''
-AS $function$
-DECLARE
-  v_at int := from_pos;
-  v_hit int;
-BEGIN
-  IF needle = '' THEN
-    RETURN 0;
-  END IF;
-
-  LOOP
-    v_hit := position(needle IN substr(haystack, v_at));
-    IF v_hit = 0 THEN
-      RETURN 0;
-    END IF;
-
-    v_hit := v_at + v_hit - 1;
-
-    IF NOT (
-      (v_hit > 1 AND substr(haystack, v_hit - 1, 1) ~ '[[:alnum:]]')
-      OR substr(haystack, v_hit + length(needle), 1) ~ '[[:alnum:]]'
-    ) THEN
-      RETURN v_hit;
-    END IF;
-
-    v_at := v_hit + 1;
-  END LOOP;
-END;
-$function$;
-
-COMMENT ON FUNCTION public.ordered_excerpt_offset(text, text, int) IS
-'정규화된 구절에서 낱말 경계를 지키는 첫 등장 위치. 순서 검사를 위해 커서와 함께 쓴다.';
-
 CREATE OR REPLACE FUNCTION public.apply_food_ingredients_draft(
   p_food_id bigint,
   p_source_id bigint,
@@ -107,7 +57,7 @@ DECLARE
   v_index int := 0;
   v_name text;
   v_cursor int := 1;
-  v_offset int;
+  v_norm_name text;
   v_status text;
 BEGIN
   IF p_ingredients IS NULL
@@ -195,23 +145,36 @@ BEGIN
         RAISE EXCEPTION 'Ingredient positions must be 1..n in array order';
       END IF;
 
-      -- 구절은 라벨이 쓴 그대로이므로 구절 안의 순서가 곧 기재 순서다. 이름이
-      -- 어딘가에 있기만 하면 통과시키면, 모델이 뒤섞어 답해도 그대로 저장된다 —
-      -- 순서가 이 데이터의 값인데 그것을 검사하지 않는 셈이다. 그래서 커서를
-      -- 앞으로만 옮기며 순서대로 찾는다.
-      v_offset := public.ordered_excerpt_offset(
-        v_norm_excerpt,
-        lower(btrim(regexp_replace(normalize(v_name, NFKC), E'\\s+', ' ', 'g'))),
-        v_cursor
-      );
+      -- 구절은 라벨이 쓴 그대로이므로, 이름들이 구절을 빈틈없이 덮어야 한다.
+      -- 사이에 구분자와 공백만 남는지 확인하면 세 가지가 한 번에 걸린다:
+      -- 뒤섞인 순서, 낱말 중간에 걸린 부분 일치("chicken" 이 "chicken meal" 안에서),
+      -- 그리고 잘린 목록("chicken, peas" 가 "chicken, peas, rice" 를 대표하는 것).
+      -- 목록은 통째로 하나의 값이므로 일부만 증명된 목록은 증명되지 않은 목록이다.
+      v_norm_name := lower(btrim(regexp_replace(normalize(v_name, NFKC), E'\\s+', ' ', 'g')));
 
-      IF v_offset = 0 THEN
-        RAISE EXCEPTION 'Ingredient name % is absent from its excerpt in declared order', v_name;
+      WHILE v_cursor <= length(v_norm_excerpt)
+        AND substr(v_norm_excerpt, v_cursor, 1) ~ '[,;. ]'
+        LOOP
+          v_cursor := v_cursor + 1;
+        END LOOP;
+
+      IF substr(v_norm_excerpt, v_cursor, length(v_norm_name)) <> v_norm_name THEN
+        RAISE EXCEPTION 'Ingredient name % does not continue the excerpt at its declared position', v_name;
       END IF;
 
-      v_cursor := v_offset
-        + length(lower(btrim(regexp_replace(normalize(v_name, NFKC), E'\\s+', ' ', 'g'))));
+      v_cursor := v_cursor + length(v_norm_name);
     END LOOP;
+
+  -- 마지막 항목 뒤에 구분자 말고 무엇이 남아 있으면 목록이 잘린 것이다.
+  WHILE v_cursor <= length(v_norm_excerpt)
+    AND substr(v_norm_excerpt, v_cursor, 1) ~ '[,;. ]'
+    LOOP
+      v_cursor := v_cursor + 1;
+    END LOOP;
+
+  IF v_cursor <= length(v_norm_excerpt) THEN
+    RAISE EXCEPTION 'Ingredient list does not cover the whole excerpt';
+  END IF;
 
   SELECT ingredients INTO v_existing FROM public.foods WHERE id = p_food_id;
 

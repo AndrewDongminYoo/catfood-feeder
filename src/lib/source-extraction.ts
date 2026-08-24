@@ -182,67 +182,49 @@ function toIngredientDraft(
   const source = sources.find((candidate) => candidate.id === sourceId);
   if (!source || !isEvidenceExcerpt(source.capturedText, excerpt)) return null;
 
-  return provenInOrder(excerpt, ingredients)
+  return tilesExcerpt(excerpt, ingredients)
     ? { excerpt, ingredients, sourceId }
     : null;
 }
 
 /**
- * 이름들이 구절 안에 기재 순서대로 나타나는가.
+ * 이름들이 구절을 빈틈없이 덮는가.
  *
- * 이름이 어딘가에 있기만 하면 통과시키면 모델이 뒤섞어 답해도 그대로 저장된다 —
- * 구절은 라벨이 쓴 그대로이므로 구절 안의 순서가 곧 기재 순서이고, 순서가 이
- * 데이터의 값이다. 그래서 커서를 앞으로만 옮기며 순서대로 찾는다.
+ * 이름 사이에 구분자와 공백만 남아야 하고, 마지막 이름 뒤에도 구분자 말고는
+ * 아무것도 남으면 안 된다. 이 한 가지 규칙이 세 가지를 함께 막는다.
  *
- * isEvidenceExcerpt 와 같은 정규화를 쓴다. 이 규칙이 RPC 와 갈라지면 추출이
- * 받아들인 draft 를 서버가 거절하고, 배치는 그 거절을 "근거 없음"이 아니라
- * "실패"로 집계한다.
+ * - 뒤섞인 순서: 구절은 라벨이 쓴 그대로이므로 구절 안의 순서가 곧 기재 순서다.
+ * - 낱말 중간에 걸린 부분 일치: "chicken" 이 "chicken meal" 안에서 잡히면 라벨이
+ *   쓰지 않은 이름이 저장되고, 파생되는 형태까지 meal 에서 unspecified 로 바뀐다.
+ * - 잘린 목록: "chicken, peas" 가 "chicken, peas, rice" 를 대표해 저장되면, 목록을
+ *   통째로 하나의 값으로 다루면서 그 값의 일부만 증명한 것이 된다.
+ *
+ * RPC 가 같은 규칙을 다시 검사한다. 두 규칙이 갈라지면 추출이 받아들인 draft 를
+ * 서버가 거절하고, 배치는 그 거절을 "근거 없음"이 아니라 "실패"로 집계한다.
  */
-function provenInOrder(
+function tilesExcerpt(
   excerpt: string,
   ingredients: readonly Ingredient[],
 ): boolean {
   const haystack = normalizeSourceText(excerpt);
+  const skipSeparators = (from: number) => {
+    let at = from;
+    while (at < haystack.length && SEPARATOR.test(haystack[at] ?? "")) at += 1;
+    return at;
+  };
+
   let cursor = 0;
   for (const ingredient of ingredients) {
     const needle = normalizeSourceText(ingredient.name);
-    const at = indexAtWordBoundary(haystack, needle, cursor);
-    if (at === -1) return false;
-    cursor = at + needle.length;
+    cursor = skipSeparators(cursor);
+    if (needle === "" || !haystack.startsWith(needle, cursor)) return false;
+    cursor += needle.length;
   }
-  return true;
+  return skipSeparators(cursor) === haystack.length;
 }
 
-/**
- * 낱말 중간에 걸린 일치는 건너뛴다. 그러지 않으면 "pea" 가 "peas" 안에서 잡혀
- * 뒤에 오는 진짜 "pea flour" 를 가린다. 없으면 -1.
- *
- * 경계 판정은 유니코드 글자·숫자로 한다. [a-z0-9] 로 하면 한글이 그 클래스에 들지
- * 않아 모든 음절이 경계로 읽히고, 모델이 "닭고기"를 "닭"으로 잘라 답해도 근거가
- * 증명한 값으로 통과한다. RPC 의 [[:alnum:]] 과 같은 규칙이다.
- */
-function indexAtWordBoundary(
-  haystack: string,
-  needle: string,
-  from: number,
-): number {
-  if (needle === "") return -1;
-  const isAlphanumeric = (character: string | undefined) =>
-    character !== undefined && /[\p{L}\p{N}]/u.test(character);
-  for (
-    let at = haystack.indexOf(needle, from);
-    at !== -1;
-    at = haystack.indexOf(needle, at + 1)
-  ) {
-    if (
-      !isAlphanumeric(haystack[at - 1]) &&
-      !isAlphanumeric(haystack[at + needle.length])
-    ) {
-      return at;
-    }
-  }
-  return -1;
-}
+/** 원재료 나열에서 항목을 가르는 문자. 그 외의 잔여는 증명되지 않은 텍스트다. */
+const SEPARATOR = /[,;. ]/;
 
 type ExtractionAttempt =
   | { readonly body: unknown; readonly kind: "response"; readonly ok: boolean }
@@ -423,7 +405,7 @@ kcal_per_kg is a stated metabolizable energy figure and usually sits in prose ou
 carb_pct is ONLY for a carbohydrate the label states itself, which Korean 등록성분량 declarations write as "NFE" or "가용무질소물" — quote just that part, e.g. "NFE 30.5%". Never compute it, and never derive it from the other values.
 Take values only from a guaranteed analysis / analytical constituents table, never from a dry-matter table. Hill's Korean pages print "Nutrient Dry Matter¹ %" footnoted "수분을 제거한 후", and those figures run about 10% high against the as-fed label this catalog stores; if a page offers only those, report nothing.
 Do not infer the P/F/C energy split or Ca:P, and never calculate carbohydrate yourself. This does not restrict kcal_per_kg or a stated carb_pct above.
-Copy the ingredient list in the exact order the label declares it, one entry per ingredient, using the label's own wording. Do not translate, normalize, reorder, number, or classify the entries. Set ingredient_excerpt to the literal run of text you read the names from, and ingredient_source_id to the source record it came from. If you cannot quote that literal run, return "ingredients": [].
+Copy the ingredient list in the exact order the label declares it, one entry per ingredient, using the label's own wording. Do not translate, normalize, reorder, number, or classify the entries. Set ingredient_excerpt to the literal run of text you read the names from, containing the whole declared list and nothing else — no heading such as "Ingredients", no trailing sentence, and no part of the list left out. The entries you return must account for every item in that run, because a partial list is stored as if it were the whole composition. Set ingredient_source_id to the source record it came from. If you cannot quote that literal run in full, return "ingredients": [].
 Return only JSON in this exact shape:
 {"product_name":string|null,"brand":string|null,"manufacturer":string|null,"cooking_method":"extrusion"|"baked"|"freeze_dried"|"dried"|null,"nutrients":{"protein_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"fat_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"fiber_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"ash_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"moisture_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"calcium_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"phosphorus_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"kcal_per_kg":{"value":number|null,"sourceId":number|null,"excerpt":string|null},"carb_pct":{"value":number|null,"sourceId":number|null,"excerpt":string|null}},"flags":{"grain_free":boolean,"meal_free":boolean,"has_probiotics":boolean,"has_cranberry":boolean,"has_yucca":boolean},"ingredient_excerpt":string|null,"ingredient_source_id":number|null,"ingredients":[{"name":string}]}
 

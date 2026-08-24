@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(16);
+SELECT plan(18);
 
 -- 로컬 스택의 기본 권한에는 SELECT 가 없다. 트랜잭션 안에서만 부여한다.
 GRANT SELECT ON public.foods, public.food_sources, public.food_ingredient_evidence TO service_role;
@@ -112,7 +112,7 @@ SELECT throws_ok(
     -93001, -93001, 'chicken, chicken meal',
     '[{"name":"chicken","position":1},{"name":"salmon","position":2}]'::jsonb
   )$$,
-  'Ingredient name salmon is absent from its excerpt in declared order',
+  'Ingredient name salmon does not continue the excerpt at its declared position',
   '구절이 증명하지 못하는 이름은 거절된다'
 );
 
@@ -133,7 +133,7 @@ SELECT throws_ok(
     -93001, -93001, 'chicken, chicken meal, peas, pea flour',
     '[{"name":"peas","position":1},{"name":"chicken meal","position":2}]'::jsonb
   )$$,
-  'Ingredient name chicken meal is absent from its excerpt in declared order',
+  'Ingredient name peas does not continue the excerpt at its declared position',
   '구절 안의 순서와 어긋난 목록은 거절된다'
 );
 
@@ -144,7 +144,7 @@ SELECT throws_ok(
     -93001, -93001, 'peas, pea flour',
     '[{"name":"pea","position":1},{"name":"peas","position":2}]'::jsonb
   )$$,
-  'Ingredient name peas is absent from its excerpt in declared order',
+  'Ingredient name peas does not continue the excerpt at its declared position',
   '낱말 중간에 걸린 일치는 세지 않는다'
 );
 
@@ -156,8 +156,33 @@ SELECT throws_ok(
     -93001, -93002, '닭고기, 닭고기분, 완두',
     '[{"name":"닭","position":1}]'::jsonb
   )$$,
-  'Ingredient name 닭 is absent from its excerpt in declared order',
+  'Ingredient list does not cover the whole excerpt',
   '잘린 한글 이름은 낱말 중간 일치로 통과하지 않는다'
+);
+
+-- 7c. 항목을 잘라 낸 이름은 거절된다. "chicken" 은 "chicken meal" 의 앞부분이라
+-- 낱말 경계만 보면 뒤의 공백이 경계로 읽혀 통과하고, 라벨이 쓰지 않은 이름이
+-- 저장되면서 파생되는 형태까지 meal 에서 unspecified 로 바뀐다.
+SELECT throws_ok(
+  $$SELECT public.apply_food_ingredients_draft(
+    -93001, -93001, 'chicken meal, peas, pea flour',
+    '[{"name":"chicken","position":1},{"name":"peas","position":2},{"name":"pea flour","position":3}]'::jsonb
+  )$$,
+  -- "chicken" 은 "chicken meal" 의 접두사라 그 자리를 통과하고, 남은 " meal" 때문에
+  -- 다음 이름이 이어지지 못한다. 거절되는 지점은 두 번째 이름이다.
+  'Ingredient name peas does not continue the excerpt at its declared position',
+  '항목을 잘라 낸 이름은 거절된다'
+);
+
+-- 7d. 구절의 뒷부분을 남긴 잘린 목록은 거절된다. 목록은 통째로 하나의 값이므로
+-- 일부만 증명된 목록은 증명되지 않은 목록이다.
+SELECT throws_ok(
+  $$SELECT public.apply_food_ingredients_draft(
+    -93001, -93001, 'chicken, chicken meal, peas, pea flour',
+    '[{"name":"chicken","position":1},{"name":"chicken meal","position":2}]'::jsonb
+  )$$,
+  'Ingredient list does not cover the whole excerpt',
+  '구절의 뒷부분을 남긴 잘린 목록은 거절된다'
 );
 
 -- 8. 출처 종류가 다르면 기존 값과 provenance 를 지킨다.
