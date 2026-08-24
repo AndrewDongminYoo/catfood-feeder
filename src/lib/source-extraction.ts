@@ -182,15 +182,62 @@ function toIngredientDraft(
   const source = sources.find((candidate) => candidate.id === sourceId);
   if (!source || !isEvidenceExcerpt(source.capturedText, excerpt)) return null;
 
-  // isEvidenceExcerpt 가 쓰는 것과 같은 정규화를 이름 대조에도 그대로 쓴다. 두
-  // 규칙이 갈라지면 추출이 받아들인 draft 를 서버가 거절하고, 배치는 그 거절을
-  // "근거 없음"이 아니라 "실패"로 집계한다.
-  const normalizedExcerpt = normalizeSourceText(excerpt);
-  const proven = ingredients.every((ingredient) =>
-    normalizedExcerpt.includes(normalizeSourceText(ingredient.name)),
-  );
+  return provenInOrder(excerpt, ingredients)
+    ? { excerpt, ingredients, sourceId }
+    : null;
+}
 
-  return proven ? { excerpt, ingredients, sourceId } : null;
+/**
+ * 이름들이 구절 안에 기재 순서대로 나타나는가.
+ *
+ * 이름이 어딘가에 있기만 하면 통과시키면 모델이 뒤섞어 답해도 그대로 저장된다 —
+ * 구절은 라벨이 쓴 그대로이므로 구절 안의 순서가 곧 기재 순서이고, 순서가 이
+ * 데이터의 값이다. 그래서 커서를 앞으로만 옮기며 순서대로 찾는다.
+ *
+ * isEvidenceExcerpt 와 같은 정규화를 쓴다. 이 규칙이 RPC 와 갈라지면 추출이
+ * 받아들인 draft 를 서버가 거절하고, 배치는 그 거절을 "근거 없음"이 아니라
+ * "실패"로 집계한다.
+ */
+function provenInOrder(
+  excerpt: string,
+  ingredients: readonly Ingredient[],
+): boolean {
+  const haystack = normalizeSourceText(excerpt);
+  let cursor = 0;
+  for (const ingredient of ingredients) {
+    const needle = normalizeSourceText(ingredient.name);
+    const at = indexAtWordBoundary(haystack, needle, cursor);
+    if (at === -1) return false;
+    cursor = at + needle.length;
+  }
+  return true;
+}
+
+/**
+ * 낱말 중간에 걸린 일치는 건너뛴다. 그러지 않으면 "pea" 가 "peas" 안에서 잡혀
+ * 뒤에 오는 진짜 "pea flour" 를 가린다. 없으면 -1.
+ */
+function indexAtWordBoundary(
+  haystack: string,
+  needle: string,
+  from: number,
+): number {
+  if (needle === "") return -1;
+  const isAlphanumeric = (character: string | undefined) =>
+    character !== undefined && /[a-z0-9]/.test(character);
+  for (
+    let at = haystack.indexOf(needle, from);
+    at !== -1;
+    at = haystack.indexOf(needle, at + 1)
+  ) {
+    if (
+      !isAlphanumeric(haystack[at - 1]) &&
+      !isAlphanumeric(haystack[at + needle.length])
+    ) {
+      return at;
+    }
+  }
+  return -1;
 }
 
 type ExtractionAttempt =

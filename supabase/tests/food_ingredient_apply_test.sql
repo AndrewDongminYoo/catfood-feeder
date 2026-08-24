@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(11);
+SELECT plan(15);
 
 -- 로컬 스택의 기본 권한에는 SELECT 가 없다. 트랜잭션 안에서만 부여한다.
 GRANT SELECT ON public.foods, public.food_sources, public.food_ingredient_evidence TO service_role;
@@ -10,9 +10,21 @@ INSERT INTO public.brands (id, name, ko_name, manufacturer)
 OVERRIDING SYSTEM VALUE
 VALUES (-93001, 'pgTAP ingredient brand', 'pgTAP ingredient brand', 'pgTAP manufacturer');
 
-INSERT INTO public.foods (id, brand_id, product_name, ingredients)
+-- 이 채널의 실제 대상은 이미 발행되고 사람이 검증한 행이다. 발행된 125건이 전부
+-- 그 모양이므로 픽스처도 그렇게 둔다 — 미발행 draft 로 검사하면 통과가 공허해진다.
+INSERT INTO public.foods (
+  id, brand_id, product_name, ingredients, published_at, data_verified_at, verification_method
+)
 OVERRIDING SYSTEM VALUE
-VALUES (-93001, -93001, 'ingredient apply', '[]'::jsonb);
+VALUES (
+  -93001,
+  -93001,
+  'ingredient apply',
+  '[]'::jsonb,
+  '2026-08-01T00:00:00Z',
+  '2026-08-01T00:00:00Z',
+  'human'
+);
 
 INSERT INTO public.food_sources (
   id, food_id, kind, url, capture_method, fetch_status, captured_at, content_hash, captured_text
@@ -47,7 +59,7 @@ VALUES (
   '원재료 닭고기, 닭고기분, 완두, 타피오카, 비트펄프, 정어리분, 아마씨, 건조난황, 유카추출물.'
 );
 
--- 1. 보관 캡처가 증명하는 목록은 적용된다.
+-- 1. 발행되고 검증된 행의 빈 원재료를 채우는 것이 이 채널의 존재 이유다.
 SELECT is(
   (SELECT public.apply_food_ingredients_draft(
     -93001,
@@ -56,7 +68,7 @@ SELECT is(
     '[{"name":"chicken","position":1},{"name":"chicken meal","position":2},{"name":"peas","position":3},{"name":"pea flour","position":4}]'::jsonb
   ) ->> 'status'),
   'applied',
-  '보관 캡처가 증명하는 목록은 적용된다'
+  '발행되고 검증된 사료의 빈 원재료에 적용된다'
 );
 
 SELECT is(
@@ -71,7 +83,20 @@ SELECT is(
   '현재 근거가 하나 남는다'
 );
 
--- 2. 캡처에 없는 구절은 거절된다.
+-- 2. 발행 상태와 검증 시각은 이 함수가 건드리지 않는다.
+SELECT is(
+  (SELECT published_at FROM public.foods WHERE id = -93001),
+  '2026-08-01T00:00:00Z'::timestamptz,
+  '발행 시각은 그대로다'
+);
+
+SELECT is(
+  (SELECT data_verified_at FROM public.foods WHERE id = -93001),
+  '2026-08-01T00:00:00Z'::timestamptz,
+  '사람 검증 시각은 그대로다'
+);
+
+-- 3. 캡처에 없는 구절은 거절된다.
 SELECT throws_ok(
   $$SELECT public.apply_food_ingredients_draft(
     -93001, -93001, 'salmon, potato, quinoa',
@@ -81,17 +106,17 @@ SELECT throws_ok(
   '캡처에 없는 구절은 거절된다'
 );
 
--- 3. 구절이 증명하지 못하는 이름은 거절된다.
+-- 4. 구절이 증명하지 못하는 이름은 거절된다.
 SELECT throws_ok(
   $$SELECT public.apply_food_ingredients_draft(
     -93001, -93001, 'chicken, chicken meal',
     '[{"name":"chicken","position":1},{"name":"salmon","position":2}]'::jsonb
   )$$,
-  'Ingredient name salmon is absent from its excerpt',
+  'Ingredient name salmon is absent from its excerpt in declared order',
   '구절이 증명하지 못하는 이름은 거절된다'
 );
 
--- 4. position 은 배열 순서와 같은 1..n 이어야 한다.
+-- 5. position 은 배열 순서와 같은 1..n 이어야 한다.
 SELECT throws_ok(
   $$SELECT public.apply_food_ingredients_draft(
     -93001, -93001, 'chicken, chicken meal',
@@ -101,7 +126,29 @@ SELECT throws_ok(
   'position 은 배열 순서와 같은 1..n 이어야 한다'
 );
 
--- 5. 출처 종류가 다르면 기존 값과 provenance 를 지킨다.
+-- 6. 구절 안의 순서와 어긋난 목록은 거절된다. 이름이 어딘가에 있기만 하면
+-- 통과시키면 뒤섞인 목록이 그대로 저장되고, 순서가 이 데이터의 값이다.
+SELECT throws_ok(
+  $$SELECT public.apply_food_ingredients_draft(
+    -93001, -93001, 'chicken, chicken meal, peas, pea flour',
+    '[{"name":"peas","position":1},{"name":"chicken meal","position":2}]'::jsonb
+  )$$,
+  'Ingredient name chicken meal is absent from its excerpt in declared order',
+  '구절 안의 순서와 어긋난 목록은 거절된다'
+);
+
+-- 7. 낱말 중간에 걸린 일치는 세지 않는다. "pea" 는 "peas" 안이 아니라
+-- "pea flour" 에서 잡혀야 하고, 그러면 뒤따르는 "peas" 는 찾을 수 없다.
+SELECT throws_ok(
+  $$SELECT public.apply_food_ingredients_draft(
+    -93001, -93001, 'peas, pea flour',
+    '[{"name":"pea","position":1},{"name":"peas","position":2}]'::jsonb
+  )$$,
+  'Ingredient name peas is absent from its excerpt in declared order',
+  '낱말 중간에 걸린 일치는 세지 않는다'
+);
+
+-- 8. 출처 종류가 다르면 기존 값과 provenance 를 지킨다.
 SELECT is(
   (SELECT public.apply_food_ingredients_draft(
     -93001,
@@ -113,7 +160,7 @@ SELECT is(
   '출처 종류가 다르면 skipped 다'
 );
 
--- 6. 같은 출처 종류의 다른 목록은 conflict 이며 덮어쓰지 않는다.
+-- 9. 같은 출처 종류의 다른 목록은 conflict 이며 덮어쓰지 않는다.
 -- 구절은 캡처에 실제로 있는 것을 쓴다. 없는 구절을 쓰면 conflict 판정에 닿기 전에
 -- 근거 검사에서 먼저 거절되므로, 이 단언은 검사하려던 것을 검사하지 못한다.
 SELECT is(
@@ -136,7 +183,7 @@ SELECT is(
   'conflict 는 기존 목록을 덮어쓰지 않는다'
 );
 
--- 7. 값이 같으면 근거만 새 capture 로 교체한다.
+-- 10. 값이 같으면 근거만 새 capture 로 교체한다.
 SELECT is(
   (SELECT public.apply_food_ingredients_draft(
     -93001,
@@ -148,16 +195,14 @@ SELECT is(
   '값이 같으면 applied 이고 근거만 새로 남는다'
 );
 
--- 8. 사람이 검증한 사료에는 적용하지 않는다.
-UPDATE public.foods SET data_verified_at = now() WHERE id = -93001;
-
+-- 11. 없는 사료에는 적용하지 않는다.
 SELECT throws_ok(
   $$SELECT public.apply_food_ingredients_draft(
-    -93001, -93001, 'chicken, chicken meal',
+    -93999, -93001, 'chicken, chicken meal',
     '[{"name":"chicken","position":1},{"name":"chicken meal","position":2}]'::jsonb
   )$$,
-  'Food -93001 does not exist or is already human-verified',
-  '사람이 검증한 사료에는 적용하지 않는다'
+  'Food -93999 does not exist',
+  '없는 사료에는 적용하지 않는다'
 );
 
 SELECT * FROM finish();

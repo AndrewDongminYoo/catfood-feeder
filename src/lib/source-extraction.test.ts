@@ -538,6 +538,31 @@ describe("원재료 추출", () => {
     expect(result.kind === "success" && result.ingredientDraft).toBe(null);
   });
 
+  it("구절 안의 순서와 어긋난 목록을 버린다", async () => {
+    // 이름이 어딘가에 있기만 하면 통과시키면 뒤섞인 목록이 그대로 저장된다.
+    const result = await extractWith({
+      ingredient_excerpt: "chicken, chicken meal, peas",
+      ingredient_source_id: 7,
+      ingredients: [{ name: "peas" }, { name: "chicken meal" }],
+      nutrients: {},
+    });
+
+    expect(result.kind === "success" && result.ingredientDraft).toBe(null);
+  });
+
+  it("낱말 중간에 걸린 일치를 세지 않는다", async () => {
+    // "pea" 는 "peas" 안이 아니라 "pea flour" 에서 잡혀야 하고,
+    // 그러면 뒤따르는 "peas" 는 찾을 수 없다.
+    const result = await extractWith({
+      ingredient_excerpt: "peas, pea flour",
+      ingredient_source_id: 7,
+      ingredients: [{ name: "pea" }, { name: "peas" }],
+      nutrients: {},
+    });
+
+    expect(result.kind === "success" && result.ingredientDraft).toBe(null);
+  });
+
   it("공급되지 않은 소스를 가리키면 버린다", async () => {
     const result = await extractWith({
       ingredient_excerpt: "chicken, chicken meal",

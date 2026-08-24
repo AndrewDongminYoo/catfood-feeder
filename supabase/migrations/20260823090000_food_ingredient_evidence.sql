@@ -33,6 +33,51 @@ GRANT SELECT ON TABLE public.food_ingredient_evidence TO service_role;
 COMMENT ON TABLE public.food_ingredient_evidence IS
 '사료별 원재료 목록의 현재 근거. 목록은 사료당 하나이므로 nutrient_key 축이 없다.';
 
+-- 정규화된 haystack 에서 needle 이 from_pos 이후 처음 나타나는 1-기반 위치.
+-- 앞뒤가 영숫자면 낱말 중간에 걸린 것이므로 건너뛴다 — 그러지 않으면 "pea" 가
+-- "peas" 안에서 잡혀 뒤에 오는 진짜 "pea flour" 를 가린다. 없으면 0.
+CREATE OR REPLACE FUNCTION public.ordered_excerpt_offset(
+  haystack text,
+  needle text,
+  from_pos int
+)
+RETURNS int
+LANGUAGE plpgsql
+IMMUTABLE
+STRICT
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_at int := from_pos;
+  v_hit int;
+BEGIN
+  IF needle = '' THEN
+    RETURN 0;
+  END IF;
+
+  LOOP
+    v_hit := position(needle IN substr(haystack, v_at));
+    IF v_hit = 0 THEN
+      RETURN 0;
+    END IF;
+
+    v_hit := v_at + v_hit - 1;
+
+    IF NOT (
+      (v_hit > 1 AND substr(haystack, v_hit - 1, 1) ~ '[a-z0-9]')
+      OR substr(haystack, v_hit + length(needle), 1) ~ '[a-z0-9]'
+    ) THEN
+      RETURN v_hit;
+    END IF;
+
+    v_at := v_hit + 1;
+  END LOOP;
+END;
+$function$;
+
+COMMENT ON FUNCTION public.ordered_excerpt_offset(text, text, int) IS
+'정규화된 구절에서 낱말 경계를 지키는 첫 등장 위치. 순서 검사를 위해 커서와 함께 쓴다.';
+
 CREATE OR REPLACE FUNCTION public.apply_food_ingredients_draft(
   p_food_id bigint,
   p_source_id bigint,
@@ -56,6 +101,8 @@ DECLARE
   v_item jsonb;
   v_index int := 0;
   v_name text;
+  v_cursor int := 1;
+  v_offset int;
   v_status text;
 BEGIN
   IF p_ingredients IS NULL
@@ -68,14 +115,19 @@ BEGIN
     RAISE EXCEPTION 'Each ingredient draft requires a non-empty excerpt';
   END IF;
 
+  -- 영양소 경로는 발행 전 draft 를 채우므로 data_verified_at IS NULL 을 요구한다.
+  -- 이 채널은 반대다: 이미 발행된 행의 빈 원재료를 보강하는 것이 존재 이유이고,
+  -- 발행된 125건은 전부 data_verified_at 이 채워져 있다. 그 가드를 그대로 가져오면
+  -- 대상 전부를 거절한다. 여기서 값을 지키는 것은 검증 시각이 아니라 아래의
+  -- "비어 있을 때만 쓴다" 규칙이므로, 잠금만 남기고 술어는 뺀다.
+  -- 발행 상태와 검증 시각은 이 함수가 절대 건드리지 않는다.
   PERFORM 1
   FROM public.foods
   WHERE id = p_food_id
-    AND data_verified_at IS NULL
   FOR UPDATE;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Food % does not exist or is already human-verified', p_food_id;
+    RAISE EXCEPTION 'Food % does not exist', p_food_id;
   END IF;
 
   -- 수집 시점에 잡은 소유권을 적용 시점에 다시 확인한다. 영양소 경로와 같은 이유다.
@@ -138,12 +190,22 @@ BEGIN
         RAISE EXCEPTION 'Ingredient positions must be 1..n in array order';
       END IF;
 
-      IF position(
-        lower(btrim(regexp_replace(normalize(v_name, NFKC), E'\\s+', ' ', 'g')))
-        IN v_norm_excerpt
-      ) = 0 THEN
-        RAISE EXCEPTION 'Ingredient name % is absent from its excerpt', v_name;
+      -- 구절은 라벨이 쓴 그대로이므로 구절 안의 순서가 곧 기재 순서다. 이름이
+      -- 어딘가에 있기만 하면 통과시키면, 모델이 뒤섞어 답해도 그대로 저장된다 —
+      -- 순서가 이 데이터의 값인데 그것을 검사하지 않는 셈이다. 그래서 커서를
+      -- 앞으로만 옮기며 순서대로 찾는다.
+      v_offset := public.ordered_excerpt_offset(
+        v_norm_excerpt,
+        lower(btrim(regexp_replace(normalize(v_name, NFKC), E'\\s+', ' ', 'g'))),
+        v_cursor
+      );
+
+      IF v_offset = 0 THEN
+        RAISE EXCEPTION 'Ingredient name % is absent from its excerpt in declared order', v_name;
       END IF;
+
+      v_cursor := v_offset
+        + length(lower(btrim(regexp_replace(normalize(v_name, NFKC), E'\\s+', ' ', 'g'))));
     END LOOP;
 
   SELECT ingredients INTO v_existing FROM public.foods WHERE id = p_food_id;
