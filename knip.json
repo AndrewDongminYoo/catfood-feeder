@@ -6,11 +6,7 @@
   "ignoreFiles": ["src/lib/utils.ts"],
   "ignoreBinaries": ["codex", "pgrep"],
   "ignoreDependencies": [
-    "@vercel/analytics",
-    "class-variance-authority",
     "clsx",
-    "lucide-react",
-    "radix-ui",
     "shadcn",
     "supabase",
     "tailwind-merge",

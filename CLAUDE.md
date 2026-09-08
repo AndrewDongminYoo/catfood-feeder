@@ -87,6 +87,7 @@ Korean recall data is intentionally not synced (no confirmed public API — see 
 - **Korean is intentional** for all UI strings and code comments. Do not translate them. Commit messages and identifiers stay English.
 - Import alias `@/*` → `src/*`. `typedRoutes` is on — route strings are type-checked.
 - `next.config.ts` sets `images.unoptimized` (catalog images are external).
-- Hand-rolled classes in `src/app/globals.css` (`.card`, `.panel`, `.primary`) — see `DESIGN.md`. Tailwind v4, config-less. `radix-ui`/`lucide-react`/`class-variance-authority` are installed but unused; there is no `@/components/ui` directory yet.
+- Hand-rolled classes in `src/app/globals.css` (`.card`, `.panel`, `.primary`) — see `DESIGN.md`.
+  Tailwind v4 is config-less, and there is no `@/components/ui` directory yet.
 - Env: `ANTHROPIC_API_KEY` is server-only (never `NEXT_PUBLIC_`). See `.env.example` for the Supabase key set.
 - **Secrets live outside the repository**, at `$HOME/.config/catfood-feeder/env`. `scripts/with-secrets.mjs` loads that path via `process.loadEnvFile` — not `node --env-file`, which Next rejects when it forwards `execArgv` into its Workers' `NODE_OPTIONS`. There is no dotenv file at the repo root by design, because the research runner's `codex` child can read (not write) the filesystem. See `scripts/README.md`.
