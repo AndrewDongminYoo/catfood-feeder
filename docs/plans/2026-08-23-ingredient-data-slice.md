@@ -36,7 +36,7 @@ The direction doc's upper bound of 75 proves a capture holds _an_ ingredient lis
 - Consumes: nothing from earlier tasks.
 - Produces: a printed count and a sample; no exported symbols.
 
-- [ ] **Step 1: Write the measurement script**
+- [x] **Step 1: Write the measurement script**
 
 This is a curator-side script, so direct Supabase access is correct here — the same family as `scripts/research-missing.mjs` and `scripts/transcribe-brand.mjs`. Do **not** put it near `scripts/research-run.mjs`, whose no-database boundary `src/lib/source-first-boundary.test.ts` polices.
 
@@ -132,7 +132,7 @@ console.log(
 );
 ```
 
-- [ ] **Step 2: Run it and read the samples**
+- [x] **Step 2: Run it and read the samples**
 
 Run: `node scripts/measure-ingredient-tranche.mjs`
 
@@ -142,7 +142,7 @@ Record the validated counts and both `foodId:sourceId` target lists; Task 7 cons
 
 The check cannot establish identity on its own, and tightening the pattern does not fix that — the residual failures are semantic. Treat tranche A (one run) as the higher-yield set and tranche B (several runs) as the set where the model must disambiguate, and let Task 7's extraction be the arbiter for both.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add scripts/measure-ingredient-tranche.mjs
@@ -172,7 +172,7 @@ Store what the label says; derive the interpretation. `form` and `specificity` a
   - `deriveIngredientForm(name: string): IngredientForm`.
   - `deriveIngredientSpecificity(name: string): IngredientSpecificity`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```typescript
 import { describe, expect, it } from "vitest";
@@ -237,12 +237,12 @@ describe("deriveIngredientSpecificity", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and verify it fails**
+- [x] **Step 2: Run the test and verify it fails**
 
 Run: `pnpm test src/lib/ingredient-form.test.ts`
 Expected: FAIL — the module `./ingredient-form` does not exist.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 ```typescript
 /**
@@ -291,12 +291,12 @@ export function deriveIngredientSpecificity(
 }
 ```
 
-- [ ] **Step 4: Run the test and verify it passes**
+- [x] **Step 4: Run the test and verify it passes**
 
 Run: `pnpm test src/lib/ingredient-form.test.ts`
 Expected: PASS, all cases.
 
-- [ ] **Step 5: Change the `Ingredient` interface**
+- [x] **Step 5: Change the `Ingredient` interface**
 
 In `src/lib/catalog.ts`, replace the existing interface:
 
@@ -310,20 +310,20 @@ export interface Ingredient {
 
 `pct` and `type` are gone. `type` is superseded by `deriveIngredientForm` and `deriveIngredientSpecificity`; `pct` is not modelled.
 
-- [ ] **Step 6: Update the fixtures**
+- [x] **Step 6: Update the fixtures**
 
 In `src/lib/fixtures.ts`, rewrite each sample's `ingredients` to the new shape, keeping the same names in the same order and dropping `pct`/`type`. For example, an entry that read `{ name: "닭고기", pct: 30, type: "meat" }` at index 0 becomes `{ name: "닭고기", position: 1 }`.
 
-- [ ] **Step 7: Run typecheck and the full suite**
+- [x] **Step 7: Run typecheck and the full suite**
 
 Run: `pnpm typecheck && pnpm test`
 Expected: typecheck fails in the consumer sites that still read `ingredient.pct` — `src/components/food-dossier.tsx` and `src/components/food-comparison.tsx`. That is expected and Task 6 fixes them. Every other file must pass. Do not silence the two component errors here.
 
-- [ ] **Step 8: Update the direction doc's shape line**
+- [x] **Step 8: Update the direction doc's shape line**
 
 In `docs/product-direction.md`, replace the `{name, position, form}` sentence in the Slice scope section with the decision made here: the stored shape is `{name, position}`, and form and specificity are derived from the name so re-extraction does not freeze an interpretation.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add src/lib/ingredient-form.ts src/lib/ingredient-form.test.ts src/lib/catalog.ts src/lib/fixtures.ts docs/product-direction.md
@@ -348,7 +348,7 @@ The numeric-evidence RPC is 277 lines of per-nutrient validation with a per-fiel
   - Table `public.food_ingredient_evidence (id, food_id, source_id, excerpt, captured_at, is_current, created_at)`.
   - `public.apply_food_ingredients_draft(p_food_id bigint, p_source_id bigint, p_excerpt text, p_ingredients jsonb, p_owned_source_ids bigint[] DEFAULT NULL) RETURNS jsonb` returning `{"status": "applied" | "skipped" | "conflict", "count": n}`.
 
-- [ ] **Step 1: Write the migration**
+- [x] **Step 1: Write the migration**
 
 ```sql
 -- 원재료는 아홉 개 영양소 키와 같은 모양이 아니다. 값 하나가 아니라 목록 하나이고,
@@ -555,7 +555,7 @@ COMMENT ON FUNCTION public.apply_food_ingredients_draft(bigint, bigint, text, js
   '보관된 캡처가 증명하는 원재료 목록만 사료에 적용한다. 기존 목록은 덮어쓰지 않는다.';
 ```
 
-- [ ] **Step 2: Write the pgtap test**
+- [x] **Step 2: Write the pgtap test**
 
 `supabase test db` runs against the local stack, whose default privileges lack `SELECT` — grant inside the transaction, per the convention the existing tests use.
 
@@ -652,16 +652,16 @@ SELECT * FROM finish();
 ROLLBACK;
 ```
 
-- [ ] **Step 3: Run the migration and the test locally**
+- [x] **Step 3: Run the migration and the test locally**
 
 Run: `supabase db reset && supabase test db`
 Expected: the new test file reports `ok 1` through `ok 9` and every pre-existing test file still passes.
 
-- [ ] **Step 4: Make the test fail before trusting its pass**
+- [x] **Step 4: Make the test fail before trusting its pass**
 
 Temporarily change the RPC's excerpt-presence check to `= -1` instead of `= 0` so it never fires, re-run `supabase test db`, and confirm assertion 4 fails. Then revert the change and re-run to confirm it passes again. A guard that has never failed has not been tested.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add supabase/migrations/20260823090000_food_ingredient_evidence.sql supabase/tests/food_ingredient_apply_test.sql
@@ -688,7 +688,7 @@ git commit -m "feat(ingredients): add the ingredient evidence table and apply RP
   - `applyFoodIngredientsDraft(foodId: number, draft: IngredientDraft): Promise<IngredientApplyResult>` exported from `src/lib/source-repository.ts`, where `IngredientApplyResult = { status: "applied" | "skipped" | "conflict"; count: number }`.
   - `POST /api/foods/[id]/sources/ingredients`.
 
-- [ ] **Step 1: Write the failing schema test**
+- [x] **Step 1: Write the failing schema test**
 
 ```typescript
 import { describe, expect, it } from "vitest";
@@ -743,12 +743,12 @@ describe("ingredientDraftSchema", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and verify it fails**
+- [x] **Step 2: Run the test and verify it fails**
 
 Run: `pnpm test src/lib/ingredient-apply.test.ts`
 Expected: FAIL — `ingredientDraftSchema` is not exported from `./source-apply`.
 
-- [ ] **Step 3: Add the schemas**
+- [x] **Step 3: Add the schemas**
 
 Append to `src/lib/source-apply.ts`:
 
@@ -799,12 +799,12 @@ export function parseIngredientApplyResult(
 
 Note the `excerpt` cap of 4000 rather than the nutrient path's 500: an ingredient list is a paragraph, not a phrase.
 
-- [ ] **Step 4: Run the test and verify it passes**
+- [x] **Step 4: Run the test and verify it passes**
 
 Run: `pnpm test src/lib/ingredient-apply.test.ts`
 Expected: PASS, all five cases.
 
-- [ ] **Step 5: Add the repository wrapper**
+- [x] **Step 5: Add the repository wrapper**
 
 Append to `src/lib/source-repository.ts`, next to `applyFoodEvidenceDraft`:
 
@@ -831,7 +831,7 @@ export async function applyFoodIngredientsDraft(
 
 Add `IngredientDraft`, `IngredientApplyResult`, and `parseIngredientApplyResult` to the existing `@/lib/source-apply` import in that file.
 
-- [ ] **Step 6: Add the route**
+- [x] **Step 6: Add the route**
 
 Create `src/app/api/foods/[id]/sources/ingredients/route.ts`:
 
@@ -939,7 +939,7 @@ function isIngredientRefusal(error: unknown): boolean {
 }
 ```
 
-- [ ] **Step 7: Tighten the curator payload schema**
+- [x] **Step 7: Tighten the curator payload schema**
 
 In `src/lib/food-payload.ts`, replace the untyped `ingredients: z.array(z.json()).max(200).default([])` with the real shape so `/api/foods` cannot write the old form:
 
@@ -949,12 +949,12 @@ In `src/lib/food-payload.ts`, replace the untyped `ingredients: z.array(z.json()
 
 Import `ingredientCandidateSchema` from `./source-apply` at the top of the file.
 
-- [ ] **Step 8: Run typecheck and the suite**
+- [x] **Step 8: Run typecheck and the suite**
 
 Run: `pnpm typecheck && pnpm test`
 Expected: same two component errors from Task 2 remain; everything else passes, including `src/lib/food-payload.test.ts`. If that test asserts the old ingredient shape, update its fixtures to `{name, position}` as part of this step.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add src/lib/source-apply.ts src/lib/source-repository.ts src/lib/food-payload.ts src/lib/ingredient-apply.test.ts src/lib/food-payload.test.ts "src/app/api/foods/[id]/sources/ingredients/route.ts"
@@ -980,7 +980,7 @@ The prompt currently asks for `{name, pct, type}`, and `extractCapturedSources` 
   - `SourceExtractionResult`'s success variant gains `ingredientDraft: { excerpt: string; ingredients: Ingredient[]; sourceId: number } | null`.
   - `POST /api/foods/[id]/sources/extract` responds with `{ candidates, ingredientDraft }`, which is exactly the body Task 7 forwards to the ingredient apply route.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `src/lib/source-extraction.test.ts`:
 
@@ -1023,12 +1023,12 @@ describe("parseModelOutput 의 원재료", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and verify it fails**
+- [x] **Step 2: Run the test and verify it fails**
 
 Run: `pnpm test src/lib/source-extraction.test.ts`
 Expected: FAIL — `ingredients` still carries `pct`/`type`, and `ingredientExcerpt` is undefined.
 
-- [ ] **Step 3: Change the model output schema**
+- [x] **Step 3: Change the model output schema**
 
 In `src/lib/source-extraction.ts`, replace the `ingredients` entry of `modelOutputSchema` and add the two evidence fields:
 
@@ -1042,7 +1042,7 @@ In `src/lib/source-extraction.ts`, replace the `ingredients` entry of `modelOutp
 
 The model no longer assigns `type`; `deriveIngredientForm` does. `position` is not asked of the model either — the array order is the position, so assign it in code where it cannot drift.
 
-- [ ] **Step 4: Assign position and enforce the evidence rule**
+- [x] **Step 4: Assign position and enforce the evidence rule**
 
 Where `parseModelOutput` builds its result, map the array and drop it when unproven:
 
@@ -1060,7 +1060,7 @@ const ingredients = ingredientExcerpt
 
 Expose `ingredients`, `ingredientExcerpt`, and `ingredientSourceId` on the returned object, and carry them onto the success result as `ingredientDraft` when `ingredients.length > 0` and `ingredientSourceId` is present, otherwise `null`.
 
-- [ ] **Step 5: Update the prompt**
+- [x] **Step 5: Update the prompt**
 
 In `buildExtractionPrompt`, replace the `"ingredients"` clause of the JSON schema line with:
 
@@ -1078,7 +1078,7 @@ read the names from, and ingredient_source_id to the source it came from. If you
 cannot quote that literal run, return "ingredients": [].
 ```
 
-- [ ] **Step 6: Pass the draft through the extract route**
+- [x] **Step 6: Pass the draft through the extract route**
 
 `src/app/api/foods/[id]/sources/extract/route.ts` currently returns `{ candidates: result.candidates }` and would drop the new draft on the floor. Widen that one response:
 
@@ -1092,17 +1092,17 @@ if (result.kind === "success")
 
 `toManualExtraction` already forwards `result.metadata.ingredients` to `/api/extract` for the curator form, so that path picks up the new shape with no further change. The `/new` page's ingredient textarea now holds `{name, position}` objects, which is what Task 4's tightened `food-payload.ts` schema accepts.
 
-- [ ] **Step 7: Run the test and verify it passes**
+- [x] **Step 7: Run the test and verify it passes**
 
 Run: `pnpm test src/lib/source-extraction.test.ts`
 Expected: PASS, both new cases and every pre-existing case in the file.
 
-- [ ] **Step 8: Confirm the single-caller guard still holds**
+- [x] **Step 8: Confirm the single-caller guard still holds**
 
 Run: `pnpm test src/lib/source-first-boundary.test.ts`
 Expected: PASS — `src/lib/source-extraction.ts` remains the only file containing `api.anthropic.com`.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add src/lib/source-extraction.ts src/lib/source-extraction.test.ts "src/app/api/foods/[id]/sources/extract/route.ts"
@@ -1129,7 +1129,7 @@ The original task text follows for reference; do not execute it again.
 - Consumes: `Ingredient` and the two derive functions from Task 2.
 - Produces: no new exports.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `src/components/food-dossier.test.tsx`:
 
@@ -1167,12 +1167,12 @@ it("파생된 형태를 표기한다", () => {
 
 Reuse whatever `sampleFood` helper the file already defines; if it defines its food inline, extract that object into a `sampleFood` constant first so both new cases can spread it.
 
-- [ ] **Step 2: Run the test and verify it fails**
+- [x] **Step 2: Run the test and verify it fails**
 
 Run: `pnpm test src/components/food-dossier.test.tsx`
 Expected: FAIL — no element carries `data-testid="ingredient-chip"`.
 
-- [ ] **Step 3: Render position order and the derived form**
+- [x] **Step 3: Render position order and the derived form**
 
 Replace the ingredient block in `src/components/food-dossier.tsx`:
 
@@ -1213,7 +1213,7 @@ function formLabel(name: string): string | undefined {
 
 Apply the same block and helper to `src/components/food-comparison.tsx`. Both files need the `deriveIngredientForm` and `IngredientForm` imports from `@/lib/ingredient-form`.
 
-- [ ] **Step 4: Add the style**
+- [x] **Step 4: Add the style**
 
 In `src/app/globals.css`, next to the existing `.chips` rule:
 
@@ -1226,12 +1226,12 @@ In `src/app/globals.css`, next to the existing `.chips` rule:
 }
 ```
 
-- [ ] **Step 5: Run the tests and typecheck**
+- [x] **Step 5: Run the tests and typecheck**
 
 Run: `pnpm typecheck && pnpm test`
 Expected: PASS everywhere. This is the first point since Task 2 where typecheck is clean — confirm it actually is rather than assuming.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/components/food-dossier.tsx src/components/food-comparison.tsx src/components/food-dossier.test.tsx src/app/globals.css
@@ -1321,7 +1321,7 @@ git commit -m "feat(ingredients): backfill the matched tranche from retained cap
 
 ## Out of scope
 
-- The roughly 50 published foods whose current capture holds no provable ingredient list. That set splits into fresh-fetch and vision-transcription cases and needs its own plan.
+- The 21 published foods whose current capture holds no provable ingredient list. That set splits into fresh-fetch and vision-transcription cases and needs its own plan.
 - Ingredient exclusion filters in the public catalog. The data has to exist before a filter over it is worth building.
 - Public read of `food_ingredient_evidence` for the evidence drilldown. `foods.ingredients` is already publicly readable; the excerpt drilldown is a separate decision.
 - The dead grain-free and functional-flag filters. The direction doc records them as retirement candidates, which is a separate decision from this slice.

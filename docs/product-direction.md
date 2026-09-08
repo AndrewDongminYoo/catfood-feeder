@@ -40,11 +40,14 @@ No truncated output.
 | `auth.users` / `cats` / `feeding_logs`               | 1 / 1 / 0 |
 | Advisor v0 observed pilot sessions                   | 0 of 8    |
 
+> 2026-09-08 refresh: `recalls` contains 3 rows, and the repository contains 13 `.mjs` scripts.
+> The dated table remains the 2026-08-22 baseline; the other values shown there were unchanged when remeasured.
+
 Two readings follow from this table.
 
 **The research engine works and the presentation layer oversold it.**
 430 research runs produced 2,251 evidence rows across 125 published products, and every published row carries a complete protein/fat/carb/energy profile.
-Meanwhile `Phase 2`, `Phase 3`, and `Phase 4` are all marked complete in `BLUEPRINT.md` while the data behind their features is empty: the grain-free filter filters nothing, the recall badge reads two rows, and the feeding log that was designed as the return-visit driver has never been written to, including by the owner.
+Meanwhile `Phase 2`, `Phase 3`, and `Phase 4` are all marked complete in `BLUEPRINT.md` while the data behind their features is empty or sparse: the grain-free filter filters nothing, the recall badge reads three rows as of the 2026-09-08 refresh, and the feeding log that was designed as the return-visit driver has never been written to, including by the owner.
 A completed checkbox proves the code exists, not that the data does.
 
 **Retention and revenue premises are untested.**
@@ -72,13 +75,12 @@ The slice deliberately keeps all three paths open.
 
 None of these can be observed today, and adding analytics to manufacture them is out of scope.
 
-## Root cause of the empty ingredient column
+## Ingredient channel and pending backfill
 
-The gap is missing plumbing, not missing data.
+The original gap was missing plumbing, not missing data.
 
-- The extraction prompt already requests `ingredients` (`src/lib/source-extraction.ts`), and `/api/foods` writes the field for the curator form path.
-- The evidence-apply route accepts only an `evidence` array bounded to the nine nutrient keys (`src/app/api/foods/[id]/sources/apply/route.ts`), so ingredients have no channel through the research pipeline.
-- Every product published through that pipeline therefore lands with `ingredients: []` regardless of what the extractor found.
+The ingredient evidence table, literal-evidence apply RPC, curator apply route, extraction output, and retained-capture backfill runner are implemented.
+The production backfill has not run, so the measured catalog state is still zero published rows with a non-empty ingredient list.
 
 Retained captures already hold the source text.
 Of the 125 published products, **104 have a comma-separated ingredient run inside the capture of their current (`is_current`) source**, and 21 have none.
@@ -95,16 +97,16 @@ The real yield is set by that pass, not by this figure.
 
 ## Slice scope
 
-1. **Measure the yield.** Run the existing extraction against 10 to 15 of the 75 matching products and count how many return a list that matches the product identity. That measured rate, not 75, is the planning number.
+1. **Measure the yield.** Run the existing extraction against 10 to 15 of the 104 matching products and count how many return a list that matches the product identity. That measured rate, not 104, is the planning number.
 2. **Fix the shape before re-extraction freezes it.** The stored model is `{name, position}` and nothing more. `position` carries the descending-weight order that labels encode and is the actual value of ingredient data. Form (fresh / dried / meal / by-product) and specificity (a named species versus 가금육 or 육류) are both already encoded in the label's own wording, so they are derived in `src/lib/ingredient-form.ts` rather than stored: storing them would freeze one interpretation into every row at re-extraction time, while deriving them lets the rules improve without another paid pass. This follows the pattern the project already uses for energy ratios and conflicts, which the server computes rather than trusting from the model. `pct` is not modelled because these labels rarely state it. Eight source files consume the field today, excluding tests and generated types.
-3. **Open the apply channel.** Extend the evidence-apply route to carry ingredients under the same literal-evidence requirement the nutrient path enforces.
+3. **Open the apply channel.** Complete: ingredients now use a sibling evidence route and RPC under the same literal-evidence requirement as nutrients.
 4. **Re-extract the matching set** using only retained captures, with no new research.
-5. **Defer the remainder.** The roughly 50 products without an in-capture list split into those needing a fresh fetch and those needing vision transcription. That split is a follow-on and must not block step 4.
+5. **Defer the remainder.** The 21 products without an in-capture list split into those needing a fresh fetch and those needing vision transcription. That split is a follow-on and must not block step 4.
 
 ## Surface retirement
 
-Each pivot has added surface without retiring the previous one: 31 routes and 11 scripts now stand behind four phases marked complete over partly-empty data.
-Before the next surface is added, the dead ones are candidates for removal rather than repair — the grain-free and functional-flag filters that match nothing, and the recall badge reading two rows.
+Each pivot has added surface without retiring the previous one: 32 `page.tsx` and `route.ts` entry points and 13 scripts now stand behind four phases marked complete over partly-empty data.
+Before the next surface is added, the dead ones are candidates for removal rather than repair — the grain-free and functional-flag filters that match nothing, and the recall badge reading three rows as of the 2026-09-08 refresh.
 Retirement is a separate decision from this slice and is recorded here so it is not lost.
 
 ## What this retires
