@@ -558,6 +558,7 @@ describe("research runner subprocess contract", () => {
           value: 36,
         },
       ],
+      searchQueries: ["ACANA Grasslands guaranteed analysis"],
       sources: [
         {
           kind: "manufacturer",
@@ -581,6 +582,13 @@ describe("research runner subprocess contract", () => {
         ...modelOutput,
       }).success,
     ).toBe(true);
+  });
+
+  it("rejects whitespace-only search queries at the runner boundary", () => {
+    const itemSchema = PROPOSAL_JSON_SCHEMA.properties.searchQueries.items;
+
+    expect(new RegExp(itemSchema.pattern).test("   ")).toBe(false);
+    expect(new RegExp(itemSchema.pattern).test("ACANA analysis")).toBe(true);
   });
 });
 

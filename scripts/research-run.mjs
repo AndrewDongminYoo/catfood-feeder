@@ -26,8 +26,8 @@ import { delimiter, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SECRETS_FILE, loadSecrets } from "./with-secrets.mjs";
 
-export const PROMPT_VERSION = "2026-08-06";
-export const SCHEMA_VERSION = "1";
+export const PROMPT_VERSION = "2026-09-08";
+export const SCHEMA_VERSION = "2";
 
 /**
  * broker는 HTTPS 공개 URL만 받는다. 그 제약을 출력 스키마에도 걸어 모델이 볼 수
@@ -69,6 +69,17 @@ export const PROPOSAL_JSON_SCHEMA = {
       minItems: 1,
       type: "array",
     },
+    searchQueries: {
+      items: {
+        maxLength: 240,
+        minLength: 1,
+        pattern: "\\S",
+        type: "string",
+      },
+      maxItems: 10,
+      minItems: 1,
+      type: "array",
+    },
     sources: {
       items: {
         additionalProperties: false,
@@ -85,7 +96,7 @@ export const PROPOSAL_JSON_SCHEMA = {
       type: "array",
     },
   },
-  required: ["evidence", "sources"],
+  required: ["evidence", "searchQueries", "sources"],
   type: "object",
 };
 
@@ -341,6 +352,7 @@ export function buildPrompt(target) {
     "",
     "Task:",
     "1. Search the public web for this product's guaranteed analysis.",
+    "   Return the exact search queries you used in searchQueries.",
     "2. Pick at most one manufacturer page (kind: manufacturer) and at most one",
     "   Korean importer page (kind: kr_label). HTTPS URLs only.",
     "3. For each nutrient you can support, quote the LITERAL phrase from that page",
@@ -443,6 +455,8 @@ async function main() {
         schemaVersion: SCHEMA_VERSION,
       },
       evidence: proposed.evidence,
+      ...(target.retry ? { retry: target.retry } : {}),
+      searchQueries: proposed.searchQueries,
       sources: proposed.sources,
     });
     console.log(JSON.stringify(outcome, null, 2));

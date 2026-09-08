@@ -49,6 +49,7 @@ function envelope(overrides: Record<string, unknown> = {}) {
           value: 36,
         },
       ],
+      searchQueries: ["ACANA Grasslands guaranteed analysis"],
       sources: [
         {
           kind: "manufacturer",

@@ -16,6 +16,7 @@ const validProposal = {
       value: 36,
     },
   ],
+  searchQueries: ["ACANA Grasslands guaranteed analysis"],
   sources: [
     {
       kind: "manufacturer",
@@ -32,6 +33,25 @@ function parse(overrides: Record<string, unknown>) {
 describe("researchProposalSchema", () => {
   it("accepts a single-source envelope", () => {
     expect(researchProposalSchema.safeParse(validProposal).success).toBe(true);
+  });
+
+  it("accepts structured search and retry provenance", () => {
+    expect(
+      parse({
+        retry: {
+          reason: "transient_capture_failure",
+          runId: 41,
+        },
+        searchQueries: ["ACANA Grasslands guaranteed analysis"],
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects empty search queries and unstructured retry reasons", () => {
+    expect(parse({ searchQueries: [""] }).success).toBe(false);
+    expect(parse({ retry: { reason: "try again", runId: 41 } }).success).toBe(
+      false,
+    );
   });
 
   it("rejects evidence that points outside the proposed sources", () => {

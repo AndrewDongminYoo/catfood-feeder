@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
+import { selectAll } from "../../scripts/select-all.mjs";
 import type { ResearchProposal } from "./research-proposal";
 
 /** 원장에 남은 제안에서 URL만 긁어낸다. 거절된 제안도 대상이므로 느슨하게 읽는다. */
@@ -7,6 +8,21 @@ const proposedUrlsSchema = z
   .object({ sources: z.array(z.object({ url: z.string() }).loose()) })
   .loose()
   .transform((proposal) => proposal.sources.map((source) => source.url));
+
+const transientCaptureCodes = new Set(["network_error"]);
+
+type ResearchHistoryRow = {
+  readonly captures: unknown;
+  readonly id: number;
+  readonly proposal: unknown;
+  readonly status: string;
+};
+
+export type ResearchRetryContext = {
+  readonly reason:
+    "broker_error" | "claim_conflict" | "transient_capture_failure";
+  readonly runId: number;
+};
 
 export type ResearchTarget =
   | {
@@ -77,23 +93,90 @@ export async function getResearchTarget(
  */
 export async function getAttemptedResearchUrls(
   foodId: number,
-  limit = 20,
 ): Promise<readonly string[]> {
-  const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("food_research_runs")
-    .select("proposal")
-    .eq("food_id", foodId)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-
-  if (error) throw new ResearchRepositoryError(error.message);
+  const history = await loadResearchHistory(foodId);
   // 거절된 제안도 원장에 남으므로, 엄격 스키마로 읽으면 정작 기억해야 할 URL을
-  // 놓친다. URL 문자열만 느슨하게 긁어낸다.
-  const urls = (data ?? []).flatMap(
-    (run) => proposedUrlsSchema.safeParse(run.proposal).data ?? [],
+  // 놓친다. URL 문자열만 느슨하게 긁어낸다. 같은 URL을 다시 시도했다면 가장
+  // 최근 결과만 사용해서 오래된 영구 실패가 새 일시 실패를 덮지 않게 한다.
+  const seen = new Set<string>();
+  const urls: string[] = [];
+  for (const run of history) {
+    const proposed = proposedUrlsSchema.safeParse(run.proposal).data ?? [];
+    const retryable = retryableUrls(run);
+    for (const url of proposed) {
+      if (seen.has(url)) continue;
+      seen.add(url);
+      if (!retryable.has(url)) urls.push(url);
+    }
+  }
+  return urls;
+}
+
+export async function getResearchRetryContext(
+  foodId: number,
+): Promise<ResearchRetryContext | null> {
+  const history = await loadResearchHistory(foodId);
+  const seen = new Set<string>();
+  for (const run of history) {
+    const proposed = proposedUrlsSchema.safeParse(run.proposal).data ?? [];
+    const latestUrls = proposed.filter((url) => !seen.has(url));
+    proposed.forEach((url) => seen.add(url));
+    if (latestUrls.length === 0) continue;
+
+    if (run.status === "claim_conflict") {
+      return { reason: "claim_conflict", runId: run.id };
+    }
+    if (run.status === "errored") {
+      return { reason: "broker_error", runId: run.id };
+    }
+    const retryable = retryableUrls(run);
+    if (latestUrls.some((url) => retryable.has(url))) {
+      return { reason: "transient_capture_failure", runId: run.id };
+    }
+  }
+  return null;
+}
+
+async function loadResearchHistory(
+  foodId: number,
+): Promise<readonly ResearchHistoryRow[]> {
+  const supabase = createAdminClient();
+  return (await selectAll(async (from, to) =>
+    supabase
+      .from("food_research_runs")
+      .select("id, proposal, captures, status")
+      .eq("food_id", foodId)
+      .order("id", { ascending: false })
+      .range(from, to),
+  )) as ResearchHistoryRow[];
+}
+
+function retryableUrls(run: ResearchHistoryRow): ReadonlySet<string> {
+  const proposed = proposedUrlsSchema.safeParse(run.proposal).data ?? [];
+  if (run.status === "claim_conflict" || run.status === "errored") {
+    return new Set(proposed);
+  }
+  if (!Array.isArray(run.captures)) {
+    return new Set();
+  }
+  return new Set(
+    run.captures.flatMap((capture) => {
+      if (
+        typeof capture === "object" &&
+        capture !== null &&
+        "status" in capture &&
+        capture.status === "failed" &&
+        "failureCode" in capture &&
+        typeof capture.failureCode === "string" &&
+        transientCaptureCodes.has(capture.failureCode) &&
+        "url" in capture &&
+        typeof capture.url === "string"
+      ) {
+        return [capture.url];
+      }
+      return [];
+    }),
   );
-  return [...new Set(urls)];
 }
 
 export type ResearchAgentMetadata = ResearchProposal["agent"];
@@ -105,6 +188,7 @@ export async function recordFoodResearchRun(run: {
   readonly proposal: unknown;
   readonly captures: unknown;
   readonly evidenceResults: unknown;
+  readonly terminalReason?: string;
   readonly status: ResearchRunStatus;
 }): Promise<number> {
   const supabase = createAdminClient();
@@ -114,7 +198,9 @@ export async function recordFoodResearchRun(run: {
       agent_model: run.agent.model,
       agent_name: run.agent.name,
       captures: run.captures as never,
-      evidence_results: run.evidenceResults as never,
+      evidence_results: (run.terminalReason
+        ? { outcomes: run.evidenceResults, terminalReason: run.terminalReason }
+        : run.evidenceResults) as never,
       food_id: run.foodId,
       prompt_version: run.agent.promptVersion,
       proposal: run.proposal as never,

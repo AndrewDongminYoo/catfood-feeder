@@ -36,6 +36,18 @@ export const researchProposalSchema = z
       })
       .strict(),
     evidence: z.array(evidenceProposalSchema).min(1).max(8),
+    retry: z
+      .object({
+        reason: z.enum([
+          "broker_error",
+          "claim_conflict",
+          "transient_capture_failure",
+        ]),
+        runId: z.number().int().positive(),
+      })
+      .strict()
+      .optional(),
+    searchQueries: z.array(z.string().trim().min(1).max(240)).min(1).max(10),
     // 출처는 origin regime당 하나다. 같은 kind를 둘 제안하면 뒤엣것이 앞엣것을
     // current에서 밀어내 자기 근거를 무효화하므로 스키마에서 막는다.
     sources: z

@@ -137,6 +137,7 @@ export async function POST(req: NextRequest) {
         foodId,
         proposal: envelope.data.proposal,
         status: "invalid",
+        terminalReason: "proposal_schema_invalid",
       });
       return NextResponse.json(
         {
@@ -180,6 +181,7 @@ export async function POST(req: NextRequest) {
       foodId,
       proposal,
       status,
+      terminalReason: terminalReason(status, captures, applied.outcomes),
     });
 
     return NextResponse.json(
@@ -215,6 +217,25 @@ export async function POST(req: NextRequest) {
       { status: 500 },
     );
   }
+}
+
+function terminalReason(
+  status: ResearchRunStatus,
+  captures: readonly CaptureOutcome[],
+  evidence: readonly EvidenceOutcome[],
+): string | undefined {
+  if (status === "applied" || status === "pending_review") return undefined;
+  if (status === "claim_conflict") return "claim_conflict";
+  if (status === "errored") return "broker_error";
+  if (status === "capture_failed") {
+    const codes = captures.flatMap((capture) =>
+      capture.status === "failed" ? [capture.failureCode] : [],
+    );
+    return `capture_failed:${[...new Set(codes)].sort().join(",")}`;
+  }
+  if (status === "invalid") return "proposal_schema_invalid";
+  const statuses = evidence.map((item) => item.status);
+  return `evidence_rejected:${[...new Set(statuses)].sort().join(",")}`;
 }
 
 /**

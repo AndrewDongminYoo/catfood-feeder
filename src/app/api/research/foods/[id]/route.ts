@@ -3,6 +3,7 @@ import { z } from "zod";
 import { authorizeResearchAgent } from "@/lib/research-auth";
 import {
   getAttemptedResearchUrls,
+  getResearchRetryContext,
   getResearchTarget,
 } from "@/lib/research-repository";
 
@@ -48,14 +49,19 @@ export async function GET(
         { status: 409 },
       );
 
+    const [attemptedUrls, retry] = await Promise.all([
+      getAttemptedResearchUrls(target.id),
+      getResearchRetryContext(target.id),
+    ]);
     return NextResponse.json({
       target: {
         // 이전 실행이 이미 써 본 URL. 러너가 프롬프트에 실어 같은 곳을 다시
         // 조사하지 않게 한다.
-        attemptedUrls: await getAttemptedResearchUrls(target.id),
+        attemptedUrls,
         brandName: target.brandName,
         id: target.id,
         productName: target.productName,
+        retry,
       },
     });
   } catch (error: unknown) {
