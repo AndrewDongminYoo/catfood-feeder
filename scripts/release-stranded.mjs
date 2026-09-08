@@ -18,81 +18,173 @@
 // manufacturer 쪽 근거가 kr_label 쪽의 좌초를 가려 영영 좌초로 남는다.
 //
 // 사용법:
-//   node scripts/release-stranded.mjs --dry
 //   node scripts/release-stranded.mjs
+//   node scripts/release-stranded.mjs --apply --source-ids 101,102
 
 import { createClient } from "@supabase/supabase-js";
+import { fileURLToPath } from "node:url";
 import { selectAll } from "./select-all.mjs";
 import { SECRETS_FILE, loadSecrets } from "./with-secrets.mjs";
 
-loadSecrets();
-
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const key =
-  process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!url || !key) {
-  console.error(`Supabase URL/service key가 ${SECRETS_FILE}에 없습니다.`);
-  process.exit(1);
+export function parseReleaseStrandedArgs(args) {
+  if (args.includes("--dry")) {
+    throw new Error("dry-run is the default; use --apply to write");
+  }
+  if (args.filter((value) => value === "--apply").length > 1) {
+    throw new Error("--apply may be specified only once");
+  }
+  const sourceIdsIndex = args.indexOf("--source-ids");
+  if (args.filter((value) => value === "--source-ids").length > 1) {
+    throw new Error("--source-ids may be specified only once");
+  }
+  const sourceIds = parsePositiveIds(
+    sourceIdsIndex === -1 ? "" : args[sourceIdsIndex + 1],
+    "source-ids",
+  );
+  const unknown = args.filter(
+    (value, index) =>
+      value !== "--apply" &&
+      value !== "--source-ids" &&
+      !(index > 0 && args[index - 1] === "--source-ids"),
+  );
+  if (unknown.length > 0) {
+    throw new Error(`unknown argument: ${unknown.join(", ")}`);
+  }
+  const apply = args.includes("--apply");
+  if (apply && sourceIds.length === 0) {
+    throw new Error("--apply requires reviewed --source-ids");
+  }
+  if (!apply && sourceIds.length > 0) {
+    throw new Error("--source-ids is only valid with --apply");
+  }
+  return { apply, sourceIds };
 }
-const supabase = createClient(url, key, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
-const DRY = process.argv.includes("--dry");
 
-// 이 조회도 완전해야 한다 — 잘리면 좌초 출처 일부가 영영 회수되지 않고, 위에
-// 찍히는 "현재 출처 N건"도 틀린 수가 된다.
-const sources = await selectAll((from, to) =>
-  supabase
-    .from("food_sources")
-    .select("id, food_id, kind, url, failure_code, foods!inner(published_at)")
-    .eq("is_current", true)
-    .is("foods.published_at", null)
-    .order("id")
-    .range(from, to),
-);
+function parsePositiveIds(value, name) {
+  if (!value) return [];
+  const ids = value.split(",").map(Number);
+  if (
+    ids.some((id) => !Number.isInteger(id) || id <= 0) ||
+    new Set(ids).size !== ids.length
+  ) {
+    throw new Error(`--${name} must contain unique positive integers`);
+  }
+  return ids;
+}
 
-// PostgREST caps a plain .select() at 1000 rows with no error — this table crossed
-// that (1501 rows, 2026-08-10) and a bare query here silently missed 501 backed
-// sources, which then got retired as "stranded". Paginate so `backed` is always
-// complete regardless of table size. See scripts/select-all.mjs.
-const evidence = await selectAll((from, to) =>
-  supabase
-    .from("food_nutrient_evidence")
-    .select("source_id")
-    .eq("is_current", true)
-    .order("id")
-    .range(from, to),
-);
+export function findStrandedSources(
+  sources,
+  nutrientEvidence,
+  ingredientEvidence,
+) {
+  const backed = new Set(
+    [...nutrientEvidence, ...ingredientEvidence].map((row) => row.source_id),
+  );
+  return sources.filter((row) => !backed.has(row.id));
+}
 
-const backed = new Set(evidence.map((row) => row.source_id));
-const stranded = sources.filter((row) => !backed.has(row.id));
+export async function main(args = process.argv.slice(2)) {
+  const { apply, sourceIds } = parseReleaseStrandedArgs(args);
+  loadSecrets();
 
-console.log(
-  `현재 출처 ${sources.length}건 중 근거 없는 좌초 ${stranded.length}건`,
-);
-if (stranded.length === 0) process.exit(0);
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key =
+    process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    throw new Error(`Supabase URL/service key가 ${SECRETS_FILE}에 없습니다.`);
+  }
+  const supabase = createClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
 
-for (const row of stranded.slice(0, 20)) {
+  // 이 조회도 완전해야 한다 — 잘리면 좌초 출처 일부가 영영 회수되지 않고, 위에
+  // 찍히는 "현재 출처 N건"도 틀린 수가 된다.
+  const sources = await selectAll((from, to) =>
+    supabase
+      .from("food_sources")
+      .select("id, food_id, kind, url, failure_code, foods!inner(published_at)")
+      .eq("is_current", true)
+      .is("foods.published_at", null)
+      .order("id")
+      .range(from, to),
+  );
+
+  // PostgREST caps a plain .select() at 1000 rows with no error — this table crossed
+  // that (1501 rows, 2026-08-10) and a bare query here silently missed 501 backed
+  // sources, which then got retired as "stranded". Paginate so `backed` is always
+  // complete regardless of table size. See scripts/select-all.mjs.
+  const [nutrientEvidence, ingredientEvidence] = await Promise.all([
+    selectAll((from, to) =>
+      supabase
+        .from("food_nutrient_evidence")
+        .select("source_id")
+        .eq("is_current", true)
+        .order("id")
+        .range(from, to),
+    ),
+    selectAll((from, to) =>
+      supabase
+        .from("food_ingredient_evidence")
+        .select("source_id")
+        .eq("is_current", true)
+        .order("id")
+        .range(from, to),
+    ),
+  ]);
+
+  const stranded = findStrandedSources(
+    sources,
+    nutrientEvidence,
+    ingredientEvidence,
+  );
+
   console.log(
-    `  ${row.food_id} ${row.kind} ${row.failure_code ?? "fetched"} ${String(row.url).slice(0, 60)}`,
+    `현재 출처 ${sources.length}건 중 근거 없는 좌초 ${stranded.length}건`,
+  );
+  if (stranded.length === 0) return;
+
+  for (const row of stranded.slice(0, 20)) {
+    console.log(
+      `  source ${row.id} · food ${row.food_id} · ${row.kind} · ${row.failure_code ?? "fetched"} · ${String(row.url).slice(0, 60)}`,
+    );
+  }
+  if (stranded.length > 20) console.log(`  … 외 ${stranded.length - 20}건`);
+
+  if (!apply) {
+    console.log("\n[DRY RUN] 변경 없음. 쓰려면 --apply를 지정하세요.");
+    return;
+  }
+
+  const selectedIds = new Set(sourceIds);
+  const selected = stranded.filter((row) => selectedIds.has(row.id));
+  if (selected.length !== sourceIds.length) {
+    const found = new Set(selected.map((row) => row.id));
+    const missing = sourceIds.filter((id) => !found.has(id));
+    throw new Error(
+      `reviewed source IDs are no longer stranded: ${missing.join(", ")}`,
+    );
+  }
+
+  const { data: releasedRows, error: updateError } = await supabase.rpc(
+    "release_stranded_food_sources",
+    { p_source_ids: selected.map((row) => row.id) },
+  );
+  if (updateError) throw updateError;
+  const releasedIds = Array.isArray(releasedRows)
+    ? releasedRows.map((row) => row.source_id)
+    : [];
+  if (
+    releasedIds.length !== selected.length ||
+    releasedIds.some((id) => !selectedIds.has(id))
+  ) {
+    throw new Error("release RPC returned an unexpected source set");
+  }
+
+  console.log(
+    `\n검토한 ${selected.length}건을 현재 출처에서 내렸다. 다시 조사 대상이다.`,
   );
 }
-if (stranded.length > 20) console.log(`  … 외 ${stranded.length - 20}건`);
 
-if (DRY) {
-  console.log("\n[DRY RUN] 변경 없음.");
-  process.exit(0);
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  await main();
 }
-
-const { error: updateError } = await supabase
-  .from("food_sources")
-  .update({ is_current: false })
-  .in(
-    "id",
-    stranded.map((row) => row.id),
-  );
-if (updateError) throw updateError;
-
-console.log(
-  `\n${stranded.length}건을 현재 출처에서 내렸다. 다시 조사 대상이다.`,
-);
