@@ -183,18 +183,21 @@ export function LabelTranscribeClient({
       }
 
       if (counts.applied === 0 && ingredientStatus !== "applied") {
-        if (nutrientFailure !== null && ingredientDraft === null)
-          throw new Error(nutrientFailure);
-        if (ingredientFailure !== null && nutrientFailure === null)
-          throw new Error(ingredientFailure);
-        const ingredientOutcome =
-          ingredientStatus === "conflict"
-            ? ", 원재료 충돌"
-            : ingredientStatus === "skipped"
-              ? ", 원재료 건너뜀"
-              : "";
+        const noApplyDetails: string[] = [];
+        if (counts.skipped > 0)
+          noApplyDetails.push(`영양소 건너뜀 ${String(counts.skipped)}`);
+        if (counts.conflict > 0)
+          noApplyDetails.push(`영양소 충돌 ${String(counts.conflict)}`);
+        if (nutrientFailure !== null)
+          noApplyDetails.push(`영양소 실패: ${nutrientFailure}`);
+        if (ingredientStatus === "skipped")
+          noApplyDetails.push("원재료 건너뜀");
+        if (ingredientStatus === "conflict") noApplyDetails.push("원재료 충돌");
+        if (ingredientFailure !== null)
+          noApplyDetails.push(`원재료 실패: ${ingredientFailure}`);
+        if (noApplyDetails.length === 0) noApplyDetails.push("적용 결과 없음");
         throw new Error(
-          `적용된 근거가 없습니다 (영양소 건너뜀 ${String(counts.skipped)}, 영양소 충돌 ${String(counts.conflict)}${ingredientOutcome})`,
+          `적용된 근거가 없습니다 (${noApplyDetails.join(", ")})`,
         );
       }
 
