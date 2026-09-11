@@ -42,6 +42,8 @@ No truncated output.
 
 > 2026-09-08 refresh: `recalls` contains 3 rows, and the repository contains 13 `.mjs` scripts.
 > The dated table remains the 2026-08-22 baseline; the other values shown there were unchanged when remeasured.
+> 2026-09-10 tranche A refresh: `food_ingredient_evidence` contains 47 current rows, and 47 of 125 published foods have a non-empty `ingredients` array.
+> Tranche A applied 47 of 60 targets, while 13 targets returned no provable ingredient draft.
 
 Two readings follow from this table.
 
@@ -61,7 +63,7 @@ Every monetization path the project has floated is blocked on a different measur
 | Path                     | Requires                                           | Measured state                                                                                               |
 | ------------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | Affiliate and commerce   | a join from a catalog row to a purchasable listing | no such join exists; a `foods` row is a manufacturer recipe and weight variants were deliberately merged out |
-| B2B data API or MCP      | ingredients and coverage as the sellable asset     | ingredients are empty on every published row                                                                 |
+| B2B data API or MCP      | ingredients and coverage as the sellable asset     | 47 of 125 published rows have ingredients after tranche A; tranche B remains pending                         |
 | Consumer advisor product | `kcal_per_kg` on both sides of a comparison        | absent on 42 of 125 published rows                                                                           |
 
 Ingredient data is the only asset that all three paths need, so it is the common precondition rather than a revenue model of its own.
@@ -80,7 +82,8 @@ None of these can be observed today, and adding analytics to manufacture them is
 The original gap was missing plumbing, not missing data.
 
 The ingredient evidence table, literal-evidence apply RPC, curator apply route, extraction output, and retained-capture backfill runner are implemented.
-The production backfill has not run, so the measured catalog state is still zero published rows with a non-empty ingredient list.
+The production backfill is in progress.
+Tranche A applied 47 of 60 targets on 2026-09-10, so the measured catalog state is now 47 published rows with a non-empty ingredient list.
 
 Retained captures already hold the source text.
 Of the 125 published products, **104 have a comma-separated ingredient run inside the capture of their current (`is_current`) source**, and 21 have none.

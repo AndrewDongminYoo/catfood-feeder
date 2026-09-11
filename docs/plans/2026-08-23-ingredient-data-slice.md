@@ -1271,13 +1271,15 @@ Curator-side family, like `scripts/research-missing.mjs`: it uses only the admin
 
 The CLI accepts `foodId:sourceId` entries, with `foodId:sourceId+sourceId` reserved for the API's two-source form. It rejects food-only input, duplicate foods, duplicate sources, unknown flags, and more than two sources before making a request. Each extraction request posts `{ sourceIds: target.sourceIds }`; the dry-run prints the returned names and never calls `/sources/ingredients`. Calls are paced at 8 seconds, a 429 increments `rate_limited` and honours `Retry-After`, and a 5xx boundary failure increments `failed` rather than misreporting infrastructure failure as `refused`.
 
-- [ ] **Step 2: Dry-run against three foods first**
+- [x] **Step 2: Dry-run against three foods first**
 
 Start the dev server (`pnpm dev`), then run with three targets from Task 1's matched list and `--dry-run`. Read the printed item names and confirm they look like ingredient lists rather than navigation fragments. Do not proceed to the full tranche until all three look right.
 
 Run: `node scripts/backfill-ingredients.mjs --dry-run <foodId:sourceId>,<foodId:sourceId>,<foodId:sourceId>`
 
 Attempted on 2026-08-24 with `22:477,51:47,58:46`. All three reached the extraction boundary but returned 502 because the monthly Anthropic limit was exhausted; the apply route was not called. The operator expects access to recover in about one week. After the limit resets, re-run the same three targets before checking this step or authorizing Step 3.
+
+Retried on 2026-09-10 after the Anthropic key was replaced. All three dry-run targets returned complete ingredient drafts with 43, 47, and 41 items. The dry-run did not call the apply route.
 
 - [ ] **Step 3: Run tranche A, then tranche B**
 
@@ -1286,6 +1288,8 @@ Run tranche A first — one run per capture, the higher-yield set:
 Run: `node scripts/backfill-ingredients.mjs <tranche A targets from Task 1>`
 
 Read the tally before starting tranche B. If tranche A's `no_draft` share is above half, stop and report rather than spending the second tranche's budget on the same failure.
+
+Tranche A completed on 2026-09-10. It applied 47 of 60 targets, while 13 returned `no_draft`. No target failed, conflicted, reached the rate limit, was refused, or was skipped. The `no_draft` share was 21.7%, so the stop condition did not apply. Tranche B remains pending.
 
 Run: `node scripts/backfill-ingredients.mjs <tranche B targets from Task 1>`
 
