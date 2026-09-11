@@ -259,7 +259,7 @@ async function tileImage(imagePath, workdir, prefix) {
         else reject(new Error(`sips resize failed with ${String(code)}`));
       });
     });
-    tiles.push({ full, name: `t${index}`, small });
+    tiles.push({ full, name: normalizeVisionSliceName(small), small });
   }
   return tiles;
 }
@@ -521,8 +521,10 @@ try {
 
       const located = await runCodex(
         [
-          `These are ${String(tiles.length)} consecutive slices of one pet-food label`,
-          "image, top to bottom, named t01.. in order. They overlap by 200px.",
+          `These are ${String(tiles.length)} slices from one or more pet-food label images.`,
+          "Each attached filename identifies its source image and tile.",
+          "Return that exact filename in slice.",
+          "Tiles from the same source image run top to bottom and overlap by 200 px.",
           "",
           "Find the slices holding PRINTED SOURCE DATA:",
           "- guaranteed_analysis — 사료등록성분 / 등록성분량 / 보장성분 or",
