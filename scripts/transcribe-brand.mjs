@@ -10,14 +10,20 @@
 //   node scripts/transcribe-brand.mjs --food 512 --image "https://.../a.jpg" "https://.../b.jpg"
 
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { captureImage } from "../src/lib/image-fetcher.ts";
 import { BASE_URL } from "./curate-source.mjs";
-import { buildAgentEnv, buildCodexArgs } from "./research-run.mjs";
+import {
+  buildAgentEnv,
+  buildCodexArgs,
+  createResearchWorkdir,
+  persistRefreshedCodexAuth,
+  stageCodexExecutable,
+  stageCodexHome,
+} from "./research-run.mjs";
 import { selectAll } from "./select-all.mjs";
 import { SECRETS_FILE, loadSecrets } from "./with-secrets.mjs";
 
@@ -198,8 +204,8 @@ async function tileImage(imagePath, workdir, prefix) {
     const index = String(tiles.length + 1).padStart(2, "0");
     const full = join(workdir, `${prefix}-t${index}.jpg`);
     const small = join(workdir, `${prefix}-t${index}-small.jpg`);
-    await new Promise((resolve) => {
-      spawn(
+    await new Promise((resolve, reject) => {
+      const child = spawn(
         "sips",
         [
           "-c",
@@ -208,17 +214,30 @@ async function tileImage(imagePath, workdir, prefix) {
           "--cropOffset",
           String(y),
           "0",
+          "-s",
+          "format",
+          "jpeg",
           imagePath,
           "--out",
           full,
         ],
         { stdio: "ignore" },
-      ).on("close", resolve);
+      );
+      child.on("error", reject);
+      child.on("close", (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`sips crop failed with ${String(code)}`));
+      });
     });
-    await new Promise((resolve) => {
-      spawn("sips", ["-Z", "320", full, "--out", small], {
+    await new Promise((resolve, reject) => {
+      const child = spawn("sips", ["-Z", "960", full, "--out", small], {
         stdio: "ignore",
-      }).on("close", resolve);
+      });
+      child.on("error", reject);
+      child.on("close", (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`sips resize failed with ${String(code)}`));
+      });
     });
     tiles.push({ full, name: `t${index}`, small });
   }
@@ -370,9 +389,12 @@ if (DRY) {
   process.exit(0);
 }
 
-const workdir = await mkdtemp(join(tmpdir(), "transcribe-brand-"));
+const workdir = await createResearchWorkdir(process.env);
+let authBaseline;
 const tally = { failed: 0, proposed: 0, skipped: 0 };
 try {
+  await stageCodexExecutable(process.env, workdir);
+  authBaseline = await stageCodexHome(process.env, workdir);
   // 발견을 건너뛴 --food 경로에서는 discovery 가 이미 채워져 있다 — ??= 는 그
   // 경우 우변을 평가하지 않으므로, brand 가 없어도(솔로 경로는 brand 를 조회하지
   // 않는다) 안전하다.
@@ -626,6 +648,13 @@ try {
     }
   }
 } finally {
+  try {
+    await persistRefreshedCodexAuth(process.env, workdir, authBaseline);
+  } catch (error) {
+    console.warn(
+      `warning: could not write back the refreshed Codex login (${error.message}); run \`codex login\` if the next run fails to authenticate.`,
+    );
+  }
   await rm(workdir, { force: true, recursive: true });
 }
 
