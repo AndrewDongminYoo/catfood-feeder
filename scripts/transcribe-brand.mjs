@@ -15,6 +15,7 @@ import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { captureImage } from "../src/lib/image-fetcher.ts";
+import { normalizeVisionSliceName } from "../src/lib/transcription-locator.ts";
 import { BASE_URL } from "./curate-source.mjs";
 import {
   buildAgentEnv,
@@ -542,7 +543,7 @@ try {
       const wanted = new Set(
         (located.slices ?? [])
           .filter((slice) => slice.holds.length > 0)
-          .map((slice) => slice.slice),
+          .map((slice) => normalizeVisionSliceName(slice.slice)),
       );
       const chosen = tiles.filter((tile) => wanted.has(tile.name));
       if (chosen.length === 0) {
