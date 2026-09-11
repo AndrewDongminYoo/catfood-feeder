@@ -114,6 +114,10 @@ describe("출처 등록 경계", () => {
     const response = await post(MANUAL_BODY);
 
     expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      contentStatus: "initial",
+      source: { id: 8 },
+    });
     expect(mocks.createCurrentFoodSource).toHaveBeenCalledWith(
       expect.objectContaining({
         captureMethod: "manual",

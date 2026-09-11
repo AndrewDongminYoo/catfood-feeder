@@ -190,7 +190,7 @@ export async function POST(
         url: payload.data.url,
       });
       return NextResponse.json({
-        contentStatus: "new",
+        contentStatus: "initial",
         source: {
           capturedAt,
           capturedText: payload.data.capturedText,

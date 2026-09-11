@@ -569,6 +569,93 @@ describe("LabelTranscribeClient 승인 실패", () => {
     });
   });
 
+  it("같은 URL의 현재 출처 원문에 제안 구절이 없으면 적용하지 않는다", async () => {
+    const ingredientItem = {
+      ...item,
+      dataVerifiedAt: "2026-09-11T00:00:00.000Z",
+      ingredientDraft: {
+        excerpt: "Chicken meal; Salmon meal.",
+        ingredients: [
+          { name: "Chicken meal", position: 1 },
+          { name: "Salmon meal", position: 2 },
+        ],
+      },
+      sourceKind: "manufacturer",
+    } as PendingTranscript;
+    const requests: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const path = String(input);
+        requests.push(path);
+        if (path.endsWith("/sources") && init?.method === "POST") {
+          return new Response(JSON.stringify({ error: "이미 등록된 URL" }), {
+            status: 409,
+          });
+        }
+        if (path.endsWith("/sources")) {
+          return new Response(
+            JSON.stringify({
+              sources: [
+                {
+                  captured_text: "Crude protein 32%",
+                  id: 77,
+                  kind: "manufacturer",
+                  url: item.productPageUrl,
+                },
+              ],
+            }),
+          );
+        }
+        throw new Error(`unexpected fetch: ${path}`);
+      }),
+    );
+
+    render(<LabelTranscribeClient initialTranscripts={[ingredientItem]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "승인·등록" }));
+
+    const status = await screen.findByRole("status");
+    expect(status.textContent).toContain(
+      "현재 출처 원문에 제안 구절이 없습니다",
+    );
+    expect(requests.some((path) => path.endsWith("/sources/ingredients"))).toBe(
+      false,
+    );
+    expect(requests.some((path) => path.endsWith("/sources/apply"))).toBe(
+      false,
+    );
+    expect(requests.some((path) => path.endsWith("/transcripts/501"))).toBe(
+      false,
+    );
+  });
+
+  it("검증된 영양소-only 제안은 출처를 만들기 전에 거절한다", async () => {
+    const verifiedItem = {
+      ...item,
+      dataVerifiedAt: "2026-09-11T00:00:00.000Z",
+    } as PendingTranscript;
+    const requests: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const path = String(input);
+        requests.push(path);
+        throw new Error(`unexpected fetch: ${path}`);
+      }),
+    );
+
+    render(<LabelTranscribeClient initialTranscripts={[verifiedItem]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "승인·등록" }));
+
+    const status = await screen.findByRole("status");
+    expect(status.textContent).toContain(
+      "검증된 사료의 영양소-only 제안은 적용할 수 없습니다",
+    );
+    expect(requests).toHaveLength(0);
+  });
+
   it("영양소 적용 뒤 원재료 충돌은 부분 성공으로 run을 닫는다", async () => {
     const combinedItem = {
       ...item,

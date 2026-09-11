@@ -8,6 +8,16 @@ import {
   ingredientApplyResponseSchema,
 } from "@/lib/source-apply";
 
+function containsEvidenceExcerpt(sourceText: string, excerpt: string): boolean {
+  const normalize = (value: string) =>
+    value.normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase();
+  const normalizedExcerpt = normalize(excerpt);
+  return (
+    normalizedExcerpt.length > 0 &&
+    normalize(sourceText).includes(normalizedExcerpt)
+  );
+}
+
 /**
  * 승인은 브라우저의 운영자 세션에서 나간다. 그래야 `manual` 이 "사람이 읽고 옮겨
  * 적었다"는 뜻을 유지한다 — 자동화 자격 증명은 그 경로에서 403 을 받는다.
@@ -95,6 +105,11 @@ export function LabelTranscribeClient({
     // 직접 지우게 한다.
     let strandedSourceId: number | null = null;
     try {
+      if (item.dataVerifiedAt !== null && ingredientDraft === null) {
+        throw new Error(
+          "검증된 사료의 영양소-only 제안은 적용할 수 없습니다. 건너뜀 처리하세요.",
+        );
+      }
       const registered = await fetch(
         `/api/foods/${String(item.foodId)}/sources`,
         {
@@ -124,6 +139,7 @@ export function LabelTranscribeClient({
             sources?: readonly {
               id?: unknown;
               kind?: unknown;
+              captured_text?: unknown;
               url?: unknown;
             }[];
           }
@@ -137,6 +153,25 @@ export function LabelTranscribeClient({
           throw new Error(
             "같은 URL의 현재 출처 종류가 달라 교체하지 않았습니다.",
           );
+        const applicableExcerpts = [
+          ...(item.dataVerifiedAt === null
+            ? item.values.map((value) => value.excerpt)
+            : []),
+          ...(typeof ingredientDraft?.excerpt === "string"
+            ? [ingredientDraft.excerpt]
+            : []),
+        ];
+        const currentCapturedText = current.captured_text;
+        if (
+          typeof currentCapturedText !== "string" ||
+          applicableExcerpts.some(
+            (excerpt) => !containsEvidenceExcerpt(currentCapturedText, excerpt),
+          )
+        ) {
+          throw new Error(
+            "현재 출처 원문에 제안 구절이 없습니다. 다른 출처 URL로 다시 제안하세요.",
+          );
+        }
         sourceId = current.id;
       } else if (!registered.ok) {
         throw new Error(
