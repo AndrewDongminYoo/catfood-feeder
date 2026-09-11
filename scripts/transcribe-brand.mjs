@@ -19,7 +19,7 @@ import { normalizeVisionSliceName } from "../src/lib/transcription-locator.ts";
 import { BASE_URL } from "./curate-source.mjs";
 import {
   buildAgentEnv,
-  buildCodexArgs,
+  buildVisionCodexArgs,
   createResearchWorkdir,
   persistRefreshedCodexAuth,
   stageCodexExecutable,
@@ -273,12 +273,12 @@ async function runCodex(prompt, schema, workdir, images = [], key = "shared") {
   const schemaPath = join(workdir, `schema-${key}-${digest}.json`);
   const messagePath = join(workdir, `message-${key}-${digest}.json`);
   await writeFile(schemaPath, JSON.stringify(schema));
-  const args = buildCodexArgs(
+  const args = buildVisionCodexArgs(
     schemaPath,
     messagePath,
     process.env.RESEARCH_AGENT_MODEL ?? "gpt-5.6-terra",
+    images,
   );
-  for (const image of images) args.push("--image", image);
   await new Promise((resolve, reject) => {
     const child = spawn("codex", args, {
       cwd: workdir,
