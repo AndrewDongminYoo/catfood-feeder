@@ -63,6 +63,19 @@ describe("ingredientDraftSchema", () => {
     expect(ingredientDraftSchema.safeParse(blank).success).toBe(false);
   });
 
+  it("긴 괄호형 premix 원재료를 보존한다", () => {
+    const premix =
+      "vitamins (vitamin E supplement, niacin supplement, d-calcium pantothenate, vitamin A supplement, thiamine mononitrate, riboflavin supplement, pyridoxine hydrochloride, biotin, vitamin B12 supplement, vitamin D3 supplement, folic acid)";
+
+    expect(
+      ingredientDraftSchema.safeParse({
+        ...valid,
+        excerpt: premix,
+        ingredients: [{ name: premix, position: 1 }],
+      }).success,
+    ).toBe(true);
+  });
+
   it("사라진 pct 와 type 을 조용히 받아 주지 않는다", () => {
     const legacy = {
       ...valid,

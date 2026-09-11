@@ -84,7 +84,7 @@ export function conflictCandidates(
  */
 export const ingredientCandidateSchema = z
   .object({
-    name: z.string().trim().min(1).max(200),
+    name: z.string().trim().min(1).max(500),
     position: z.number().int().positive(),
   })
   .strict();
