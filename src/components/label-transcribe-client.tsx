@@ -174,8 +174,14 @@ export function LabelTranscribeClient({
           throw new Error(nutrientFailure);
         if (ingredientFailure !== null && nutrientFailure === null)
           throw new Error(ingredientFailure);
+        const ingredientOutcome =
+          ingredientStatus === "conflict"
+            ? ", 원재료 충돌"
+            : ingredientStatus === "skipped"
+              ? ", 원재료 건너뜀"
+              : "";
         throw new Error(
-          `적용된 근거가 없습니다 (건너뜀 ${String(counts.skipped)}, 충돌 ${String(counts.conflict)})`,
+          `적용된 근거가 없습니다 (영양소 건너뜀 ${String(counts.skipped)}, 영양소 충돌 ${String(counts.conflict)}${ingredientOutcome})`,
         );
       }
 

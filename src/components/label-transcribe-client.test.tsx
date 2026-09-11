@@ -261,6 +261,48 @@ describe("LabelTranscribeClient 승인 실패", () => {
     ).toBe(true);
   });
 
+  it("원재료 제안이 충돌하면 실제 결과를 알리고 run을 열어 둔다", async () => {
+    const ingredientItem = {
+      ...item,
+      ingredientDraft: {
+        excerpt: "Chicken meal; Salmon meal.",
+        ingredients: [
+          { name: "Chicken meal", position: 1 },
+          { name: "Salmon meal", position: 2 },
+        ],
+      },
+      values: [],
+    } as PendingTranscript;
+    const requests: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const path = String(input);
+        requests.push(path);
+        if (path.endsWith("/sources/ingredients")) {
+          return new Response(
+            JSON.stringify({ result: { count: 0, status: "conflict" } }),
+          );
+        }
+        if (path.endsWith("/sources")) {
+          return new Response(JSON.stringify({ source: { id: 99 } }));
+        }
+        throw new Error(`unexpected fetch: ${path}`);
+      }),
+    );
+
+    render(<LabelTranscribeClient initialTranscripts={[ingredientItem]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "승인·등록" }));
+
+    const status = await screen.findByRole("status");
+    expect(status.textContent).toContain("원재료 충돌");
+    expect(status.textContent).toContain("출처 #99");
+    expect(requests.some((path) => path.endsWith("/transcripts/501"))).toBe(
+      false,
+    );
+  });
+
   it("출처 종류를 승인 전에 바꾸면 등록 요청에 반영한다", async () => {
     const requests: { body?: string; path: string }[] = [];
     vi.stubGlobal(
