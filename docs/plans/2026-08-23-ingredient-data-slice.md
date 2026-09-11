@@ -1281,7 +1281,7 @@ Attempted on 2026-08-24 with `22:477,51:47,58:46`. All three reached the extract
 
 Retried on 2026-09-10 after the Anthropic key was replaced. All three dry-run targets returned complete ingredient drafts with 43, 47, and 41 items. The dry-run did not call the apply route.
 
-- [ ] **Step 3: Run tranche A, then tranche B**
+- [x] **Step 3: Run tranche A, then tranche B**
 
 Run tranche A first — one run per capture, the higher-yield set:
 
@@ -1289,7 +1289,9 @@ Run: `node scripts/backfill-ingredients.mjs <tranche A targets from Task 1>`
 
 Read the tally before starting tranche B. If tranche A's `no_draft` share is above half, stop and report rather than spending the second tranche's budget on the same failure.
 
-Tranche A completed on 2026-09-10. It applied 47 of 60 targets, while 13 returned `no_draft`. No target failed, conflicted, reached the rate limit, was refused, or was skipped. The `no_draft` share was 21.7%, so the stop condition did not apply. Tranche B remains pending.
+Tranche A completed on 2026-09-10. It applied 47 of 60 targets, while 13 returned `no_draft`. No target failed, conflicted, reached the rate limit, was refused, or was skipped. The `no_draft` share was 21.7%, so the stop condition did not apply.
+
+Tranche B completed on 2026-09-11. The initial pass applied 31 of 44 targets, returned `no_draft` for 12 targets, and timed out on one target. A single retry applied the timed-out target. The final tranche B result was 32 applied and 12 `no_draft`, with no remaining failure, conflict, rate limit, refusal, or skip.
 
 Run: `node scripts/backfill-ingredients.mjs <tranche B targets from Task 1>`
 
@@ -1305,27 +1307,27 @@ Add to `package.json` scripts:
 
 Add a short section to `scripts/README.md` describing both new scripts: `measure-ingredient-tranche.mjs` selects the tranche, `backfill-ingredients.mjs` fills it from retained captures only, and neither performs new research.
 
-- [ ] **Step 5: Record the measured yield**
+- [x] **Step 5: Record the measured yield**
 
 In `docs/product-direction.md`, replace the "The real yield is set by a measured extraction pass, not by this figure" sentence with the measured result: how many of the tranche applied, how many returned no provable list, and how many conflicted. State the run date.
 
-- [ ] **Step 6: Run the gate**
+- [x] **Step 6: Run the gate**
 
 Run: `pnpm typecheck && pnpm test && pnpm lint && trunk check --no-fix`
 Expected: all pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
-git add scripts/backfill-ingredients.mjs scripts/README.md package.json docs/product-direction.md
-git commit -m "feat(ingredients): backfill the matched tranche from retained captures"
+git add BLUEPRINT.md docs/product-direction.md docs/plans/2026-08-23-ingredient-data-slice.md
+git commit -m "docs(ingredients): record completed backfill"
 ```
 
 ---
 
 ## Out of scope
 
-- The 21 published foods whose current capture holds no provable ingredient list. That set splits into fresh-fetch and vision-transcription cases and needs its own plan.
+- The 46 remaining published foods without ingredients. This set contains 21 foods without a candidate comma run and 25 targets that returned `no_draft`. It splits into fresh-fetch and vision-transcription cases and needs its own plan.
 - Ingredient exclusion filters in the public catalog. The data has to exist before a filter over it is worth building.
 - Public read of `food_ingredient_evidence` for the evidence drilldown. `foods.ingredients` is already publicly readable; the excerpt drilldown is a separate decision.
 - The dead grain-free and functional-flag filters. The direction doc records them as retirement candidates, which is a separate decision from this slice.

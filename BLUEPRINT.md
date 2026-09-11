@@ -23,7 +23,7 @@
 다음 슬라이스는 발행된 사료의 원재료 구성을 채우는 작업이다.
 원재료는 그 자체가 수익 모델이 아니라 B2B 데이터 API, 제외 원료 소비자 필터, 제휴라는 세 경로의 공통 선행조건이므로, 이 슬라이스는 세 경로를 모두 열어 둔 채 진행한다.
 원재료가 비어 있던 원인은 데이터 부재가 아니라 근거 적용 경로에 원재료 통로가 없었던 배관 부재였다.
-적용 통로는 구현되었고, 2026-09-10 tranche A에서 발행 제품 125개 중 47개의 원재료를 채웠다.
+적용 통로는 구현되었고, 2026-09-11 retained-capture backfill에서 발행 제품 125개 중 79개의 원재료를 채웠다.
 
 작업 순서는 수율 측정, 저장 스키마 확정(`{name, position}`, `form`은 파생), 적용 통로 개설, 보관된 캡처만 사용하는 재추출, 나머지 집합의 후속 분리다.
 자연어 입력과 MCP는 이 슬라이스가 동작한 뒤로 미룬다.
@@ -83,7 +83,7 @@
 - [x] `carb_pct`는 generated stored 해제 → 일반 컬럼(회분 유무로 계산 가능 여부 갈림) + `carb_is_estimated boolean`
 - [x] `ca_p_ratio`만 generated stored 유지 (calcium/phosphorus, 단 phosphorus>0)
 - [x] `nutrient_sources jsonb` 컬럼: 항목별 출처 메타 {protein_pct:"manufacturer", ash_pct:"kr_label", ...}
-- [x] `ingredients jsonb` 컬럼 존재. 저장 형태는 [Product Direction](docs/product-direction.md)이 소유하며 `{name, position}`으로 확정했다(2026-09-10 tranche A 기준 발행 행 47/125개에 값이 있다).
+- [x] `ingredients jsonb` 컬럼 존재. 저장 형태는 [Product Direction](docs/product-direction.md)이 소유하며 `{name, position}`으로 확정했다(2026-09-11 retained-capture backfill 기준 발행 행 79/125개에 값이 있다).
 - [x] `cooking_method` enum(extrusion/baked/freeze_dried/dried) — 회분 추정 허용 여부 결정에 사용
 - [x] `data_verified_at timestamptz` — 오래된 데이터 갱신 우선순위 쿼리용
 - [x] 기능성 불리언: grain_free / meal_free / has_probiotics / has_cranberry / has_yucca
