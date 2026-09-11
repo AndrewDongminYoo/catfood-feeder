@@ -28,7 +28,7 @@ export async function loadPendingTranscripts(): Promise<
   const { data, error } = await supabase
     .from("food_research_runs")
     .select(
-      "id, food_id, proposal, captures, foods!inner(product_name, brands!inner(ko_name))",
+      "id, food_id, proposal, captures, foods!food_research_runs_food_id_fkey(product_name, brands!inner(ko_name))",
     )
     .eq("status", "pending_review")
     .order("id");
