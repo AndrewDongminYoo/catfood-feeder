@@ -426,4 +426,49 @@ describe("LabelTranscribeClient 승인 실패", () => {
       true,
     );
   });
+
+  it("검증된 혼합 제안의 원재료 실패 사유를 숨기지 않는다", async () => {
+    const combinedItem = {
+      ...item,
+      dataVerifiedAt: "2026-09-11T00:00:00.000Z",
+      ingredientDraft: {
+        excerpt: "Chicken meal; Salmon meal.",
+        ingredients: [
+          { name: "Chicken meal", position: 1 },
+          { name: "Salmon meal", position: 2 },
+        ],
+      },
+    } as PendingTranscript;
+    const requests: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const path = String(input);
+        requests.push(path);
+        if (path.endsWith("/sources/ingredients")) {
+          return new Response(JSON.stringify({ error: "원재료 원문 불일치" }), {
+            status: 400,
+          });
+        }
+        if (path.endsWith("/sources")) {
+          return new Response(JSON.stringify({ source: { id: 99 } }));
+        }
+        throw new Error(`unexpected fetch: ${path}`);
+      }),
+    );
+
+    render(<LabelTranscribeClient initialTranscripts={[combinedItem]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "승인·등록" }));
+
+    const status = await screen.findByRole("status");
+    expect(status.textContent).toContain("원재료 원문 불일치");
+    expect(status.textContent).toContain("출처 #99");
+    expect(requests.some((path) => path.endsWith("/sources/apply"))).toBe(
+      false,
+    );
+    expect(requests.some((path) => path.endsWith("/transcripts/501"))).toBe(
+      false,
+    );
+  });
 });

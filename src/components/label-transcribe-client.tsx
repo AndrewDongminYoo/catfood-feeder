@@ -144,7 +144,7 @@ export function LabelTranscribeClient({
       if (counts.applied === 0 && ingredientStatus !== "applied") {
         if (nutrientFailure !== null && item.ingredientDraft === null)
           throw new Error(nutrientFailure);
-        if (ingredientFailure !== null && item.values.length === 0)
+        if (ingredientFailure !== null && nutrientFailure === null)
           throw new Error(ingredientFailure);
         throw new Error(
           `적용된 근거가 없습니다 (건너뜀 ${String(counts.skipped)}, 충돌 ${String(counts.conflict)})`,
