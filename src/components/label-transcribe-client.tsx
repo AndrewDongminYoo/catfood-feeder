@@ -55,14 +55,27 @@ export function LabelTranscribeClient({
 
   async function approve(item: PendingTranscript) {
     setBusy(true);
-    const capturedText = text[item.runId] ?? item.transcript;
+    const editedIngredientExcerpt =
+      item.ingredientDraft === null
+        ? null
+        : (ingredientExcerpts[item.runId] ?? item.ingredientDraft.excerpt);
+    const transcript = text[item.runId] ?? item.transcript;
+    const capturedText =
+      item.ingredientDraft !== null &&
+      editedIngredientExcerpt !== null &&
+      editedIngredientExcerpt !== item.ingredientDraft.excerpt &&
+      transcript.includes(item.ingredientDraft.excerpt)
+        ? transcript.replace(
+            item.ingredientDraft.excerpt,
+            editedIngredientExcerpt,
+          )
+        : transcript;
     const sourceKind = sourceKinds[item.runId] ?? item.sourceKind;
     const ingredientDraft =
       item.ingredientDraft === null
         ? null
         : {
-            excerpt:
-              ingredientExcerpts[item.runId] ?? item.ingredientDraft.excerpt,
+            excerpt: editedIngredientExcerpt,
             ingredients: (
               ingredientNames[item.runId] ??
               item.ingredientDraft.ingredients

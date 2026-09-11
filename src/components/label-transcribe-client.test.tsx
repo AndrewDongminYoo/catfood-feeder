@@ -402,9 +402,6 @@ describe("LabelTranscribeClient 승인 실패", () => {
 
     render(<LabelTranscribeClient initialTranscripts={[ingredientItem]} />);
 
-    fireEvent.change(screen.getByRole("textbox", { name: "전사 원문" }), {
-      target: { value: "Ingredients: Chicken; Tuna." },
-    });
     fireEvent.change(screen.getByRole("textbox", { name: "원재료 원문" }), {
       target: { value: "Chicken; Tuna." },
     });
