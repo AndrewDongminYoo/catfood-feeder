@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import type { PendingTranscript } from "@/lib/label-transcripts";
-import { evidenceApplyResponseSchema } from "@/lib/source-apply";
+import {
+  evidenceApplyResponseSchema,
+  ingredientApplyResponseSchema,
+} from "@/lib/source-apply";
 
 /**
  * 승인은 브라우저의 운영자 세션에서 나간다. 그래야 `manual` 이 "사람이 읽고 옮겨
@@ -57,7 +60,7 @@ export function LabelTranscribeClient({
           body: JSON.stringify({
             captureMethod: "manual",
             capturedText,
-            kind: "kr_label",
+            kind: item.sourceKind,
             url: item.productPageUrl,
           }),
           headers: { "content-type": "application/json" },
@@ -74,38 +77,65 @@ export function LabelTranscribeClient({
       if (typeof sourceId !== "number") throw new Error("source.id 없음");
       strandedSourceId = sourceId;
 
-      const applied = await fetch(
-        `/api/foods/${String(item.foodId)}/sources/apply`,
-        {
-          body: JSON.stringify({
-            evidence: item.values.map((value) => ({ ...value, sourceId })),
-          }),
-          headers: { "content-type": "application/json" },
-          method: "POST",
-        },
-      );
-      const result: unknown = await applied.json();
-      if (!applied.ok)
-        throw new Error(
-          (result as { error?: string }).error ?? "근거 적용 실패",
-        );
-
-      // apply RPC는 사료가 이미 다른 출처 종류의 현재값을 갖고 있으면 그 영양소를
-      // skipped로 건너뛴다. 9개 부분값 사료(ANF·퓨어네이쳐 등)는 200 응답인데
-      // results가 전부 skipped일 수 있다 — 그건 실패지 성공이 아니다. 여기서
-      // 세지 않으면 화면이 미아 출처 플래그를 지우고 run을 applied로 닫아
-      // 아무것도 저장되지 않은 채 체크 표시만 남긴다.
-      const parsedResults = evidenceApplyResponseSchema.safeParse(result);
-      if (!parsedResults.success)
-        throw new Error("근거 적용 결과 형식을 확인하지 못했습니다.");
       const counts = { applied: 0, conflict: 0, skipped: 0 };
-      for (const r of parsedResults.data.results) counts[r.status]++;
-      if (counts.applied === 0)
+      if (item.values.length > 0) {
+        const applied = await fetch(
+          `/api/foods/${String(item.foodId)}/sources/apply`,
+          {
+            body: JSON.stringify({
+              evidence: item.values.map((value) => ({ ...value, sourceId })),
+            }),
+            headers: { "content-type": "application/json" },
+            method: "POST",
+          },
+        );
+        const result: unknown = await applied.json();
+        if (!applied.ok)
+          throw new Error(
+            (result as { error?: string }).error ?? "근거 적용 실패",
+          );
+
+        const parsedResults = evidenceApplyResponseSchema.safeParse(result);
+        if (!parsedResults.success)
+          throw new Error("근거 적용 결과 형식을 확인하지 못했습니다.");
+        for (const r of parsedResults.data.results) counts[r.status]++;
+        if (counts.applied > 0) strandedSourceId = null;
+      }
+
+      let ingredientApplied = false;
+      if (item.ingredientDraft !== null) {
+        const applied = await fetch(
+          `/api/foods/${String(item.foodId)}/sources/ingredients`,
+          {
+            body: JSON.stringify({
+              ...item.ingredientDraft,
+              sourceId,
+            }),
+            headers: { "content-type": "application/json" },
+            method: "POST",
+          },
+        );
+        const result: unknown = await applied.json();
+        if (!applied.ok)
+          throw new Error(
+            (result as { error?: string }).error ?? "원재료 적용 실패",
+          );
+        const parsedResult = ingredientApplyResponseSchema.safeParse(result);
+        if (!parsedResult.success)
+          throw new Error("원재료 적용 결과 형식을 확인하지 못했습니다.");
+        if (parsedResult.data.result.status !== "applied")
+          throw new Error(
+            `원재료가 적용되지 않았습니다 (${parsedResult.data.result.status})`,
+          );
+        ingredientApplied = true;
+        strandedSourceId = null;
+      }
+
+      if (counts.applied === 0 && !ingredientApplied)
         throw new Error(
           `적용된 근거가 없습니다 (건너뜀 ${String(counts.skipped)}, 충돌 ${String(counts.conflict)})`,
         );
 
-      strandedSourceId = null; // 근거가 최소 하나는 붙었다 — 더는 미아 출처가 아니다.
       await closeRun(item.runId, "applied");
       const partial = counts.skipped + counts.conflict > 0;
       setLog((lines) => [
@@ -183,6 +213,11 @@ export function LabelTranscribeClient({
                   <li key={`${value.nutrientKey}-${String(index)}`}>
                     {value.nutrientKey} = {value.value} —{" "}
                     <em>{value.excerpt}</em>
+                  </li>
+                ))}
+                {item.ingredientDraft?.ingredients.map((ingredient) => (
+                  <li key={`ingredient-${String(ingredient.position)}`}>
+                    {ingredient.position}. {ingredient.name}
                   </li>
                 ))}
               </ul>

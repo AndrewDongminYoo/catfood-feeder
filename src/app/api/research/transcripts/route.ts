@@ -8,7 +8,22 @@ import {
   TRANSCRIPT_JSON_BODY_BYTES,
   readJsonBody,
 } from "@/lib/request-body";
-import { isPublicHttpUrl } from "@/lib/source-collection";
+import { SOURCE_KIND_VALUES, isPublicHttpUrl } from "@/lib/source-collection";
+import {
+  POSITION_ORDER_MESSAGE,
+  hasContiguousPositions,
+  ingredientCandidateSchema,
+} from "@/lib/source-apply";
+
+const transcriptIngredientDraftSchema = z
+  .object({
+    excerpt: z.string().trim().min(1).max(4000),
+    ingredients: z.array(ingredientCandidateSchema).min(1).max(200),
+  })
+  .strict()
+  .refine((draft) => hasContiguousPositions(draft.ingredients), {
+    message: POSITION_ORDER_MESSAGE,
+  });
 
 /**
  * 이미지 라벨의 전사 제안을 원장에 적는다. **값도 출처도 쓰지 않는다.**
@@ -37,6 +52,8 @@ const requestSchema = z
       )
       .min(1),
     productPageUrl: z.string().url(),
+    ingredientDraft: transcriptIngredientDraftSchema.nullable().default(null),
+    sourceKind: z.enum(SOURCE_KIND_VALUES).default("kr_label"),
     transcript: z.string().min(1).max(20_000),
     values: z
       .array(
@@ -48,13 +65,17 @@ const requestSchema = z
           })
           .strict(),
       )
-      // 값이 하나도 없는 제안은 승인할 수 없다. 승인 경로는 manual 출처를 먼저
-      // 등록한 뒤 근거를 적용하는데, 근거 라우트는 최소 1건을 요구하므로 400이
-      // 돌아오고 근거 없는 출처만 미아로 남는다.
-      .min(1),
+      .max(NUTRIENT_KEYS.length),
   })
   .strict()
   .superRefine((body, ctx) => {
+    if (body.values.length === 0 && body.ingredientDraft === null) {
+      ctx.addIssue({
+        code: "custom",
+        message: "A transcript must propose nutrients or ingredients",
+        path: ["values"],
+      });
+    }
     // 에이전트가 제출한 URL이다 — javascript:, data:, file:, ftp: 를 그대로
     // 받으면 안 된다. 형제 라우트(research-proposal.ts)와 같은 판정을 쓴다.
     if (!isPublicHttpUrl(body.productPageUrl)) {
@@ -119,6 +140,8 @@ export async function POST(req: NextRequest) {
       evidenceResults: [],
       foodId: parsed.data.foodId,
       proposal: {
+        ingredientDraft: parsed.data.ingredientDraft,
+        sourceKind: parsed.data.sourceKind,
         transcript: parsed.data.transcript,
         values: parsed.data.values,
       },

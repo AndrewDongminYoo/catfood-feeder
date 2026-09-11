@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 국내 브랜드의 상세 이미지에서 등록성분량을 전사해 "제안"으로 적재한다.
+// 상세 이미지에서 등록성분량과 원재료를 전사해 "제안"으로 적재한다.
 //
 // 값을 쓰지 않는다. 이미지에는 원문이 없어 구절 검증이 성립하지 않으므로, 기계가
 // 만든 전사본은 제안까지만이고 저장은 운영자가 /new/transcribe 에서 승인할 때
@@ -7,7 +7,7 @@
 //
 // 사용법:
 //   node scripts/transcribe-brand.mjs --brand "캐츠랑" [--limit 9] [--dry]
-//   node scripts/transcribe-brand.mjs --food 512 --image "https://.../a.jpg" "https://.../b.jpg"
+//   node scripts/transcribe-brand.mjs --food 512 --kind manufacturer --source "https://.../product" --image "https://.../a.jpg" "https://.../b.jpg"
 
 import { spawn } from "node:child_process";
 import { readFile, rm, writeFile } from "node:fs/promises";
@@ -39,6 +39,12 @@ const DRY = process.argv.includes("--dry");
 // 발견을 건너뛰는 탈출구. 사이트가 열리지 않는 브랜드는 운영자가 이미지 URL을
 // 직접 건네는 수밖에 없다. 수집·타일·2패스·적재 경로는 브랜드 실행과 완전히 같다.
 const soloFoodId = arg("food") === null ? null : Number(arg("food"));
+const soloSourceKind = arg("kind") ?? "kr_label";
+const soloSourceUrl = arg("source");
+if (!["manufacturer", "kr_label"].includes(soloSourceKind)) {
+  console.error("--kind 는 manufacturer 또는 kr_label 이어야 합니다.");
+  process.exit(1);
+}
 // 한국 상세페이지는 이미지 여러 장으로 쪼개져 있고 성분표가 어느 장에 있는지는
 // 열어 봐야 안다. 한 장만 받으면 운영자가 17장 중 하나를 찍어 맞혀야 하므로,
 // 후보를 전부 받아 1패스가 고르게 한다.
@@ -95,11 +101,18 @@ const DISCOVERY_SCHEMA = {
 const TRANSCRIPT_SCHEMA = {
   additionalProperties: false,
   properties: {
-    // 값으로 적용하지는 않지만 제안에 실어 둔다. 같은 타일에서 공짜로 나오고,
-    // 원료는 발행 다음 과제다. /api/research/transcripts의 요청 스키마는 .strict()라
-    // 별도 필드로 보낼 자리가 없으므로, 아래 POST 직전에 transcript 본문에 덧붙인다.
+    // 값으로 바로 적용하지 않고 사람이 이미지와 대조할 제안에 실어 둔다.
     cookingMethod: { type: ["string", "null"] },
-    ingredients: { type: ["string", "null"] },
+    ingredientExcerpt: { type: ["string", "null"] },
+    ingredients: {
+      items: {
+        additionalProperties: false,
+        properties: { name: { type: "string" } },
+        required: ["name"],
+        type: "object",
+      },
+      type: "array",
+    },
     transcript: { type: "string" },
     values: {
       items: {
@@ -134,7 +147,13 @@ const TRANSCRIPT_SCHEMA = {
   // 규칙 자체는 이 스크립트로 실측하지 않았다. 실측한 것은 같은 strict 검증기가
   // additionalProperties:false 누락에 400 invalid_json_schema로 거절한다는
   // 사실뿐이다 — 검증기가 살아있다는 정황 증거로만 삼는다.)
-  required: ["transcript", "values", "cookingMethod", "ingredients"],
+  required: [
+    "transcript",
+    "values",
+    "cookingMethod",
+    "ingredientExcerpt",
+    "ingredients",
+  ],
   type: "object",
 };
 
@@ -320,7 +339,7 @@ if (soloFoodId !== null) {
       {
         foodId: food.id,
         imageUrls: soloImageUrls,
-        productPageUrl: soloImageUrls[0],
+        productPageUrl: soloSourceUrl ?? soloImageUrls[0],
       },
     ],
   };
@@ -501,17 +520,18 @@ try {
 
       const located = await runCodex(
         [
-          `These are ${String(tiles.length)} consecutive slices of one Korean pet-food`,
-          "detail page, top to bottom, named t01.. in order. They overlap by 200px.",
+          `These are ${String(tiles.length)} consecutive slices of one pet-food label`,
+          "image, top to bottom, named t01.. in order. They overlap by 200px.",
           "",
-          "Find the slices holding a TABLE OF PRINTED DATA:",
-          "- guaranteed_analysis — 사료등록성분 / 등록성분량 / 보장성분, listing 조단백,",
-          "  조지방, 조섬유, 조회분, 수분 with percentages",
+          "Find the slices holding PRINTED SOURCE DATA:",
+          "- guaranteed_analysis — 사료등록성분 / 등록성분량 / 보장성분 or",
+          "  Guaranteed Analysis, listing nutrient names with percentages",
           "- registration_info — 사료등록정보 / MAFRA Animal Feed Registration Information",
-          "- ingredients — 사용원료 / Ingredients",
+          "- ingredients — 사용원료 / Ingredients, including a prose ingredient list",
           "",
-          "Ignore marketing art, product photos, customer reviews, and numbers printed",
-          "on the package artwork. Return only the JSON object described by the schema.",
+          "Ignore marketing claims, product photos, customer reviews, and package-front",
+          "numbers. An Ingredients panel remains source data even when styled as artwork.",
+          "Return only the JSON object described by the schema.",
         ].join("\n"),
         LOCATE_SCHEMA,
         workdir,
@@ -538,12 +558,13 @@ try {
         [
           `Product: ${target.product_name}`,
           "",
-          "These are native-resolution slices of a Korean pet-food detail page.",
+          "These are native-resolution slices of a pet-food label image.",
           "Transcribe, exactly as printed:",
-          "- the guaranteed-analysis table (사료등록성분 / 등록성분량 / 보장성분), keeping",
-          "  the Korean labels, the numbers, and the 이상/이하 qualifiers",
+          "- the guaranteed-analysis table (사료등록성분 / 등록성분량 / 보장성분 or",
+          "  Guaranteed Analysis), keeping labels, numbers, and any 이상/이하 qualifiers",
           "- 사료의 형태 from the registration table, into cookingMethod",
           "- the 사용원료 / Ingredients list, into ingredients",
+          "- the exact uninterrupted ingredient-list text, into ingredientExcerpt",
           "",
           "Then list each nutrient with an excerpt copied VERBATIM from your own",
           "transcript. Percentages as printed — never convert units, never infer a value",
@@ -574,27 +595,34 @@ try {
         String(product.foodId),
       );
 
-      if (!transcript.transcript?.trim() || transcript.values.length === 0) {
+      const ingredientDraft =
+        transcript.ingredientExcerpt?.trim() &&
+        transcript.ingredients.length > 0
+          ? {
+              excerpt: transcript.ingredientExcerpt.trim(),
+              ingredients: transcript.ingredients.map((ingredient, index) => ({
+                name: ingredient.name,
+                position: index + 1,
+              })),
+            }
+          : null;
+      const transcriptText = [
+        transcript.transcript,
+        transcript.cookingMethod
+          ? `\n\n[사료의 형태] ${transcript.cookingMethod}`
+          : "",
+        ingredientDraft ? `\n\n[사용원료] ${ingredientDraft.excerpt}` : "",
+      ].join("");
+      if (
+        !transcriptText.trim() ||
+        (transcript.values.length === 0 && ingredientDraft === null)
+      ) {
         tally.skipped++;
         console.log(
           `  · ${product.foodId} ${target.product_name} — 성분표를 읽지 못함`,
         );
         continue;
       }
-
-      // cookingMethod/ingredients 는 값으로 적용하지 않지만 버리지도 않는다 — 원료는
-      // 다음 과제라 저장할 컬럼이 없고, transcripts 요청 스키마는 .strict() 라 별도
-      // 필드로 실을 자리도 없다. 유일하게 남는 자리는 transcript 본문이라 여기 붙여
-      // 사람 검토자가 /new/transcribe 에서 함께 본다.
-      const transcriptText = [
-        transcript.transcript,
-        transcript.cookingMethod
-          ? `\n\n[사료의 형태] ${transcript.cookingMethod}`
-          : "",
-        transcript.ingredients
-          ? `\n\n[사용원료] ${transcript.ingredients}`
-          : "",
-      ].join("");
 
       const response = await fetch(`${BASE_URL}/api/research/transcripts`, {
         body: JSON.stringify({
@@ -605,11 +633,13 @@ try {
             schemaVersion: "1",
           },
           foodId: product.foodId,
+          ingredientDraft,
           images: downloaded.map((image) => ({
             contentHash: image.contentHash,
             url: image.url,
           })),
           productPageUrl: product.productPageUrl,
+          sourceKind: soloFoodId === null ? "kr_label" : soloSourceKind,
           transcript: transcriptText,
           values: transcript.values,
         }),
@@ -625,7 +655,7 @@ try {
 
       tally.proposed++;
       console.log(
-        `  ✓ ${product.foodId} ${target.product_name} — ${transcript.values.length}개 값 제안`,
+        `  ✓ ${product.foodId} ${target.product_name} — ${transcript.values.length}개 값${ingredientDraft ? " + 원재료" : ""} 제안`,
       );
     } catch (cause) {
       tally.failed++;

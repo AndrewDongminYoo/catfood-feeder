@@ -1,4 +1,5 @@
 import { createAdminClient } from "./supabase/admin";
+import type { SourceKind } from "./source-collection";
 
 /**
  * 사람의 확인을 기다리는 전사 제안. 화면과 API 가 같은 것을 보아야 하므로 한 곳에 둔다.
@@ -10,9 +11,17 @@ export type PendingTranscript = {
   readonly brandName: string;
   readonly foodId: number;
   readonly imageUrls: readonly string[];
+  readonly ingredientDraft: {
+    readonly excerpt: string;
+    readonly ingredients: readonly {
+      readonly name: string;
+      readonly position: number;
+    }[];
+  } | null;
   readonly productName: string;
   readonly productPageUrl: string;
   readonly runId: number;
+  readonly sourceKind: SourceKind;
   readonly transcript: string;
   readonly values: readonly {
     readonly excerpt: string;
@@ -36,6 +45,8 @@ export async function loadPendingTranscripts(): Promise<
 
   return (data ?? []).flatMap((row) => {
     const proposal = row.proposal as {
+      ingredientDraft?: unknown;
+      sourceKind?: unknown;
       transcript?: unknown;
       values?: unknown;
     } | null;
@@ -64,9 +75,16 @@ export async function loadPendingTranscripts(): Promise<
         imageUrls: (captures.images ?? [])
           .map((image) => image.url)
           .filter((url): url is string => typeof url === "string"),
+        ingredientDraft:
+          typeof proposal.ingredientDraft === "object" &&
+          proposal.ingredientDraft !== null
+            ? (proposal.ingredientDraft as PendingTranscript["ingredientDraft"])
+            : null,
         productName: row.foods.product_name,
         productPageUrl: captures.productPageUrl,
         runId: row.id,
+        sourceKind:
+          proposal.sourceKind === "manufacturer" ? "manufacturer" : "kr_label",
         transcript: proposal.transcript,
         values: Array.isArray(proposal.values)
           ? (proposal.values as PendingTranscript["values"])

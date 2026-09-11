@@ -9,9 +9,11 @@ const item: PendingTranscript = {
   brandName: "테스트 브랜드",
   foodId: 42,
   imageUrls: [],
+  ingredientDraft: null,
   productName: "테스트 제품",
   productPageUrl: "https://example.com/product",
   runId: 501,
+  sourceKind: "kr_label",
   transcript: "조단백질 32% 이상",
   values: [
     { excerpt: "조단백질 32% 이상", nutrientKey: "protein_pct", value: 32 },
@@ -161,5 +163,88 @@ describe("LabelTranscribeClient 승인 실패", () => {
     const status = await screen.findByRole("status");
     expect(status.textContent).toContain("적용 1");
     expect(status.textContent).not.toBe(`✓ ${item.productName}`);
+  });
+
+  it("원재료만 있는 제안은 등록한 출처에 원재료를 적용한 뒤 run을 닫는다", async () => {
+    const ingredientItem = {
+      ...item,
+      ingredientDraft: {
+        excerpt: "Chicken meal; Salmon meal.",
+        ingredients: [
+          { name: "Chicken meal", position: 1 },
+          { name: "Salmon meal", position: 2 },
+        ],
+      },
+      sourceKind: "manufacturer",
+      values: [],
+    } as PendingTranscript;
+    const requests: { body?: string; method?: string; path: string }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const path = String(input);
+        requests.push({
+          body: typeof init?.body === "string" ? init.body : undefined,
+          method: init?.method,
+          path,
+        });
+        if (path.endsWith("/sources/ingredients")) {
+          return new Response(
+            JSON.stringify({ result: { count: 2, status: "applied" } }),
+          );
+        }
+        if (path.endsWith("/sources")) {
+          return new Response(JSON.stringify({ source: { id: 99 } }));
+        }
+        if (path.endsWith("/transcripts/501")) {
+          return new Response(JSON.stringify({}));
+        }
+        if (path.endsWith("/transcripts")) {
+          return new Response(
+            JSON.stringify({ transcripts: [ingredientItem] }),
+          );
+        }
+        throw new Error(`unexpected fetch: ${path}`);
+      }),
+    );
+
+    render(<LabelTranscribeClient initialTranscripts={[ingredientItem]} />);
+
+    expect(screen.getByText("1. Chicken meal")).toBeTruthy();
+    expect(screen.getByText("2. Salmon meal")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "승인·등록" }));
+
+    const status = await screen.findByRole("status");
+    expect(status.textContent).toContain(`✓ ${item.productName}`);
+    const sourceRequest = requests.find(({ path }) =>
+      path.endsWith("/sources"),
+    );
+    expect(JSON.parse(sourceRequest?.body ?? "null")).toMatchObject({
+      kind: "manufacturer",
+    });
+    const ingredientRequest = requests.find(({ path }) =>
+      path.endsWith("/sources/ingredients"),
+    );
+    expect(JSON.parse(ingredientRequest?.body ?? "null")).toEqual({
+      excerpt: "Chicken meal; Salmon meal.",
+      ingredients: [
+        { name: "Chicken meal", position: 1 },
+        { name: "Salmon meal", position: 2 },
+      ],
+      sourceId: 99,
+    });
+    expect(
+      requests.some(
+        ({ method, path }) =>
+          method === "POST" && path.endsWith("/sources/apply"),
+      ),
+    ).toBe(false);
+    expect(
+      requests.some(
+        ({ method, path }) =>
+          method === "PATCH" && path.endsWith("/transcripts/501"),
+      ),
+    ).toBe(true);
   });
 });
