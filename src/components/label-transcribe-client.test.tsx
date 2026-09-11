@@ -308,4 +308,122 @@ describe("LabelTranscribeClient 승인 실패", () => {
       true,
     );
   });
+
+  it("영양소 적용 뒤 원재료 충돌은 부분 성공으로 run을 닫는다", async () => {
+    const combinedItem = {
+      ...item,
+      ingredientDraft: {
+        excerpt: "Chicken meal; Salmon meal.",
+        ingredients: [
+          { name: "Chicken meal", position: 1 },
+          { name: "Salmon meal", position: 2 },
+        ],
+      },
+    } as PendingTranscript;
+    const requests: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const path = String(input);
+        requests.push(path);
+        if (path.endsWith("/sources/apply")) {
+          return new Response(
+            JSON.stringify({
+              results: [
+                {
+                  excerpt: "조단백질 32% 이상",
+                  nutrientKey: "protein_pct",
+                  sourceId: 99,
+                  status: "applied",
+                  value: 32,
+                },
+              ],
+            }),
+          );
+        }
+        if (path.endsWith("/sources/ingredients")) {
+          return new Response(
+            JSON.stringify({ result: { count: 0, status: "conflict" } }),
+          );
+        }
+        if (path.endsWith("/sources")) {
+          return new Response(JSON.stringify({ source: { id: 99 } }));
+        }
+        if (path.endsWith("/transcripts/501")) {
+          return new Response(JSON.stringify({}));
+        }
+        if (path.endsWith("/transcripts")) {
+          return new Response(JSON.stringify({ transcripts: [combinedItem] }));
+        }
+        throw new Error(`unexpected fetch: ${path}`);
+      }),
+    );
+
+    render(<LabelTranscribeClient initialTranscripts={[combinedItem]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "승인·등록" }));
+
+    const status = await screen.findByRole("status");
+    expect(status.textContent).toContain("영양소 적용 1");
+    expect(status.textContent).toContain("원재료 충돌");
+    expect(requests.some((path) => path.endsWith("/transcripts/501"))).toBe(
+      true,
+    );
+  });
+
+  it("영양소가 거절돼도 원재료가 적용되면 부분 성공으로 run을 닫는다", async () => {
+    const combinedItem = {
+      ...item,
+      ingredientDraft: {
+        excerpt: "Chicken meal; Salmon meal.",
+        ingredients: [
+          { name: "Chicken meal", position: 1 },
+          { name: "Salmon meal", position: 2 },
+        ],
+      },
+    } as PendingTranscript;
+    const requests: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const path = String(input);
+        requests.push(path);
+        if (path.endsWith("/sources/apply")) {
+          return new Response(
+            JSON.stringify({ error: "근거가 검증을 통과하지 못했습니다." }),
+            { status: 400 },
+          );
+        }
+        if (path.endsWith("/sources/ingredients")) {
+          return new Response(
+            JSON.stringify({ result: { count: 2, status: "applied" } }),
+          );
+        }
+        if (path.endsWith("/sources")) {
+          return new Response(JSON.stringify({ source: { id: 99 } }));
+        }
+        if (path.endsWith("/transcripts/501")) {
+          return new Response(JSON.stringify({}));
+        }
+        if (path.endsWith("/transcripts")) {
+          return new Response(JSON.stringify({ transcripts: [combinedItem] }));
+        }
+        throw new Error(`unexpected fetch: ${path}`);
+      }),
+    );
+
+    render(<LabelTranscribeClient initialTranscripts={[combinedItem]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "승인·등록" }));
+
+    const status = await screen.findByRole("status");
+    expect(status.textContent).toContain("원재료 적용");
+    expect(status.textContent).toContain("영양소 실패");
+    expect(requests.some((path) => path.endsWith("/sources/ingredients"))).toBe(
+      true,
+    );
+    expect(requests.some((path) => path.endsWith("/transcripts/501"))).toBe(
+      true,
+    );
+  });
 });

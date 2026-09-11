@@ -80,73 +80,99 @@ export function LabelTranscribeClient({
       const counts = { applied: 0, conflict: 0, skipped: 0 };
       const verifiedNutrientsSkipped =
         item.dataVerifiedAt === null ? 0 : item.values.length;
+      let nutrientFailure: string | null = null;
       if (item.values.length > 0 && item.dataVerifiedAt === null) {
-        const applied = await fetch(
-          `/api/foods/${String(item.foodId)}/sources/apply`,
-          {
-            body: JSON.stringify({
-              evidence: item.values.map((value) => ({ ...value, sourceId })),
-            }),
-            headers: { "content-type": "application/json" },
-            method: "POST",
-          },
-        );
-        const result: unknown = await applied.json();
-        if (!applied.ok)
-          throw new Error(
-            (result as { error?: string }).error ?? "근거 적용 실패",
+        try {
+          const applied = await fetch(
+            `/api/foods/${String(item.foodId)}/sources/apply`,
+            {
+              body: JSON.stringify({
+                evidence: item.values.map((value) => ({ ...value, sourceId })),
+              }),
+              headers: { "content-type": "application/json" },
+              method: "POST",
+            },
           );
+          const result: unknown = await applied.json();
+          if (!applied.ok)
+            throw new Error(
+              (result as { error?: string }).error ?? "근거 적용 실패",
+            );
 
-        const parsedResults = evidenceApplyResponseSchema.safeParse(result);
-        if (!parsedResults.success)
-          throw new Error("근거 적용 결과 형식을 확인하지 못했습니다.");
-        for (const r of parsedResults.data.results) counts[r.status]++;
-        if (counts.applied > 0) strandedSourceId = null;
+          const parsedResults = evidenceApplyResponseSchema.safeParse(result);
+          if (!parsedResults.success)
+            throw new Error("근거 적용 결과 형식을 확인하지 못했습니다.");
+          for (const r of parsedResults.data.results) counts[r.status]++;
+          if (counts.applied > 0) strandedSourceId = null;
+        } catch (error: unknown) {
+          nutrientFailure =
+            error instanceof Error ? error.message : "근거 적용 실패";
+        }
       }
 
-      let ingredientApplied = false;
+      let ingredientStatus: "applied" | "conflict" | "skipped" | null = null;
+      let ingredientFailure: string | null = null;
       if (item.ingredientDraft !== null) {
-        const applied = await fetch(
-          `/api/foods/${String(item.foodId)}/sources/ingredients`,
-          {
-            body: JSON.stringify({
-              ...item.ingredientDraft,
-              sourceId,
-            }),
-            headers: { "content-type": "application/json" },
-            method: "POST",
-          },
-        );
-        const result: unknown = await applied.json();
-        if (!applied.ok)
-          throw new Error(
-            (result as { error?: string }).error ?? "원재료 적용 실패",
+        try {
+          const applied = await fetch(
+            `/api/foods/${String(item.foodId)}/sources/ingredients`,
+            {
+              body: JSON.stringify({
+                ...item.ingredientDraft,
+                sourceId,
+              }),
+              headers: { "content-type": "application/json" },
+              method: "POST",
+            },
           );
-        const parsedResult = ingredientApplyResponseSchema.safeParse(result);
-        if (!parsedResult.success)
-          throw new Error("원재료 적용 결과 형식을 확인하지 못했습니다.");
-        if (parsedResult.data.result.status !== "applied")
-          throw new Error(
-            `원재료가 적용되지 않았습니다 (${parsedResult.data.result.status})`,
-          );
-        ingredientApplied = true;
-        strandedSourceId = null;
+          const result: unknown = await applied.json();
+          if (!applied.ok)
+            throw new Error(
+              (result as { error?: string }).error ?? "원재료 적용 실패",
+            );
+          const parsedResult = ingredientApplyResponseSchema.safeParse(result);
+          if (!parsedResult.success)
+            throw new Error("원재료 적용 결과 형식을 확인하지 못했습니다.");
+          ingredientStatus = parsedResult.data.result.status;
+          if (ingredientStatus === "applied") strandedSourceId = null;
+        } catch (error: unknown) {
+          ingredientFailure =
+            error instanceof Error ? error.message : "원재료 적용 실패";
+        }
       }
 
-      if (counts.applied === 0 && !ingredientApplied)
+      if (counts.applied === 0 && ingredientStatus !== "applied") {
+        if (nutrientFailure !== null && item.ingredientDraft === null)
+          throw new Error(nutrientFailure);
+        if (ingredientFailure !== null && item.values.length === 0)
+          throw new Error(ingredientFailure);
         throw new Error(
           `적용된 근거가 없습니다 (건너뜀 ${String(counts.skipped)}, 충돌 ${String(counts.conflict)})`,
         );
+      }
 
       await closeRun(item.runId, "applied");
-      const partial = counts.skipped + counts.conflict > 0;
+      const details: string[] = [];
+      if (counts.applied > 0)
+        details.push(`영양소 적용 ${String(counts.applied)}`);
+      if (counts.skipped > 0)
+        details.push(`영양소 건너뜀 ${String(counts.skipped)}`);
+      if (counts.conflict > 0)
+        details.push(`영양소 충돌 ${String(counts.conflict)}`);
+      if (verifiedNutrientsSkipped > 0)
+        details.push(
+          `검증된 영양소 ${String(verifiedNutrientsSkipped)}건 건너뜀`,
+        );
+      if (nutrientFailure !== null)
+        details.push(`영양소 실패: ${nutrientFailure}`);
+      if (ingredientStatus === "applied") details.push("원재료 적용");
+      if (ingredientStatus === "skipped") details.push("원재료 건너뜀");
+      if (ingredientStatus === "conflict") details.push("원재료 충돌");
+      if (ingredientFailure !== null)
+        details.push(`원재료 실패: ${ingredientFailure}`);
       setLog((lines) => [
         ...lines,
-        verifiedNutrientsSkipped > 0 && ingredientApplied
-          ? `✓ ${item.productName} — 원재료 적용, 검증된 영양소 ${String(verifiedNutrientsSkipped)}건 건너뜀`
-          : partial
-            ? `✓ ${item.productName} — 적용 ${String(counts.applied)}, 건너뜀 ${String(counts.skipped)}, 충돌 ${String(counts.conflict)}`
-            : `✓ ${item.productName}`,
+        `✓ ${item.productName}${details.length === 0 ? "" : ` — ${details.join(", ")}`}`,
       ]);
       await reload();
     } catch (error: unknown) {
