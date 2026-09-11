@@ -9,6 +9,7 @@ import type { SourceKind } from "./source-collection";
  */
 export type PendingTranscript = {
   readonly brandName: string;
+  readonly dataVerifiedAt: string | null;
   readonly foodId: number;
   readonly imageUrls: readonly string[];
   readonly ingredientDraft: {
@@ -37,7 +38,7 @@ export async function loadPendingTranscripts(): Promise<
   const { data, error } = await supabase
     .from("food_research_runs")
     .select(
-      "id, food_id, proposal, captures, foods!food_research_runs_food_id_fkey(product_name, brands!inner(ko_name))",
+      "id, food_id, proposal, captures, foods!food_research_runs_food_id_fkey(product_name, data_verified_at, brands!inner(ko_name))",
     )
     .eq("status", "pending_review")
     .order("id");
@@ -71,6 +72,7 @@ export async function loadPendingTranscripts(): Promise<
     return [
       {
         brandName: row.foods.brands.ko_name,
+        dataVerifiedAt: row.foods.data_verified_at,
         foodId: row.food_id,
         imageUrls: (captures.images ?? [])
           .map((image) => image.url)

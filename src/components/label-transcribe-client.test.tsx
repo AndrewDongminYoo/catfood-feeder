@@ -7,6 +7,7 @@ import type { PendingTranscript } from "@/lib/label-transcripts";
 
 const item: PendingTranscript = {
   brandName: "테스트 브랜드",
+  dataVerifiedAt: null,
   foodId: 42,
   imageUrls: [],
   ingredientDraft: null,
@@ -246,5 +247,65 @@ describe("LabelTranscribeClient 승인 실패", () => {
           method === "PATCH" && path.endsWith("/transcripts/501"),
       ),
     ).toBe(true);
+  });
+
+  it("검증된 사료의 혼합 제안은 영양소를 건너뛰고 원재료를 적용한다", async () => {
+    const combinedItem = {
+      ...item,
+      dataVerifiedAt: "2026-09-11T00:00:00.000Z",
+      ingredientDraft: {
+        excerpt: "Chicken meal; Salmon meal.",
+        ingredients: [
+          { name: "Chicken meal", position: 1 },
+          { name: "Salmon meal", position: 2 },
+        ],
+      },
+    } as PendingTranscript;
+    const requests: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const path = String(input);
+        requests.push(path);
+        if (path.endsWith("/sources/apply")) {
+          return new Response(JSON.stringify({ error: "근거 적용 실패" }), {
+            status: 400,
+          });
+        }
+        if (path.endsWith("/sources/ingredients")) {
+          return new Response(
+            JSON.stringify({ result: { count: 2, status: "applied" } }),
+          );
+        }
+        if (path.endsWith("/sources")) {
+          return new Response(JSON.stringify({ source: { id: 99 } }));
+        }
+        if (path.endsWith("/transcripts/501")) {
+          return new Response(JSON.stringify({}));
+        }
+        if (path.endsWith("/transcripts")) {
+          return new Response(JSON.stringify({ transcripts: [combinedItem] }));
+        }
+        throw new Error(`unexpected fetch: ${path}`);
+      }),
+    );
+
+    render(<LabelTranscribeClient initialTranscripts={[combinedItem]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "승인·등록" }));
+
+    const status = await screen.findByRole("status");
+    expect(status.textContent).toContain(`✓ ${item.productName}`);
+    expect(status.textContent).toContain("원재료 적용");
+    expect(status.textContent).toContain("검증된 영양소 1건 건너뜀");
+    expect(requests.some((path) => path.endsWith("/sources/apply"))).toBe(
+      false,
+    );
+    expect(requests.some((path) => path.endsWith("/sources/ingredients"))).toBe(
+      true,
+    );
+    expect(requests.some((path) => path.endsWith("/transcripts/501"))).toBe(
+      true,
+    );
   });
 });

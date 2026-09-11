@@ -78,7 +78,9 @@ export function LabelTranscribeClient({
       strandedSourceId = sourceId;
 
       const counts = { applied: 0, conflict: 0, skipped: 0 };
-      if (item.values.length > 0) {
+      const verifiedNutrientsSkipped =
+        item.dataVerifiedAt === null ? 0 : item.values.length;
+      if (item.values.length > 0 && item.dataVerifiedAt === null) {
         const applied = await fetch(
           `/api/foods/${String(item.foodId)}/sources/apply`,
           {
@@ -140,9 +142,11 @@ export function LabelTranscribeClient({
       const partial = counts.skipped + counts.conflict > 0;
       setLog((lines) => [
         ...lines,
-        partial
-          ? `✓ ${item.productName} — 적용 ${String(counts.applied)}, 건너뜀 ${String(counts.skipped)}, 충돌 ${String(counts.conflict)}`
-          : `✓ ${item.productName}`,
+        verifiedNutrientsSkipped > 0 && ingredientApplied
+          ? `✓ ${item.productName} — 원재료 적용, 검증된 영양소 ${String(verifiedNutrientsSkipped)}건 건너뜀`
+          : partial
+            ? `✓ ${item.productName} — 적용 ${String(counts.applied)}, 건너뜀 ${String(counts.skipped)}, 충돌 ${String(counts.conflict)}`
+            : `✓ ${item.productName}`,
       ]);
       await reload();
     } catch (error: unknown) {
