@@ -16,6 +16,8 @@ import {
 } from "@/lib/source-collection";
 import { captureSource } from "@/lib/source-fetcher";
 import {
+  SourceRepositoryError,
+  createCurrentFoodSource,
   createFailedFoodSource,
   foodExists,
   getFoodSourceTranscripts,
@@ -174,7 +176,7 @@ export async function POST(
       }
       const capturedAt = new Date().toISOString();
       const contentHash = hashSourceText(payload.data.capturedText);
-      const replacement = await replaceCurrentFoodSource({
+      const sourceId = await createCurrentFoodSource({
         capturedAt,
         capturedText: payload.data.capturedText,
         captureMethod: payload.data.captureMethod,
@@ -188,12 +190,12 @@ export async function POST(
         url: payload.data.url,
       });
       return NextResponse.json({
-        contentStatus: replacement.contentStatus,
+        contentStatus: "new",
         source: {
           capturedAt,
           capturedText: payload.data.capturedText,
           contentHash,
-          id: replacement.sourceId,
+          id: sourceId,
           kind: payload.data.kind,
           observedAt: payload.data.observedAt ?? null,
           url: payload.data.url,
@@ -262,6 +264,16 @@ export async function POST(
       },
     });
   } catch (error: unknown) {
+    if (
+      error instanceof SourceRepositoryError &&
+      error.operation === "create_current_source" &&
+      error.code === "23505"
+    ) {
+      return NextResponse.json(
+        { error: "같은 URL의 현재 출처가 이미 있습니다." },
+        { status: 409 },
+      );
+    }
     if (error instanceof RequestBodyTooLargeError) {
       return NextResponse.json(
         {

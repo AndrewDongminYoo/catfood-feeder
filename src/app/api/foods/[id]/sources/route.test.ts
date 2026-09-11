@@ -13,9 +13,19 @@ import { POST } from "./route";
 const mocks = vi.hoisted(() => ({
   authorizeCurator: vi.fn(),
   captureSource: vi.fn(),
+  createCurrentFoodSource: vi.fn(),
   createFailedFoodSource: vi.fn(),
   foodExists: vi.fn(),
   replaceCurrentFoodSource: vi.fn(),
+  SourceRepositoryError: class SourceRepositoryError extends Error {
+    constructor(
+      readonly operation: string,
+      message: string,
+      readonly code?: string,
+    ) {
+      super(message);
+    }
+  },
 }));
 
 vi.mock("@/lib/admin-auth", () => ({
@@ -27,10 +37,12 @@ vi.mock("@/lib/source-fetcher", () => ({
 }));
 
 vi.mock("@/lib/source-repository", () => ({
+  createCurrentFoodSource: mocks.createCurrentFoodSource,
   createFailedFoodSource: mocks.createFailedFoodSource,
   foodExists: mocks.foodExists,
   getFoodSourceTranscripts: vi.fn(),
   replaceCurrentFoodSource: mocks.replaceCurrentFoodSource,
+  SourceRepositoryError: mocks.SourceRepositoryError,
 }));
 
 const HUMAN = {
@@ -72,6 +84,7 @@ function post(body: unknown) {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.foodExists.mockResolvedValue(true);
+  mocks.createCurrentFoodSource.mockResolvedValue(8);
   mocks.replaceCurrentFoodSource.mockResolvedValue({
     contentStatus: "new",
     sourceId: 7,
@@ -95,18 +108,45 @@ describe("출처 등록 경계", () => {
     expect(mocks.replaceCurrentFoodSource).not.toHaveBeenCalled();
   });
 
-  it("사람 세션은 수동 전사본을 등록할 수 있다", async () => {
+  it("사람 세션의 수동 전사본은 기존 출처를 교체하지 않고 등록한다", async () => {
     mocks.authorizeCurator.mockResolvedValue(HUMAN);
 
     const response = await post(MANUAL_BODY);
 
     expect(response.status).toBe(200);
-    expect(mocks.replaceCurrentFoodSource).toHaveBeenCalledWith(
+    expect(mocks.createCurrentFoodSource).toHaveBeenCalledWith(
       expect.objectContaining({
         captureMethod: "manual",
         createdBy: HUMAN.actorId,
       }),
     );
+    expect(mocks.replaceCurrentFoodSource).not.toHaveBeenCalled();
+  });
+
+  it("수동 전사본은 교체 동작을 요청할 수 없다", async () => {
+    mocks.authorizeCurator.mockResolvedValue(HUMAN);
+
+    const response = await post({ ...MANUAL_BODY, replaceExisting: true });
+
+    expect(response.status).toBe(400);
+    expect(mocks.createCurrentFoodSource).not.toHaveBeenCalled();
+    expect(mocks.replaceCurrentFoodSource).not.toHaveBeenCalled();
+  });
+
+  it("교체 금지 수동 등록의 URL 충돌은 기존 출처를 보존하고 409를 반환한다", async () => {
+    mocks.authorizeCurator.mockResolvedValue(HUMAN);
+    mocks.createCurrentFoodSource.mockRejectedValue(
+      new mocks.SourceRepositoryError(
+        "create_current_source",
+        "duplicate key value violates unique constraint",
+        "23505",
+      ),
+    );
+
+    const response = await post(MANUAL_BODY);
+
+    expect(response.status).toBe(409);
+    expect(mocks.replaceCurrentFoodSource).not.toHaveBeenCalled();
   });
 
   it("자동화 자격 증명은 fetch 수집을 계속 쓸 수 있다", async () => {

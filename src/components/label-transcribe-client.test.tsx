@@ -491,6 +491,84 @@ describe("LabelTranscribeClient 승인 실패", () => {
     );
   });
 
+  it("같은 URL의 현재 출처가 있으면 교체하지 않고 그 출처에 원재료를 적용한다", async () => {
+    const combinedItem = {
+      ...item,
+      dataVerifiedAt: "2026-09-11T00:00:00.000Z",
+      ingredientDraft: {
+        excerpt: "Chicken meal; Salmon meal.",
+        ingredients: [
+          { name: "Chicken meal", position: 1 },
+          { name: "Salmon meal", position: 2 },
+        ],
+      },
+      sourceKind: "manufacturer",
+    } as PendingTranscript;
+    const requests: { body?: string; method?: string; path: string }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const path = String(input);
+        requests.push({
+          body: typeof init?.body === "string" ? init.body : undefined,
+          method: init?.method,
+          path,
+        });
+        if (path.endsWith("/sources") && init?.method === "POST") {
+          return new Response(JSON.stringify({ error: "이미 등록된 URL" }), {
+            status: 409,
+          });
+        }
+        if (path.endsWith("/sources")) {
+          return new Response(
+            JSON.stringify({
+              sources: [
+                {
+                  captured_text: "Ingredients: Chicken meal; Salmon meal.",
+                  id: 77,
+                  kind: "manufacturer",
+                  url: item.productPageUrl,
+                },
+              ],
+            }),
+          );
+        }
+        if (path.endsWith("/sources/ingredients")) {
+          return new Response(
+            JSON.stringify({ result: { count: 2, status: "applied" } }),
+          );
+        }
+        if (path.endsWith("/transcripts/501")) {
+          return new Response(JSON.stringify({}));
+        }
+        if (path.endsWith("/transcripts")) {
+          return new Response(JSON.stringify({ transcripts: [combinedItem] }));
+        }
+        throw new Error(`unexpected fetch: ${path}`);
+      }),
+    );
+
+    render(<LabelTranscribeClient initialTranscripts={[combinedItem]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "승인·등록" }));
+
+    const status = await screen.findByRole("status");
+    expect(status.textContent).toContain("원재료 적용");
+    expect(status.textContent).not.toContain("직접 정리하세요");
+    const sourcePost = requests.find(
+      ({ method, path }) => method === "POST" && path.endsWith("/sources"),
+    );
+    expect(JSON.parse(sourcePost?.body ?? "null")).not.toHaveProperty(
+      "replaceExisting",
+    );
+    const ingredientPost = requests.find(({ path }) =>
+      path.endsWith("/sources/ingredients"),
+    );
+    expect(JSON.parse(ingredientPost?.body ?? "null")).toMatchObject({
+      sourceId: 77,
+    });
+  });
+
   it("영양소 적용 뒤 원재료 충돌은 부분 성공으로 run을 닫는다", async () => {
     const combinedItem = {
       ...item,

@@ -109,14 +109,44 @@ export function LabelTranscribeClient({
         },
       );
       const source: unknown = await registered.json();
-      if (!registered.ok)
+      let sourceId: number | undefined;
+      if (registered.status === 409) {
+        const currentResponse = await fetch(
+          `/api/foods/${String(item.foodId)}/sources`,
+        );
+        const currentBody: unknown = await currentResponse.json();
+        if (!currentResponse.ok)
+          throw new Error(
+            (currentBody as { error?: string }).error ?? "현재 출처 확인 실패",
+          );
+        const currentSources = (
+          currentBody as {
+            sources?: readonly {
+              id?: unknown;
+              kind?: unknown;
+              url?: unknown;
+            }[];
+          }
+        ).sources;
+        const current = currentSources?.find(
+          (candidate) => candidate.url === item.productPageUrl,
+        );
+        if (typeof current?.id !== "number")
+          throw new Error("같은 URL의 현재 출처를 확인하지 못했습니다.");
+        if (current.kind !== sourceKind)
+          throw new Error(
+            "같은 URL의 현재 출처 종류가 달라 교체하지 않았습니다.",
+          );
+        sourceId = current.id;
+      } else if (!registered.ok) {
         throw new Error(
           (source as { error?: string }).error ?? "출처 등록 실패",
         );
-
-      const sourceId = (source as { source?: { id?: number } }).source?.id;
+      } else {
+        sourceId = (source as { source?: { id?: number } }).source?.id;
+        if (typeof sourceId === "number") strandedSourceId = sourceId;
+      }
       if (typeof sourceId !== "number") throw new Error("source.id 없음");
-      strandedSourceId = sourceId;
 
       const counts = { applied: 0, conflict: 0, skipped: 0 };
       const verifiedNutrientsSkipped =
