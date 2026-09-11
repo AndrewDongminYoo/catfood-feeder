@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { PendingTranscript } from "@/lib/label-transcripts";
+import type { SourceKind } from "@/lib/source-collection";
 import {
   evidenceApplyResponseSchema,
   ingredientApplyResponseSchema,
@@ -18,6 +19,15 @@ export function LabelTranscribeClient({
 }) {
   const [items, setItems] = useState(initialTranscripts);
   const [text, setText] = useState<Record<number, string>>({});
+  const [sourceKinds, setSourceKinds] = useState<Record<number, SourceKind>>(
+    {},
+  );
+  const [ingredientExcerpts, setIngredientExcerpts] = useState<
+    Record<number, string>
+  >({});
+  const [ingredientNames, setIngredientNames] = useState<
+    Record<number, string>
+  >({});
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState<readonly string[]>([]);
 
@@ -46,6 +56,24 @@ export function LabelTranscribeClient({
   async function approve(item: PendingTranscript) {
     setBusy(true);
     const capturedText = text[item.runId] ?? item.transcript;
+    const sourceKind = sourceKinds[item.runId] ?? item.sourceKind;
+    const ingredientDraft =
+      item.ingredientDraft === null
+        ? null
+        : {
+            excerpt:
+              ingredientExcerpts[item.runId] ?? item.ingredientDraft.excerpt,
+            ingredients: (
+              ingredientNames[item.runId] ??
+              item.ingredientDraft.ingredients
+                .map((ingredient) => ingredient.name)
+                .join("\n")
+            )
+              .split("\n")
+              .map((name) => name.trim())
+              .filter((name) => name.length > 0)
+              .map((name, index) => ({ name, position: index + 1 })),
+          };
     // 출처 등록 뒤, 근거 적용이 끝나기 전까지의 모든 실패(9개 초과, validate()의
     // 배치 거절, 편집으로 어긋난 excerpt 등 원인은 다양하다)는 근거 없는 manual
     // 출처를 남긴다. release-stranded.mjs는 사료 단위로 오래됨을 판단해 이런
@@ -60,7 +88,7 @@ export function LabelTranscribeClient({
           body: JSON.stringify({
             captureMethod: "manual",
             capturedText,
-            kind: item.sourceKind,
+            kind: sourceKind,
             url: item.productPageUrl,
           }),
           headers: { "content-type": "application/json" },
@@ -112,13 +140,13 @@ export function LabelTranscribeClient({
 
       let ingredientStatus: "applied" | "conflict" | "skipped" | null = null;
       let ingredientFailure: string | null = null;
-      if (item.ingredientDraft !== null) {
+      if (ingredientDraft !== null) {
         try {
           const applied = await fetch(
             `/api/foods/${String(item.foodId)}/sources/ingredients`,
             {
               body: JSON.stringify({
-                ...item.ingredientDraft,
+                ...ingredientDraft,
                 sourceId,
               }),
               headers: { "content-type": "application/json" },
@@ -142,7 +170,7 @@ export function LabelTranscribeClient({
       }
 
       if (counts.applied === 0 && ingredientStatus !== "applied") {
-        if (nutrientFailure !== null && item.ingredientDraft === null)
+        if (nutrientFailure !== null && ingredientDraft === null)
           throw new Error(nutrientFailure);
         if (ingredientFailure !== null && nutrientFailure === null)
           throw new Error(ingredientFailure);
@@ -225,7 +253,26 @@ export function LabelTranscribeClient({
               ))}
             </div>
             <div>
+              <label>
+                출처 종류
+                <select
+                  onChange={(event) =>
+                    setSourceKinds((prev) => ({
+                      ...prev,
+                      [item.runId]: event.target.value as SourceKind,
+                    }))
+                  }
+                  value={sourceKinds[item.runId] ?? item.sourceKind}
+                >
+                  <option value="manufacturer">제조사</option>
+                  <option value="kr_label">국내 라벨</option>
+                </select>
+              </label>
+              <label htmlFor={`transcript-${String(item.runId)}`}>
+                전사 원문
+              </label>
               <textarea
+                id={`transcript-${String(item.runId)}`}
                 onChange={(event) =>
                   setText((prev) => ({
                     ...prev,
@@ -235,22 +282,59 @@ export function LabelTranscribeClient({
                 rows={10}
                 value={text[item.runId] ?? item.transcript}
               />
-              <ul>
-                {item.values.map((value, index) => (
-                  // 표가 두 번 인쇄되면 같은 nutrientKey가 두 번 올 수 있다 — 그것을
-                  // key로 쓰면 React가 둘을 같은 항목으로 접어 중복을 화면에서
-                  // 감춘다. 승인 전에 사람이 봐야 할 신호다.
-                  <li key={`${value.nutrientKey}-${String(index)}`}>
-                    {value.nutrientKey} = {value.value} —{" "}
-                    <em>{value.excerpt}</em>
-                  </li>
-                ))}
-                {item.ingredientDraft?.ingredients.map((ingredient) => (
-                  <li key={`ingredient-${String(ingredient.position)}`}>
-                    {ingredient.position}. {ingredient.name}
-                  </li>
-                ))}
-              </ul>
+              {item.ingredientDraft !== null && (
+                <>
+                  <label htmlFor={`ingredient-excerpt-${String(item.runId)}`}>
+                    원재료 원문
+                  </label>
+                  <textarea
+                    className="sm"
+                    id={`ingredient-excerpt-${String(item.runId)}`}
+                    onChange={(event) =>
+                      setIngredientExcerpts((prev) => ({
+                        ...prev,
+                        [item.runId]: event.target.value,
+                      }))
+                    }
+                    value={
+                      ingredientExcerpts[item.runId] ??
+                      item.ingredientDraft.excerpt
+                    }
+                  />
+                  <label htmlFor={`ingredient-names-${String(item.runId)}`}>
+                    원재료 목록 (한 줄에 하나)
+                  </label>
+                  <textarea
+                    className="sm"
+                    id={`ingredient-names-${String(item.runId)}`}
+                    onChange={(event) =>
+                      setIngredientNames((prev) => ({
+                        ...prev,
+                        [item.runId]: event.target.value,
+                      }))
+                    }
+                    value={
+                      ingredientNames[item.runId] ??
+                      item.ingredientDraft.ingredients
+                        .map((ingredient) => ingredient.name)
+                        .join("\n")
+                    }
+                  />
+                </>
+              )}
+              {item.values.length > 0 && (
+                <ul>
+                  {item.values.map((value, index) => (
+                    // 표가 두 번 인쇄되면 같은 nutrientKey가 두 번 올 수 있다 — 그것을
+                    // key로 쓰면 React가 둘을 같은 항목으로 접어 중복을 화면에서
+                    // 감춘다. 승인 전에 사람이 봐야 할 신호다.
+                    <li key={`${value.nutrientKey}-${String(index)}`}>
+                      {value.nutrientKey} = {value.value} —{" "}
+                      <em>{value.excerpt}</em>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
           <p className="muted">출처 {item.productPageUrl}</p>
