@@ -128,6 +128,17 @@ export type IngredientApplyResult = Readonly<{
   status: "applied" | "skipped" | "conflict";
 }>;
 
+export const ingredientApplyResponseSchema = z
+  .object({
+    result: z
+      .object({
+        count: z.number().int().nonnegative(),
+        status: z.enum(["applied", "skipped", "conflict"]),
+      })
+      .strict(),
+  })
+  .strict();
+
 const databaseIngredientApplyResultSchema = z
   .object({
     count: z.number().int().nonnegative(),

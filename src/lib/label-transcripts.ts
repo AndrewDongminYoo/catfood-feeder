@@ -1,4 +1,5 @@
 import { createAdminClient } from "./supabase/admin";
+import type { SourceKind } from "./source-collection";
 
 /**
  * 사람의 확인을 기다리는 전사 제안. 화면과 API 가 같은 것을 보아야 하므로 한 곳에 둔다.
@@ -8,11 +9,20 @@ import { createAdminClient } from "./supabase/admin";
  */
 export type PendingTranscript = {
   readonly brandName: string;
+  readonly dataVerifiedAt: string | null;
   readonly foodId: number;
   readonly imageUrls: readonly string[];
+  readonly ingredientDraft: {
+    readonly excerpt: string;
+    readonly ingredients: readonly {
+      readonly name: string;
+      readonly position: number;
+    }[];
+  } | null;
   readonly productName: string;
   readonly productPageUrl: string;
   readonly runId: number;
+  readonly sourceKind: SourceKind;
   readonly transcript: string;
   readonly values: readonly {
     readonly excerpt: string;
@@ -28,7 +38,7 @@ export async function loadPendingTranscripts(): Promise<
   const { data, error } = await supabase
     .from("food_research_runs")
     .select(
-      "id, food_id, proposal, captures, foods!inner(product_name, brands!inner(ko_name))",
+      "id, food_id, proposal, captures, foods!food_research_runs_food_id_fkey(product_name, data_verified_at, brands!inner(ko_name))",
     )
     .eq("status", "pending_review")
     .order("id");
@@ -36,6 +46,8 @@ export async function loadPendingTranscripts(): Promise<
 
   return (data ?? []).flatMap((row) => {
     const proposal = row.proposal as {
+      ingredientDraft?: unknown;
+      sourceKind?: unknown;
       transcript?: unknown;
       values?: unknown;
     } | null;
@@ -60,13 +72,21 @@ export async function loadPendingTranscripts(): Promise<
     return [
       {
         brandName: row.foods.brands.ko_name,
+        dataVerifiedAt: row.foods.data_verified_at,
         foodId: row.food_id,
         imageUrls: (captures.images ?? [])
           .map((image) => image.url)
           .filter((url): url is string => typeof url === "string"),
+        ingredientDraft:
+          typeof proposal.ingredientDraft === "object" &&
+          proposal.ingredientDraft !== null
+            ? (proposal.ingredientDraft as PendingTranscript["ingredientDraft"])
+            : null,
         productName: row.foods.product_name,
         productPageUrl: captures.productPageUrl,
         runId: row.id,
+        sourceKind:
+          proposal.sourceKind === "manufacturer" ? "manufacturer" : "kr_label",
         transcript: proposal.transcript,
         values: Array.isArray(proposal.values)
           ? (proposal.values as PendingTranscript["values"])

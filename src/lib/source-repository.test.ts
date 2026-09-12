@@ -1,10 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   applyUnclaimedFoodEvidenceDraft,
+  createCurrentFoodSource,
   replaceUnclaimedFoodSource,
 } from "./source-repository";
 
-const mocks = vi.hoisted(() => ({ createAdminClient: vi.fn(), rpc: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  createAdminClient: vi.fn(),
+  from: vi.fn(),
+  insert: vi.fn(),
+  rpc: vi.fn(),
+  select: vi.fn(),
+  single: vi.fn(),
+}));
 
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: mocks.createAdminClient,
@@ -19,7 +27,13 @@ vi.mock("@/lib/supabase/admin", () => ({
 describe("research RPC payloads", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.createAdminClient.mockReturnValue({ rpc: mocks.rpc });
+    mocks.createAdminClient.mockReturnValue({
+      from: mocks.from,
+      rpc: mocks.rpc,
+    });
+    mocks.from.mockReturnValue({ insert: mocks.insert });
+    mocks.insert.mockReturnValue({ select: mocks.select });
+    mocks.select.mockReturnValue({ single: mocks.single });
   });
 
   const capture = {
@@ -60,6 +74,33 @@ describe("research RPC payloads", () => {
       "replace_current_food_source",
       expect.objectContaining({ p_owned_source_ids: [91] }),
     );
+  });
+
+  it("creates a current source without invoking the replacement RPC", async () => {
+    mocks.single.mockResolvedValue({ data: { id: 93 }, error: null });
+
+    await expect(createCurrentFoodSource(capture)).resolves.toBe(93);
+
+    expect(mocks.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ is_current: true }),
+    );
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("preserves the database error code when create-only registration collides", async () => {
+    mocks.single.mockResolvedValue({
+      data: null,
+      error: {
+        code: "23505",
+        message: "duplicate key value violates unique constraint",
+      },
+    });
+
+    await expect(createCurrentFoodSource(capture)).rejects.toMatchObject({
+      code: "23505",
+      operation: "create_current_source",
+    });
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 
   it("sends the owned source ids when applying evidence", async () => {

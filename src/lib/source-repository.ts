@@ -77,6 +77,35 @@ export async function createFailedFoodSource(
   return data.id;
 }
 
+/**
+ * 현행 출처를 새로 만들되 같은 URL의 기존 출처는 절대 교체하지 않는다.
+ *
+ * 수동 전사 승인은 기존 nutrient evidence를 보존해야 하므로, URL 충돌을
+ * replacement RPC에 넘기지 않고 partial unique index가 원자적으로 거절하게 한다.
+ */
+export async function createCurrentFoodSource(
+  source: SourceWrite & {
+    readonly capturedAt: string;
+    readonly capturedText: string;
+    readonly contentHash: string;
+  },
+): Promise<number> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("food_sources")
+    .insert(toSourceInsert(source, true))
+    .select("id")
+    .single();
+
+  if (error)
+    throw new SourceRepositoryError(
+      "create_current_source",
+      error.message,
+      error.code,
+    );
+  return data.id;
+}
+
 export async function replaceCurrentFoodSource(
   source: SourceWrite & {
     readonly capturedAt: string;

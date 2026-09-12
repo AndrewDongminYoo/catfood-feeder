@@ -2,7 +2,21 @@
 
 import { useState } from "react";
 import type { PendingTranscript } from "@/lib/label-transcripts";
-import { evidenceApplyResponseSchema } from "@/lib/source-apply";
+import type { SourceKind } from "@/lib/source-collection";
+import {
+  evidenceApplyResponseSchema,
+  ingredientApplyResponseSchema,
+} from "@/lib/source-apply";
+
+function containsEvidenceExcerpt(sourceText: string, excerpt: string): boolean {
+  const normalize = (value: string) =>
+    value.normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase();
+  const normalizedExcerpt = normalize(excerpt);
+  return (
+    normalizedExcerpt.length > 0 &&
+    normalize(sourceText).includes(normalizedExcerpt)
+  );
+}
 
 /**
  * 승인은 브라우저의 운영자 세션에서 나간다. 그래야 `manual` 이 "사람이 읽고 옮겨
@@ -15,6 +29,15 @@ export function LabelTranscribeClient({
 }) {
   const [items, setItems] = useState(initialTranscripts);
   const [text, setText] = useState<Record<number, string>>({});
+  const [sourceKinds, setSourceKinds] = useState<Record<number, SourceKind>>(
+    {},
+  );
+  const [ingredientExcerpts, setIngredientExcerpts] = useState<
+    Record<number, string>
+  >({});
+  const [ingredientNames, setIngredientNames] = useState<
+    Record<number, string>
+  >({});
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState<readonly string[]>([]);
 
@@ -42,7 +65,38 @@ export function LabelTranscribeClient({
 
   async function approve(item: PendingTranscript) {
     setBusy(true);
-    const capturedText = text[item.runId] ?? item.transcript;
+    const editedIngredientExcerpt =
+      item.ingredientDraft === null
+        ? null
+        : (ingredientExcerpts[item.runId] ?? item.ingredientDraft.excerpt);
+    const transcript = text[item.runId] ?? item.transcript;
+    const capturedText =
+      item.ingredientDraft !== null &&
+      editedIngredientExcerpt !== null &&
+      editedIngredientExcerpt !== item.ingredientDraft.excerpt &&
+      transcript.includes(item.ingredientDraft.excerpt)
+        ? transcript.replace(
+            item.ingredientDraft.excerpt,
+            editedIngredientExcerpt,
+          )
+        : transcript;
+    const sourceKind = sourceKinds[item.runId] ?? item.sourceKind;
+    const ingredientDraft =
+      item.ingredientDraft === null
+        ? null
+        : {
+            excerpt: editedIngredientExcerpt,
+            ingredients: (
+              ingredientNames[item.runId] ??
+              item.ingredientDraft.ingredients
+                .map((ingredient) => ingredient.name)
+                .join("\n")
+            )
+              .split("\n")
+              .map((name) => name.trim())
+              .filter((name) => name.length > 0)
+              .map((name, index) => ({ name, position: index + 1 })),
+          };
     // 출처 등록 뒤, 근거 적용이 끝나기 전까지의 모든 실패(9개 초과, validate()의
     // 배치 거절, 편집으로 어긋난 excerpt 등 원인은 다양하다)는 근거 없는 manual
     // 출처를 남긴다. release-stranded.mjs는 사료 단위로 오래됨을 판단해 이런
@@ -51,13 +105,18 @@ export function LabelTranscribeClient({
     // 직접 지우게 한다.
     let strandedSourceId: number | null = null;
     try {
+      if (item.dataVerifiedAt !== null && ingredientDraft === null) {
+        throw new Error(
+          "검증된 사료의 영양소-only 제안은 적용할 수 없습니다. 건너뜀 처리하세요.",
+        );
+      }
       const registered = await fetch(
         `/api/foods/${String(item.foodId)}/sources`,
         {
           body: JSON.stringify({
             captureMethod: "manual",
             capturedText,
-            kind: "kr_label",
+            kind: sourceKind,
             url: item.productPageUrl,
           }),
           headers: { "content-type": "application/json" },
@@ -65,54 +124,170 @@ export function LabelTranscribeClient({
         },
       );
       const source: unknown = await registered.json();
-      if (!registered.ok)
+      let sourceId: number | undefined;
+      if (registered.status === 409) {
+        const currentResponse = await fetch(
+          `/api/foods/${String(item.foodId)}/sources`,
+        );
+        const currentBody: unknown = await currentResponse.json();
+        if (!currentResponse.ok)
+          throw new Error(
+            (currentBody as { error?: string }).error ?? "현재 출처 확인 실패",
+          );
+        const currentSources = (
+          currentBody as {
+            sources?: readonly {
+              id?: unknown;
+              kind?: unknown;
+              captured_text?: unknown;
+              url?: unknown;
+            }[];
+          }
+        ).sources;
+        const current = currentSources?.find(
+          (candidate) => candidate.url === item.productPageUrl,
+        );
+        if (typeof current?.id !== "number")
+          throw new Error("같은 URL의 현재 출처를 확인하지 못했습니다.");
+        if (current.kind !== sourceKind)
+          throw new Error(
+            "같은 URL의 현재 출처 종류가 달라 교체하지 않았습니다.",
+          );
+        const applicableExcerpts = [
+          ...(item.dataVerifiedAt === null
+            ? item.values.map((value) => value.excerpt)
+            : []),
+          ...(typeof ingredientDraft?.excerpt === "string"
+            ? [ingredientDraft.excerpt]
+            : []),
+        ];
+        const currentCapturedText = current.captured_text;
+        if (
+          typeof currentCapturedText !== "string" ||
+          applicableExcerpts.some(
+            (excerpt) => !containsEvidenceExcerpt(currentCapturedText, excerpt),
+          )
+        ) {
+          throw new Error(
+            "현재 출처 원문에 제안 구절이 없습니다. 다른 출처 URL로 다시 제안하세요.",
+          );
+        }
+        sourceId = current.id;
+      } else if (!registered.ok) {
         throw new Error(
           (source as { error?: string }).error ?? "출처 등록 실패",
         );
-
-      const sourceId = (source as { source?: { id?: number } }).source?.id;
+      } else {
+        sourceId = (source as { source?: { id?: number } }).source?.id;
+        if (typeof sourceId === "number") strandedSourceId = sourceId;
+      }
       if (typeof sourceId !== "number") throw new Error("source.id 없음");
-      strandedSourceId = sourceId;
 
-      const applied = await fetch(
-        `/api/foods/${String(item.foodId)}/sources/apply`,
-        {
-          body: JSON.stringify({
-            evidence: item.values.map((value) => ({ ...value, sourceId })),
-          }),
-          headers: { "content-type": "application/json" },
-          method: "POST",
-        },
-      );
-      const result: unknown = await applied.json();
-      if (!applied.ok)
-        throw new Error(
-          (result as { error?: string }).error ?? "근거 적용 실패",
-        );
-
-      // apply RPC는 사료가 이미 다른 출처 종류의 현재값을 갖고 있으면 그 영양소를
-      // skipped로 건너뛴다. 9개 부분값 사료(ANF·퓨어네이쳐 등)는 200 응답인데
-      // results가 전부 skipped일 수 있다 — 그건 실패지 성공이 아니다. 여기서
-      // 세지 않으면 화면이 미아 출처 플래그를 지우고 run을 applied로 닫아
-      // 아무것도 저장되지 않은 채 체크 표시만 남긴다.
-      const parsedResults = evidenceApplyResponseSchema.safeParse(result);
-      if (!parsedResults.success)
-        throw new Error("근거 적용 결과 형식을 확인하지 못했습니다.");
       const counts = { applied: 0, conflict: 0, skipped: 0 };
-      for (const r of parsedResults.data.results) counts[r.status]++;
-      if (counts.applied === 0)
-        throw new Error(
-          `적용된 근거가 없습니다 (건너뜀 ${String(counts.skipped)}, 충돌 ${String(counts.conflict)})`,
-        );
+      const verifiedNutrientsSkipped =
+        item.dataVerifiedAt === null ? 0 : item.values.length;
+      let nutrientFailure: string | null = null;
+      if (item.values.length > 0 && item.dataVerifiedAt === null) {
+        try {
+          const applied = await fetch(
+            `/api/foods/${String(item.foodId)}/sources/apply`,
+            {
+              body: JSON.stringify({
+                evidence: item.values.map((value) => ({ ...value, sourceId })),
+              }),
+              headers: { "content-type": "application/json" },
+              method: "POST",
+            },
+          );
+          const result: unknown = await applied.json();
+          if (!applied.ok)
+            throw new Error(
+              (result as { error?: string }).error ?? "근거 적용 실패",
+            );
 
-      strandedSourceId = null; // 근거가 최소 하나는 붙었다 — 더는 미아 출처가 아니다.
+          const parsedResults = evidenceApplyResponseSchema.safeParse(result);
+          if (!parsedResults.success)
+            throw new Error("근거 적용 결과 형식을 확인하지 못했습니다.");
+          for (const r of parsedResults.data.results) counts[r.status]++;
+          if (counts.applied > 0) strandedSourceId = null;
+        } catch (error: unknown) {
+          nutrientFailure =
+            error instanceof Error ? error.message : "근거 적용 실패";
+        }
+      }
+
+      let ingredientStatus: "applied" | "conflict" | "skipped" | null = null;
+      let ingredientFailure: string | null = null;
+      if (ingredientDraft !== null) {
+        try {
+          const applied = await fetch(
+            `/api/foods/${String(item.foodId)}/sources/ingredients`,
+            {
+              body: JSON.stringify({
+                ...ingredientDraft,
+                sourceId,
+              }),
+              headers: { "content-type": "application/json" },
+              method: "POST",
+            },
+          );
+          const result: unknown = await applied.json();
+          if (!applied.ok)
+            throw new Error(
+              (result as { error?: string }).error ?? "원재료 적용 실패",
+            );
+          const parsedResult = ingredientApplyResponseSchema.safeParse(result);
+          if (!parsedResult.success)
+            throw new Error("원재료 적용 결과 형식을 확인하지 못했습니다.");
+          ingredientStatus = parsedResult.data.result.status;
+          if (ingredientStatus === "applied") strandedSourceId = null;
+        } catch (error: unknown) {
+          ingredientFailure =
+            error instanceof Error ? error.message : "원재료 적용 실패";
+        }
+      }
+
+      if (counts.applied === 0 && ingredientStatus !== "applied") {
+        const noApplyDetails: string[] = [];
+        if (counts.skipped > 0)
+          noApplyDetails.push(`영양소 건너뜀 ${String(counts.skipped)}`);
+        if (counts.conflict > 0)
+          noApplyDetails.push(`영양소 충돌 ${String(counts.conflict)}`);
+        if (nutrientFailure !== null)
+          noApplyDetails.push(`영양소 실패: ${nutrientFailure}`);
+        if (ingredientStatus === "skipped")
+          noApplyDetails.push("원재료 건너뜀");
+        if (ingredientStatus === "conflict") noApplyDetails.push("원재료 충돌");
+        if (ingredientFailure !== null)
+          noApplyDetails.push(`원재료 실패: ${ingredientFailure}`);
+        if (noApplyDetails.length === 0) noApplyDetails.push("적용 결과 없음");
+        throw new Error(
+          `적용된 근거가 없습니다 (${noApplyDetails.join(", ")})`,
+        );
+      }
+
       await closeRun(item.runId, "applied");
-      const partial = counts.skipped + counts.conflict > 0;
+      const details: string[] = [];
+      if (counts.applied > 0)
+        details.push(`영양소 적용 ${String(counts.applied)}`);
+      if (counts.skipped > 0)
+        details.push(`영양소 건너뜀 ${String(counts.skipped)}`);
+      if (counts.conflict > 0)
+        details.push(`영양소 충돌 ${String(counts.conflict)}`);
+      if (verifiedNutrientsSkipped > 0)
+        details.push(
+          `검증된 영양소 ${String(verifiedNutrientsSkipped)}건 건너뜀`,
+        );
+      if (nutrientFailure !== null)
+        details.push(`영양소 실패: ${nutrientFailure}`);
+      if (ingredientStatus === "applied") details.push("원재료 적용");
+      if (ingredientStatus === "skipped") details.push("원재료 건너뜀");
+      if (ingredientStatus === "conflict") details.push("원재료 충돌");
+      if (ingredientFailure !== null)
+        details.push(`원재료 실패: ${ingredientFailure}`);
       setLog((lines) => [
         ...lines,
-        partial
-          ? `✓ ${item.productName} — 적용 ${String(counts.applied)}, 건너뜀 ${String(counts.skipped)}, 충돌 ${String(counts.conflict)}`
-          : `✓ ${item.productName}`,
+        `✓ ${item.productName}${details.length === 0 ? "" : ` — ${details.join(", ")}`}`,
       ]);
       await reload();
     } catch (error: unknown) {
@@ -165,7 +340,26 @@ export function LabelTranscribeClient({
               ))}
             </div>
             <div>
+              <label>
+                출처 종류
+                <select
+                  onChange={(event) =>
+                    setSourceKinds((prev) => ({
+                      ...prev,
+                      [item.runId]: event.target.value as SourceKind,
+                    }))
+                  }
+                  value={sourceKinds[item.runId] ?? item.sourceKind}
+                >
+                  <option value="manufacturer">제조사</option>
+                  <option value="kr_label">국내 라벨</option>
+                </select>
+              </label>
+              <label htmlFor={`transcript-${String(item.runId)}`}>
+                전사 원문
+              </label>
               <textarea
+                id={`transcript-${String(item.runId)}`}
                 onChange={(event) =>
                   setText((prev) => ({
                     ...prev,
@@ -175,17 +369,59 @@ export function LabelTranscribeClient({
                 rows={10}
                 value={text[item.runId] ?? item.transcript}
               />
-              <ul>
-                {item.values.map((value, index) => (
-                  // 표가 두 번 인쇄되면 같은 nutrientKey가 두 번 올 수 있다 — 그것을
-                  // key로 쓰면 React가 둘을 같은 항목으로 접어 중복을 화면에서
-                  // 감춘다. 승인 전에 사람이 봐야 할 신호다.
-                  <li key={`${value.nutrientKey}-${String(index)}`}>
-                    {value.nutrientKey} = {value.value} —{" "}
-                    <em>{value.excerpt}</em>
-                  </li>
-                ))}
-              </ul>
+              {item.ingredientDraft !== null && (
+                <>
+                  <label htmlFor={`ingredient-excerpt-${String(item.runId)}`}>
+                    원재료 원문
+                  </label>
+                  <textarea
+                    className="sm"
+                    id={`ingredient-excerpt-${String(item.runId)}`}
+                    onChange={(event) =>
+                      setIngredientExcerpts((prev) => ({
+                        ...prev,
+                        [item.runId]: event.target.value,
+                      }))
+                    }
+                    value={
+                      ingredientExcerpts[item.runId] ??
+                      item.ingredientDraft.excerpt
+                    }
+                  />
+                  <label htmlFor={`ingredient-names-${String(item.runId)}`}>
+                    원재료 목록 (한 줄에 하나)
+                  </label>
+                  <textarea
+                    className="sm"
+                    id={`ingredient-names-${String(item.runId)}`}
+                    onChange={(event) =>
+                      setIngredientNames((prev) => ({
+                        ...prev,
+                        [item.runId]: event.target.value,
+                      }))
+                    }
+                    value={
+                      ingredientNames[item.runId] ??
+                      item.ingredientDraft.ingredients
+                        .map((ingredient) => ingredient.name)
+                        .join("\n")
+                    }
+                  />
+                </>
+              )}
+              {item.values.length > 0 && (
+                <ul>
+                  {item.values.map((value, index) => (
+                    // 표가 두 번 인쇄되면 같은 nutrientKey가 두 번 올 수 있다 — 그것을
+                    // key로 쓰면 React가 둘을 같은 항목으로 접어 중복을 화면에서
+                    // 감춘다. 승인 전에 사람이 봐야 할 신호다.
+                    <li key={`${value.nutrientKey}-${String(index)}`}>
+                      {value.nutrientKey} = {value.value} —{" "}
+                      <em>{value.excerpt}</em>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
           <p className="muted">출처 {item.productPageUrl}</p>

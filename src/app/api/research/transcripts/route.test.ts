@@ -60,6 +60,34 @@ describe("전사 제안 적재", () => {
     );
   });
 
+  it("원재료만 있는 전사 제안을 보존한다", async () => {
+    const ingredientDraft = {
+      excerpt: "Chicken meal; Salmon meal.",
+      ingredients: [
+        { name: "Chicken meal", position: 1 },
+        { name: "Salmon meal", position: 2 },
+      ],
+    };
+
+    const response = await post({
+      ...BODY,
+      ingredientDraft,
+      sourceKind: "manufacturer",
+      values: [],
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.recordFoodResearchRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        proposal: expect.objectContaining({
+          ingredientDraft,
+          sourceKind: "manufacturer",
+          values: [],
+        }),
+      }),
+    );
+  });
+
   // 스키마가 .strict() 이므로 status 는 형식 오류로 거절된다. 거절을 명시적으로
   // 단언한다 — mock.calls 를 순회하며 검사하면 호출이 0건일 때 아무것도 확인하지
   // 않고 통과한다(공허한 통과).

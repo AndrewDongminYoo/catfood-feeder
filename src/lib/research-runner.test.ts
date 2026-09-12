@@ -19,6 +19,7 @@ import {
   buildAgentEnv,
   buildCodexArgs,
   buildPrompt,
+  buildVisionCodexArgs,
   createResearchWorkdir,
   persistRefreshedCodexAuth,
   selectResearchTempRoot,
@@ -523,14 +524,57 @@ describe("research runner subprocess contract", () => {
 
   it("runs codex read-only, ephemeral, and without user config", () => {
     const args = buildCodexArgs("/tmp/s.json", "/tmp/m.json", "test-model");
+    const joinedArgs = args.join("\0");
 
     expect(args).toContain("--ephemeral");
     expect(args).toContain("--ignore-user-config");
+    for (const feature of [
+      "apps",
+      "browser_use",
+      "browser_use_external",
+      "browser_use_full_cdp_access",
+      "code_mode",
+      "code_mode_host",
+      "computer_use",
+      "in_app_browser",
+      "in_app_local_automation",
+      "multi_agent",
+      "multi_agent_v2",
+      "shell_tool",
+    ]) {
+      expect(joinedArgs).toContain(`--disable\0${feature}`);
+    }
     expect(args.join(" ")).toContain("--sandbox read-only");
     expect(args).toContain('cli_auth_credentials_store="file"');
+    expect(args).toContain("tools.view_image=false");
+    expect(args).toContain('web_search="live"');
     expect(args).not.toContain("--dangerously-bypass-approvals-and-sandbox");
     expect(args.join(" ")).toContain("--output-schema /tmp/s.json");
     expect(args.join(" ")).toContain("--output-last-message /tmp/m.json");
+  });
+
+  it("disables web search for image transcription", () => {
+    const args = buildVisionCodexArgs(
+      "/tmp/s.json",
+      "/tmp/m.json",
+      "test-model",
+      ["/tmp/label.png"],
+    );
+
+    expect(args).toContain('web_search="disabled"');
+    expect(args).not.toContain('web_search="live"');
+    expect(args.join("\0")).toContain("--image\0/tmp/label.png");
+  });
+
+  it("keeps web search for image discovery", () => {
+    const args = buildVisionCodexArgs(
+      "/tmp/s.json",
+      "/tmp/m.json",
+      "test-model",
+    );
+
+    expect(args).toContain('web_search="live"');
+    expect(args).not.toContain('web_search="disabled"');
   });
 
   it("carries the target only as JSON data, marked as non-instructions", () => {

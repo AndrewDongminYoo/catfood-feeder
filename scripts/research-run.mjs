@@ -29,6 +29,21 @@ import { SECRETS_FILE, loadSecrets } from "./with-secrets.mjs";
 export const PROMPT_VERSION = "2026-09-08";
 export const SCHEMA_VERSION = "2";
 
+const DISABLED_AGENT_FEATURES = [
+  "apps",
+  "browser_use",
+  "browser_use_external",
+  "browser_use_full_cdp_access",
+  "code_mode",
+  "code_mode_host",
+  "computer_use",
+  "in_app_browser",
+  "in_app_local_automation",
+  "multi_agent",
+  "multi_agent_v2",
+  "shell_tool",
+];
+
 /**
  * broker는 HTTPS 공개 URL만 받는다. 그 제약을 출력 스키마에도 걸어 모델이 볼 수
  * 있게 한다. 스키마에 없으면 http:// 제안이 400으로 거절되는데, 그 400은 원장
@@ -308,9 +323,15 @@ export async function persistRefreshedCodexAuth(parentEnv, workdir, baseline) {
   return true;
 }
 
-export function buildCodexArgs(schemaPath, messagePath, model) {
+export function buildCodexArgs(
+  schemaPath,
+  messagePath,
+  model,
+  { webSearch = true } = {},
+) {
   return [
     "exec",
+    ...DISABLED_AGENT_FEATURES.flatMap((feature) => ["--disable", feature]),
     "--sandbox",
     "read-only",
     "--ephemeral",
@@ -321,7 +342,9 @@ export function buildCodexArgs(schemaPath, messagePath, model) {
     "-c",
     'cli_auth_credentials_store="file"',
     "-c",
-    'web_search="live"',
+    "tools.view_image=false",
+    "-c",
+    `web_search="${webSearch ? "live" : "disabled"}"`,
     "-m",
     model,
     "--output-schema",
@@ -330,6 +353,19 @@ export function buildCodexArgs(schemaPath, messagePath, model) {
     messagePath,
     "-",
   ];
+}
+
+export function buildVisionCodexArgs(
+  schemaPath,
+  messagePath,
+  model,
+  images = [],
+) {
+  const args = buildCodexArgs(schemaPath, messagePath, model, {
+    webSearch: images.length === 0,
+  });
+  for (const image of images) args.push("--image", image);
+  return args;
 }
 
 /**
