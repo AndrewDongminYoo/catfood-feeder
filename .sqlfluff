@@ -23,3 +23,7 @@ dialect = postgres
 #
 # 파싱 오류와 나머지 실질 규칙은 그대로 살아 있어서 앞으로 올릴 마이그레이션에 걸린다.
 exclude_rules = layout, aliasing, capitalisation, AM05, ST09, PG01, RF05, AM04
+
+[sqlfluff:rules:references.keywords]
+# 이미 적용된 스키마의 컬럼명이다. RF04가 새 식별자는 계속 검사하도록 이 이름만 제외한다.
+ignore_words = name, source, value
