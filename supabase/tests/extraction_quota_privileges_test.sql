@@ -21,11 +21,11 @@ SELECT
   is(
   (
     SELECT count(*)
-    FROM pg_proc AS proc
+    FROM pg_proc AS pg_proc_row
     CROSS JOIN LATERAL aclexplode(
-      coalesce(proc.proacl, acldefault('f', proc.proowner))
+      coalesce(pg_proc_row.proacl, acldefault('f', pg_proc_row.proowner))
     ) AS acl
-    WHERE proc.oid = 'public.consume_extract_quota(text,integer,integer)'::regprocedure
+    WHERE pg_proc_row.oid = 'public.consume_extract_quota(text,integer,integer)'::regprocedure
       AND acl.grantee = 0
       AND acl.privilege_type = 'EXECUTE'
   ),
@@ -93,8 +93,8 @@ SELECT
   is(
   (
     SELECT count(*)
-    FROM pg_policy AS policy
-    WHERE policy.polrelid = 'public.extraction_rate_limits'::regclass
+    FROM pg_policy AS pg_policy_row
+    WHERE pg_policy_row.polrelid = 'public.extraction_rate_limits'::regclass
   ),
   0::bigint,
   'extraction_rate_limits has no row-level security policies'

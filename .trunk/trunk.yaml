@@ -23,7 +23,7 @@ lint:
     - grype@0.115.0
     - osv-scanner@2.4.0
     - taplo@0.10.0
-    - sqlfluff@4.3.0
+    - sqlfluff@4.3.0: { commands: [lint, fix] }
     - checkov@3.3.17
     - git-diff-check
     - markdownlint@0.49.1
@@ -38,6 +38,12 @@ lint:
       paths:
         - docs/notes/**
 actions:
+  definitions:
+    - id: trunk-fmt-pre-commit
+      run: trunk fmt -t "git-commit" --index --upstream=HEAD
+      interactive: optional
+      triggers:
+        - git_hooks: [pre-commit]
   enabled:
     - trunk-announce
     - trunk-check-pre-push
