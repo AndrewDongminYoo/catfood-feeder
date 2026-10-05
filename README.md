@@ -54,3 +54,9 @@ src/app/feeding/         급여 기록/교체 인사이트
 
 - 가격/알림은 BLUEPRINT Phase 5의 보류 범위입니다.
 - 한국 리콜 데이터는 공개 API 엔드포인트와 이용조건이 확인되기 전까지 동기화하지 않습니다.
+
+## 라이선스
+
+Copyright (c) 2026 Dongmin Yu. All rights reserved.
+소스 코드는 참고용으로만 공개되어 있으며, 오픈 소스가 아닙니다.
+저작권자의 서면 허락 없이 사용, 복제, 수정, 재배포할 수 없으며, 자세한 내용은 [`LICENSE`](LICENSE)에 있습니다.
