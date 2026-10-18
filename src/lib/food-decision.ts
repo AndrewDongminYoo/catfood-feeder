@@ -1,0 +1,502 @@
+import { z } from "zod";
+import type { FoodWithBrand, Ingredient, NutrientEvidence } from "./catalog";
+import { findMatchingNutrientEvidence } from "./nutrient-evidence";
+import { classifyNutrientBound } from "./advisor";
+
+export const EXCLUSION_LABELS = {
+  chicken: "닭고기",
+  turkey: "칠면조",
+  duck: "오리",
+  beef: "소고기",
+  lamb: "양고기",
+  fish: "생선",
+  grain: "곡물",
+} as const;
+export type IngredientExclusion = keyof typeof EXCLUSION_LABELS;
+export const exclusionSchema = z.enum([
+  "chicken",
+  "turkey",
+  "duck",
+  "beef",
+  "lamb",
+  "fish",
+  "grain",
+]);
+export const decisionRequestSchema = z.object({
+  question: z.string().trim().max(1200),
+  catName: z.string().trim().max(60),
+  currentFoodId: z.number().int().nonnegative().nullable(),
+  manualCurrentName: z.string().trim().max(160),
+  manualKcal: z.number().finite().min(500).max(10000).nullable(),
+  exclusions: z.array(exclusionSchema).max(7),
+  maxKcalDeltaPct: z.union([
+    z.literal(5),
+    z.literal(10),
+    z.literal(15),
+    z.null(),
+  ]),
+  adultNonPrescription: z.boolean(),
+  unresolvedRequirements: z.array(z.string().max(500)).max(12).default([]),
+  ignoredRequirements: z.array(z.string().max(500)).max(12).default([]),
+  scopeConcern: z.boolean().default(false),
+});
+export type DecisionRequest = z.input<typeof decisionRequestSchema>;
+export const DEFAULT_DECISION_REQUEST: DecisionRequest = {
+  question: "",
+  catName: "",
+  currentFoodId: null,
+  manualCurrentName: "",
+  manualKcal: null,
+  exclusions: [],
+  maxKcalDeltaPct: 10,
+  adultNonPrescription: false,
+};
+const safeUrl = z
+  .string()
+  .url()
+  .refine((v) => /^https?:\/\//.test(v));
+export const ingredientEvidenceSchema = z.object({
+  excerpt: z.string(),
+  capturedAt: z.string(),
+  url: safeUrl,
+});
+export type IngredientProof = z.infer<typeof ingredientEvidenceSchema>;
+const evidenceSchema = z.object({
+  nutrient_key: z.enum([
+    "protein_pct",
+    "fat_pct",
+    "fiber_pct",
+    "ash_pct",
+    "moisture_pct",
+    "calcium_pct",
+    "phosphorus_pct",
+    "kcal_per_kg",
+    "carb_pct",
+    "energy_p_pct",
+    "energy_f_pct",
+    "energy_c_pct",
+  ]),
+  value: z.number().finite(),
+  excerpt: z.string(),
+  captured_at: z.string(),
+  source: z.object({ url: safeUrl, capture_method: z.string() }),
+});
+const conditionSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  status: z.enum(["met", "failed", "unknown"]),
+  detail: z.string(),
+});
+const labelFactSchema = z.object({
+  key: z.enum(["protein_pct", "fat_pct"]),
+  value: z.number().finite(),
+  bound: z.enum(["minimum", "maximum", "unspecified"]),
+  proof: evidenceSchema,
+});
+type LabelFact = z.infer<typeof labelFactSchema>;
+export type DecisionCondition = z.infer<typeof conditionSchema>;
+const candidateSchema = z.object({
+  food: z.object({
+    id: z.number().int(),
+    product_name: z.string(),
+    brand: z.string(),
+    kcal_per_kg: z.number().finite().nullable(),
+    protein_pct: z.number().finite().nullable(),
+    fat_pct: z.number().finite().nullable(),
+    carb_pct: z.number().finite().nullable(),
+    ingredients: z.array(
+      z.object({ name: z.string(), position: z.number().int() }),
+    ),
+  }),
+  kcalDeltaPct: z.number().finite().nullable(),
+  conditions: z.array(conditionSchema),
+  questions: z.array(z.string()),
+  evidence: z.array(evidenceSchema),
+  ingredientEvidence: ingredientEvidenceSchema.nullable(),
+  notes: z.array(z.string()),
+  labelFacts: z.array(labelFactSchema).default([]),
+});
+export type DecisionCandidate = z.infer<typeof candidateSchema>;
+const reportSchema = z.object({
+  createdAt: z.string(),
+  request: decisionRequestSchema,
+  status: z.enum(["ready", "outside_scope", "baseline_missing"]),
+  baseline: z.object({
+    name: z.string(),
+    kcal: z.number().finite().nullable(),
+    origin: z.enum(["catalog", "owner", "unknown"]),
+    evidence: evidenceSchema.nullable(),
+    labelFacts: z.array(labelFactSchema).default([]),
+  }),
+  eligible: z.array(candidateSchema),
+  unresolved: z.array(candidateSchema),
+  excluded: z.array(candidateSchema),
+  sensitivity: z.array(
+    z.object({ maxKcalDeltaPct: z.number(), eligibleCount: z.number().int() }),
+  ),
+});
+export type DecisionReport = z.infer<typeof reportSchema>;
+export const decisionSnapshotSchema = z.object({
+  version: z.literal(1),
+  report: reportSchema,
+  selectedFoodId: z.number().int().nullable(),
+  reason: z.string().max(1000),
+});
+export type DecisionSnapshot = z.infer<typeof decisionSnapshotSchema>;
+
+const MATCHERS: Record<IngredientExclusion, RegExp> = {
+  chicken: /\bchicken\b|닭|계육|계지방/i,
+  turkey: /\bturkey\b|칠면조/i,
+  duck: /\bduck\b|오리/i,
+  beef: /\bbeef\b|\bbovine\b|소고기|쇠고기|우육|우지/i,
+  lamb: /\blamb\b|\bmutton\b|양고기|양육/i,
+  fish: /\b(?:fish|salmon|tuna|trout|cod|herring|sardine|anchovy|mackerel|hake|pollock|whitefish|menhaden)\b|생선|어류|어분|어유|연어|참치|송어|대구|청어|정어리|멸치|고등어|명태/i,
+  grain:
+    /\b(?:grains?|cereals?|rice|wheat|barley|oats?|corn|maize|rye|millet|sorghum|spelt)\b|곡물|곡류|쌀|현미|백미|밀가루|보리|귀리|옥수수|호밀|수수|기장/i,
+};
+const GENERIC_ANIMAL =
+  /\b(?:animal|meat|digest)\b|\bnatural\s+flavou?rs?\b|육류|동물성|천연향미|가수분해\s*단백/i;
+const GENERIC_POULTRY = /\bpoultry\b|\bfowl\b|가금/i;
+const UNSPECIFIED_DERIVATIVE =
+  /^(?:(?:hydroly[sz]ed|dried|dehydrated|natural)\s+)*(?:protein|fat|oil|flavou?r|flavou?ring|stock|broth)s?$|^가수분해\s*단백질?$|^단백질$|^지방$/i;
+
+export function assessIngredientExclusion(
+  ingredients: readonly Ingredient[],
+  exclusion: IngredientExclusion,
+  hasProof: boolean,
+): DecisionCondition {
+  const label = `${EXCLUSION_LABELS[exclusion]} 표기 제외`;
+  const matches = ingredients.filter((i) => MATCHERS[exclusion].test(i.name));
+  if (matches.length)
+    return {
+      key: exclusion,
+      label,
+      status: "failed",
+      detail: `표기된 원재료: ${matches.map((i) => i.name).join(", ")}`,
+    };
+  const broad = ingredients.filter(
+    (i) =>
+      exclusion !== "grain" &&
+      (GENERIC_ANIMAL.test(i.name) ||
+        UNSPECIFIED_DERIVATIVE.test(i.name.trim()) ||
+        (["chicken", "turkey", "duck"].includes(exclusion) &&
+          GENERIC_POULTRY.test(i.name))),
+  );
+  if (!hasProof || ingredients.length === 0 || broad.length)
+    return {
+      key: exclusion,
+      label,
+      status: "unknown",
+      detail: broad.length
+        ? `종을 확인할 수 없는 표기: ${broad.map((i) => i.name).join(", ")}`
+        : "현재 원재료 목록과 일치하는 전체 출처를 확인하지 못했습니다.",
+    };
+  return {
+    key: exclusion,
+    label,
+    status: "met",
+    detail:
+      "확인한 원재료 목록에서 해당 표기를 찾지 못했습니다. 혼입이나 알레르기 안전성을 뜻하지는 않습니다.",
+  };
+}
+
+export function isClinicalDecisionQuestion(question: string): boolean {
+  return /처방|신장|신부전|당뇨|췌장|요로|결석|질환|질병|심장병|심근|갑상선|간질환|장염|HCM|알레르기\s*(?:치료|진단)|키튼|자묘|새끼\s*고양이|아기\s*고양이|성장기|생후\s*(?:[0-9]|1[01])\s*개월|\b(?:[0-9]|1[01])\s*개월\s*(?:령|된|짜리|고양이|이에요|입니다)|임신|수유|kitten|prescription|renal|kidney|diabet|pregnan|lactat/i.test(
+    question,
+  );
+}
+
+function hasCompleteIngredientProof(
+  ingredients: readonly Ingredient[],
+  proof: IngredientProof | undefined,
+): boolean {
+  if (!proof || !ingredients.length) return false;
+  const normalize = (v: string) =>
+    v.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
+  const text = normalize(proof.excerpt);
+  let cursor = 0;
+  for (const ingredient of ingredients) {
+    const name = normalize(ingredient.name);
+    if (!name) return false;
+    const at = text.indexOf(name, cursor);
+    if (
+      at < 0 ||
+      !(cursor === 0 ? /^\s*$/ : /^\s*[,;]\s*$/).test(text.slice(cursor, at))
+    )
+      return false;
+    cursor = at + name.length;
+  }
+  return /^\s*[.,;]?\s*$/.test(text.slice(cursor));
+}
+
+export interface DecisionCatalog {
+  foods: readonly FoodWithBrand[];
+  evidenceByFoodId: ReadonlyMap<number, readonly NutrientEvidence[]>;
+  ingredientEvidenceByFoodId: Readonly<Record<number, IngredientProof>>;
+}
+
+function labelFacts(
+  food: FoodWithBrand,
+  evidence: readonly NutrientEvidence[],
+): LabelFact[] {
+  return (["protein_pct", "fat_pct"] as const).flatMap((key) => {
+    const source = food.nutrient_sources[key];
+    const proof = findMatchingNutrientEvidence(evidence, key, food[key]);
+    if (
+      !proof ||
+      food[key] === null ||
+      (source !== "manufacturer" && source !== "kr_label")
+    )
+      return [];
+    return [
+      {
+        key,
+        value: food[key],
+        bound: classifyNutrientBound(proof.excerpt),
+        proof: { ...proof, source: { ...proof.source } },
+      },
+    ];
+  });
+}
+
+export function buildFoodDecision(
+  catalog: DecisionCatalog,
+  input: DecisionRequest,
+  createdAt = new Date().toISOString(),
+): DecisionReport {
+  const request = decisionRequestSchema.parse(input);
+  const current = catalog.foods.find((f) => f.id === request.currentFoodId);
+  const currentEvidence = current
+    ? findMatchingNutrientEvidence(
+        catalog.evidenceByFoodId.get(current.id) ?? [],
+        "kcal_per_kg",
+        current.kcal_per_kg,
+      )
+    : null;
+  const baseline: DecisionReport["baseline"] = current
+    ? {
+        name: `${current.brands?.name ?? ""} ${current.product_name}`.trim(),
+        kcal: currentEvidence ? current.kcal_per_kg : null,
+        origin: "catalog",
+        evidence: currentEvidence,
+        labelFacts: labelFacts(
+          current,
+          catalog.evidenceByFoodId.get(current.id) ?? [],
+        ),
+      }
+    : {
+        name: request.manualCurrentName || "현재 사료 미입력",
+        kcal: request.manualKcal,
+        origin: request.manualCurrentName ? "owner" : "unknown",
+        evidence: null,
+        labelFacts: [],
+      };
+  const report: DecisionReport = {
+    createdAt,
+    request,
+    baseline,
+    status: "ready",
+    eligible: [],
+    unresolved: [],
+    excluded: [],
+    sensitivity: [],
+  };
+  if (
+    !request.adultNonPrescription ||
+    request.scopeConcern ||
+    isClinicalDecisionQuestion(request.question)
+  )
+    return { ...report, status: "outside_scope" };
+  if (!current && !request.manualCurrentName)
+    return { ...report, status: "baseline_missing" };
+  const candidates = catalog.foods
+    .filter(
+      (f) =>
+        f.id !== current?.id &&
+        !/키튼|자묘|kitten|레날|renal|처방|유리너리|urinary|인테스티널|intestinal/i.test(
+          f.product_name,
+        ),
+    )
+    .map((food): DecisionCandidate => {
+      const evidence = (catalog.evidenceByFoodId.get(food.id) ?? []).filter(
+        (e) =>
+          findMatchingNutrientEvidence(
+            [e],
+            e.nutrient_key,
+            food[e.nutrient_key],
+          ) !== null,
+      );
+      const kcalProof = findMatchingNutrientEvidence(
+        evidence,
+        "kcal_per_kg",
+        food.kcal_per_kg,
+      );
+      const kcalDeltaPct =
+        baseline.kcal && kcalProof && food.kcal_per_kg !== null
+          ? ((food.kcal_per_kg - baseline.kcal) / baseline.kcal) * 100
+          : null;
+      const rawIngredientProof = catalog.ingredientEvidenceByFoodId[food.id];
+      const ingredientEvidence = hasCompleteIngredientProof(
+        food.ingredients,
+        rawIngredientProof,
+      )
+        ? rawIngredientProof!
+        : null;
+      const conditions = request.exclusions.map((e) =>
+        assessIngredientExclusion(
+          food.ingredients,
+          e,
+          ingredientEvidence !== null,
+        ),
+      );
+      for (const [
+        index,
+        requirement,
+      ] of request.unresolvedRequirements.entries())
+        conditions.push({
+          key: `unsupported-${index}`,
+          label: "질문 중 확인하지 못한 조건",
+          status: "unknown",
+          detail: requirement,
+        });
+      if (request.maxKcalDeltaPct !== null)
+        conditions.push({
+          key: "kcal",
+          label: `열량 차이 ${request.maxKcalDeltaPct}% 이내`,
+          status:
+            kcalDeltaPct === null
+              ? "unknown"
+              : Math.abs(kcalDeltaPct) <= request.maxKcalDeltaPct
+                ? "met"
+                : "failed",
+          detail:
+            kcalDeltaPct === null
+              ? "현재 사료와 후보의 열량을 같은 kcal/kg 기준으로 확인해야 합니다."
+              : `현재 대비 ${kcalDeltaPct > 0 ? "+" : ""}${kcalDeltaPct.toFixed(1)}%`,
+        });
+      const questions = conditions
+        .filter((c) => c.status === "unknown")
+        .map((c) =>
+          c.key.startsWith("unsupported-")
+            ? c.detail
+            : c.key === "kcal"
+              ? `포장 또는 제조사 자료에서 ${baseline.kcal === null ? "현재 사료와 " : ""}이 제품의 열량(kcal/kg) 표기를 확인할 수 있나요?`
+              : `제조사 또는 수입사에 ${EXCLUSION_LABELS[c.key as IngredientExclusion]} 유래 원료 여부와 전체 원재료 목록을 확인해 주세요. (${c.detail})`,
+        );
+      if (!kcalProof && request.maxKcalDeltaPct === null)
+        questions.push(
+          "열량이 확인되지 않아 급여량의 차이는 판단하지 못했습니다. 포장의 kcal/kg 표기를 확인해 주세요.",
+        );
+      const notes = [
+        "구매 전 포장에서 성묘용 또는 전연령 종합영양식인지, 비교한 제품명·판매 지역과 같은지 확인해 주세요.",
+        "보증성분의 최소·최대 표기는 정확한 함량 차이로 해석할 수 없습니다.",
+      ];
+      if (
+        food.nutrient_sources.carb_pct === "estimated" ||
+        food.nutrient_sources.carb_pct === "derived"
+      )
+        notes.push(
+          "탄수화물은 추정·계산값이므로 선택 순위를 정하는 데 사용하지 않았습니다.",
+        );
+      if (baseline.origin === "owner")
+        notes.push(
+          "열량 차이는 직접 입력한 현재 사료 값을 기준으로 계산했습니다.",
+        );
+      if ((food.recalls?.length ?? 0) > 0)
+        notes.push(
+          "연결된 리콜 이력이 있습니다. 제품·브랜드 범위와 대상 로트를 원문에서 확인해 주세요.",
+        );
+      return {
+        food: {
+          id: food.id,
+          product_name: food.product_name,
+          brand: food.brands?.name ?? "브랜드 미확인",
+          kcal_per_kg: kcalProof ? food.kcal_per_kg : null,
+          protein_pct: food.protein_pct,
+          fat_pct: food.fat_pct,
+          carb_pct: food.carb_pct,
+          ingredients: food.ingredients.map((i) => ({ ...i })),
+        },
+        kcalDeltaPct,
+        conditions,
+        questions,
+        evidence: evidence.map((e) => ({ ...e, source: { ...e.source } })),
+        ingredientEvidence: ingredientEvidence
+          ? { ...ingredientEvidence }
+          : null,
+        notes,
+        labelFacts: labelFacts(food, evidence),
+      };
+    });
+  candidates.sort(
+    (a, b) =>
+      Math.abs(a.kcalDeltaPct ?? Infinity) -
+        Math.abs(b.kcalDeltaPct ?? Infinity) || a.food.id - b.food.id,
+  );
+  for (const candidate of candidates) {
+    if (candidate.conditions.some((c) => c.status === "failed"))
+      report.excluded.push(candidate);
+    else if (candidate.conditions.some((c) => c.status === "unknown"))
+      report.unresolved.push(candidate);
+    else report.eligible.push(candidate);
+  }
+  report.sensitivity = [5, 10, 15].map((limit) => ({
+    maxKcalDeltaPct: limit,
+    eligibleCount: candidates.filter(
+      (c) =>
+        c.kcalDeltaPct !== null &&
+        Math.abs(c.kcalDeltaPct) <= limit &&
+        c.conditions
+          .filter((x) => x.key !== "kcal")
+          .every((x) => x.status === "met"),
+    ).length,
+  }));
+  return report;
+}
+
+export function exportDecisionBrief(snapshot: DecisionSnapshot): string {
+  const { report } = snapshot;
+  const selected = [...report.eligible, ...report.unresolved].find(
+    (c) => c.food.id === snapshot.selectedFoodId,
+  );
+  return [
+    "# 다음 사료 검토 기록",
+    `검토 시각: ${report.createdAt}`,
+    `질문: ${report.request.question || "입력한 조건으로 비교"}`,
+    `현재 사료: ${report.baseline.name}`,
+    `현재 열량: ${report.baseline.kcal ?? "미확인"} kcal/kg (${report.baseline.origin === "owner" ? "직접 입력" : "카탈로그 근거"})`,
+    `선택한 후보: ${selected ? `${selected.food.brand} ${selected.food.product_name}` : "아직 선택하지 않음"}`,
+    `선택 또는 보류 이유: ${snapshot.reason || "미기록"}`,
+    ...report.baseline.labelFacts.map(
+      (f) =>
+        `현재 사료 ${f.key === "protein_pct" ? "단백질" : "지방"}: ${f.value}% (${f.bound === "minimum" ? "최소 보증치" : f.bound === "maximum" ? "최대 보증치" : "경계 미확인"}) — ${f.proof.excerpt} ${f.proof.source.url}`,
+    ),
+    `요청한 원재료 제외: ${report.request.exclusions.map((x) => EXCLUSION_LABELS[x]).join(", ") || "없음"}`,
+    `허용 열량 차이: ${report.request.maxKcalDeltaPct === null ? "제한 없음" : `${report.request.maxKcalDeltaPct}% 이내`}`,
+    ...report.request.ignoredRequirements.map(
+      (r) => `사용자가 이번 비교 범위에서 제외한 요구: ${r}`,
+    ),
+    ...report.eligible
+      .concat(report.unresolved, report.excluded)
+      .map((c) =>
+        [
+          `\n## ${c.food.brand} ${c.food.product_name}`,
+          ...c.conditions.map(
+            (x) =>
+              `- ${x.label}: ${x.status === "met" ? "표기 기준 충족" : x.status === "failed" ? "불충족" : "확인 필요"} — ${x.detail}`,
+          ),
+          ...c.questions.map((q) => `- 다음 확인: ${q}`),
+          ...c.evidence.map(
+            (e) => `- 근거: ${e.excerpt} (${e.captured_at}) ${e.source.url}`,
+          ),
+          ...(c.ingredientEvidence
+            ? [
+                `- 원재료 근거: ${c.ingredientEvidence.excerpt} (${c.ingredientEvidence.capturedAt}) ${c.ingredientEvidence.url}`,
+              ]
+            : []),
+          ...c.notes.map((n) => `- ${n}`),
+        ].join("\n"),
+      ),
+    "\n이 기록은 저장 당시의 비교입니다. 현재 포장의 제품명·판매 지역·원재료를 구매 전에 다시 확인해 주세요. 건강 적합성이나 알레르기 안전성을 보증하지 않습니다.",
+  ].join("\n\n");
+}
