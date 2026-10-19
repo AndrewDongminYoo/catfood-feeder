@@ -20,7 +20,7 @@
 
 ## Next Product Slice — 원재료 데이터 슬라이스
 
-제품 방향, 비목표, 측정된 커버리지 기준선, 수익화 태세는 [Product Direction](docs/product-direction.md)이 소유한다.
+제품 방향, 비목표, 측정된 커버리지 기준선, 수익화 태세는 [Product Direction](../product-direction.md)이 소유한다.
 이 절은 그 문서를 인용하며 내용을 다시 적지 않는다.
 
 다음 슬라이스는 발행된 사료의 원재료 구성을 채우는 작업이다.
@@ -61,7 +61,7 @@
 - 첫 전환 단계의 공개 발행은 어드민이 승인한다. 어드민은 값을 다시 입력하지 않고 근거·충돌·예외를 판정한다.
 - 모든 성공·실패·거절·재시도·대체 관계를 연구 원장에 남기며, 가정·출처·도구·방법이 달라지지 않은 실패를 반복하지 않는다.
 - `data_verified_at` 하나에 사람 검증, 발행 상태, 검증 방법을 계속 혼합하지 않는다. 다음 스키마 변경에서 이 상태들을 분리한다.
-- 상세한 전환 배경과 첫 작업 범위는 [AI-Native Catalog Turnaround](docs/notes/2026-08-05-ai-native-catalog-turnaround.md)에 기록한다.
+- 상세한 전환 배경과 첫 작업 범위는 [AI-Native Catalog Turnaround](2026-08-05-ai-native-catalog-turnaround.md)에 기록한다.
 
 ## 핵심 도메인 규칙 (입력·계산의 근거)
 
@@ -77,7 +77,7 @@
 - 위험성분(에톡시퀸 등)은 **라벨 미표기·사후 검출**이라 필터 가치 낮음 → 컬럼 강등. 대신 **리콜 이력**을 1급으로.
 
 > Phase 체크박스는 코드가 존재한다는 증명이며, 그 뒤의 데이터가 존재한다는 증명이 아니다.
-> 완료 표시된 Phase 2·3·4 중 실제 커버리지가 비어 있는 항목은 [Product Direction](docs/product-direction.md)의 측정 기준선이 소유한다.
+> 완료 표시된 Phase 2·3·4 중 실제 커버리지가 비어 있는 항목은 [Product Direction](../product-direction.md)의 측정 기준선이 소유한다.
 
 ## Phase 0 — 데이터 모델 확정
 
@@ -86,7 +86,7 @@
 - [x] `carb_pct`는 generated stored 해제 → 일반 컬럼(회분 유무로 계산 가능 여부 갈림) + `carb_is_estimated boolean`
 - [x] `ca_p_ratio`만 generated stored 유지 (calcium/phosphorus, 단 phosphorus>0)
 - [x] `nutrient_sources jsonb` 컬럼: 항목별 출처 메타 {protein_pct:"manufacturer", ash_pct:"kr_label", ...}
-- [x] `ingredients jsonb` 컬럼 존재. 저장 형태는 [Product Direction](docs/product-direction.md)이 소유하며 `{name, position}`으로 확정했다(2026-09-11 retained-capture backfill 기준 발행 행 79/125개에 값이 있다).
+- [x] `ingredients jsonb` 컬럼 존재. 저장 형태는 [Product Direction](../product-direction.md)이 소유하며 `{name, position}`으로 확정했다(2026-09-11 retained-capture backfill 기준 발행 행 79/125개에 값이 있다).
 - [x] `cooking_method` enum(extrusion/baked/freeze_dried/dried) — 회분 추정 허용 여부 결정에 사용
 - [x] `data_verified_at timestamptz` — 오래된 데이터 갱신 우선순위 쿼리용
 - [x] 기능성 불리언: grain_free / meal_free / has_probiotics / has_cranberry / has_yucca
