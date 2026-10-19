@@ -1868,28 +1868,70 @@ pre {
   font-size: 12px;
   line-height: 1.9;
 }
-.decision-label-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
+.decision-label-comparison {
+  margin: 0;
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
-.decision-label-table caption {
-  text-align: left;
-  font-size: 12px;
+.decision-label-comparison figcaption {
   color: var(--mut);
-  padding-bottom: 10px;
 }
-.decision-label-table :is(th, td) {
-  text-align: left;
-  vertical-align: top;
-  padding: 9px 4px;
+.decision-label-scale {
+  font-size: 11px;
+  color: var(--mut);
+  margin: 4px 0 0;
+}
+.decision-label-metric {
+  padding: 14px 0;
   border-bottom: 1px solid var(--line);
-  overflow-wrap: anywhere;
 }
-.decision-label-table thead th {
+.decision-label-metric header,
+.decision-label-row > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.decision-label-metric h4 {
+  margin: 0;
+  font-size: 13px;
+}
+.decision-label-direction {
+  font-size: 11px;
+  text-align: right;
+}
+.decision-label-direction[data-direction="unknown"] {
   color: var(--mut);
-  font-weight: 500;
+}
+.decision-label-row {
+  margin-top: 10px;
+}
+.decision-label-row > div:first-child > span {
+  color: var(--mut);
+  flex-shrink: 0;
+}
+.decision-label-row strong {
+  text-align: right;
+  font-weight: 600;
+}
+.decision-label-track {
+  margin-top: 5px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+.decision-label-track[data-known="false"] {
+  background: transparent;
+  border: 1px dashed var(--line);
+}
+.decision-label-fill {
+  display: block;
+  height: 100%;
+  background: var(--mut);
+}
+.decision-label-row[data-kind="candidate"] .decision-label-fill {
+  background: var(--accent);
 }
 .decision-questions ul {
   margin: 0;

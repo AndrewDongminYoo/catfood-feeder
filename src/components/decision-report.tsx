@@ -15,6 +15,105 @@ const STATUS_LABEL = {
   unknown: "확인 필요",
 };
 
+function LabelComparison({
+  current,
+  candidate,
+}: {
+  current: DecisionCandidate["labelFacts"];
+  candidate: DecisionCandidate["labelFacts"];
+}) {
+  return (
+    <figure className="decision-label-comparison">
+      <figcaption>원문 근거가 있는 보증성분 표기</figcaption>
+      <p className="decision-label-scale">
+        모든 막대는 0–100% 같은 축으로 표시해요.
+      </p>
+      {(["protein_pct", "fat_pct"] as const).map((key) => {
+        const label = key === "protein_pct" ? "단백질" : "지방";
+        const find = (facts: DecisionCandidate["labelFacts"]) =>
+          facts.find(
+            (fact) =>
+              fact.key === key &&
+              Number.isFinite(fact.value) &&
+              fact.value >= 0 &&
+              fact.value <= 100,
+          );
+        const baselineFact = find(current);
+        const candidateFact = find(candidate);
+        const direction =
+          !baselineFact || !candidateFact
+            ? "unknown"
+            : candidateFact.value === baselineFact.value
+              ? "same"
+              : candidateFact.value > baselineFact.value
+                ? "higher"
+                : "lower";
+        const comparison = {
+          higher: "후보 표기값 높음",
+          lower: "후보 표기값 낮음",
+          same: "표기값 같음",
+          unknown: "근거 확인 필요",
+        }[direction];
+        return (
+          <section
+            className="decision-label-metric"
+            aria-label={`${label} 표기 비교`}
+            key={key}
+          >
+            <header>
+              <h4>{label}</h4>
+              <span
+                className="decision-label-direction"
+                data-direction={direction}
+              >
+                <span aria-hidden="true">
+                  {direction === "higher"
+                    ? "↑ "
+                    : direction === "lower"
+                      ? "↓ "
+                      : direction === "same"
+                        ? "= "
+                        : ""}
+                </span>
+                {comparison}
+              </span>
+            </header>
+            {(
+              [
+                { kind: "current", name: "현재 사료", fact: baselineFact },
+                { kind: "candidate", name: "이 후보", fact: candidateFact },
+              ] as const
+            ).map(({ kind, name, fact }) => (
+              <div className="decision-label-row" data-kind={kind} key={kind}>
+                <div>
+                  <span>{name}</span>
+                  <strong>
+                    {fact
+                      ? `${fact.value}% ${fact.bound === "minimum" ? "이상" : fact.bound === "maximum" ? "이하" : "(경계 미확인)"}`
+                      : "근거 미확인"}
+                  </strong>
+                </div>
+                <div
+                  className="decision-label-track"
+                  data-known={Boolean(fact)}
+                  aria-hidden="true"
+                >
+                  {fact && (
+                    <span
+                      className="decision-label-fill"
+                      style={{ width: `${fact.value}%` }}
+                    />
+                  )}
+                </div>
+              </div>
+            ))}
+          </section>
+        );
+      })}
+    </figure>
+  );
+}
+
 function Candidate({
   candidate,
   baseline,
@@ -67,36 +166,13 @@ function Candidate({
               : "열량 밀도가 달라 같은 무게를 먹여도 섭취 열량이 달라집니다. 포장의 급여량을 확인해 주세요."}
         </p>
       </section>
-      <table className="decision-label-table">
-        <caption>원문 근거가 있는 보증성분 표기</caption>
-        <thead>
-          <tr>
-            <th scope="col">항목</th>
-            <th scope="col">현재 사료</th>
-            <th scope="col">이 후보</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(["protein_pct", "fat_pct"] as const).map((key) => {
-            const format = (facts: DecisionCandidate["labelFacts"]) => {
-              const fact = facts.find((f) => f.key === key);
-              return fact
-                ? `${fact.value}% ${fact.bound === "minimum" ? "이상" : fact.bound === "maximum" ? "이하" : "(경계 미확인)"}`
-                : "근거 미확인";
-            };
-            return (
-              <tr key={key}>
-                <th scope="row">{key === "protein_pct" ? "단백질" : "지방"}</th>
-                <td>{format(baseline.labelFacts)}</td>
-                <td>{format(candidate.labelFacts)}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <LabelComparison
+        current={baseline.labelFacts}
+        candidate={candidate.labelFacts}
+      />
       <p className="decision-caption">
-        서로 다른 최소·최대 보증치를 빼서 실제 함량 차이나 품질 순위를 계산하지
-        않습니다.
+        막대와 높낮이는 포장에 적힌 숫자를 비교해요. 최소·최대 보증치이므로 실제
+        함량 차이나 품질의 우열을 뜻하지 않아요.
       </p>
       <AdequacyEvidence proofs={candidate.adequacy} />
       <ul className="decision-conditions">

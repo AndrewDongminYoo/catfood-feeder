@@ -58,6 +58,10 @@ Lead the comparison with up to three matching candidates and their reasons and t
 Separate condition confirmation, comparison, evidence, and saving into a visible sequence.
 The summary uses counts for met, unresolved, and failed conditions rather than a health score.
 Candidate cards expose signed calorie-density differences, original ingredient order, source excerpts and dates, and concrete follow-up questions.
+Compare literal protein and fat label values with paired horizontal bars on a fixed 0–100% scale across all candidates.
+Use neutral gray for the current food and the existing teal accent for the candidate, with written labels and higher/lower/equal text so meaning does not depend on color.
+Preserve minimum, maximum, and unspecified bounds; describe direction as printed-value direction, never actual content, quality, or health superiority.
+Missing evidence has an unfilled dashed track and an explicit unknown label, never an inferred zero.
 The full source material is expandable so the initial comparison remains readable.
 
 Every action has a 44px target and a visible keyboard focus state.
