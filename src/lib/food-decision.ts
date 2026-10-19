@@ -354,7 +354,7 @@ export function assessIngredientExclusion(
 }
 
 export function isClinicalDecisionQuestion(question: string): boolean {
-  return /처방|신장|신부전|당뇨|췌장|요로|결석|질환|질병|심장병|심근|갑상선|간질환|장염|HCM|CKD|IBD|알레르기\s*(?:치료|진단)|키튼|자묘|새끼\s*고양이|아기\s*고양이|성장기|\d+\s*주령|\d+\s*(?:weeks?\s*old|주\s*(?:된|짜리))|생후\s*(?:[0-9]|1[01])\s*개월|\b(?:[0-9]|1[01])\s*개월\s*(?:령|된|짜리|고양이|이에요|입니다)|임신|수유|kitten|prescription|renal|kidney|diabet|pregnan|lactat/i.test(
+  return /처방|신장|신부전|당뇨|췌장|요로|결석|질환|질병|심장병|심근|갑상선|간질환|장염|레날|유리너리|인테스티널|HCM|CKD|IBD|알레르기\s*(?:치료|진단)|키튼|자묘|새끼\s*고양이|아기\s*고양이|성장기|\d+\s*주령|\d+\s*(?:weeks?\s*old|주\s*(?:된|짜리))|생후\s*(?:[0-9]|1[01])\s*개월|\b(?:[0-9]|1[01])\s*개월\s*(?:령|된|짜리|고양이|이에요|입니다)|임신|수유|kitten|prescription|renal|kidney|urinary|intestinal|diabet|pregnan|lactat/i.test(
     question,
   );
 }

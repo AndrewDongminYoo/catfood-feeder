@@ -8,6 +8,31 @@ import {
 
 describe("decision question", () => {
   it.each([
+    "urinary diet",
+    "URINARY food",
+    "intestinal diet",
+    "유리너리 사료",
+    "인테스티널 사료",
+    "레날 사료",
+  ])(
+    "keeps clinical requests outside scope in rules and model validation: %s",
+    (question) => {
+      expect(parseDecisionQuestion(question).outsideScope).toBe(true);
+      expect(
+        validateQuestionProposal(
+          {
+            exclusions: [],
+            maxKcalDeltaPct: null,
+            citations: [],
+            unhandled: [],
+            outsideScope: false,
+          },
+          question,
+        )?.outsideScope,
+      ).toBe(true);
+    },
+  );
+  it.each([
     "현재보다 열량이 낮지 않은 사료",
     "칼로리가 낮지않은 사료",
     "열량이 안 낮은 사료",

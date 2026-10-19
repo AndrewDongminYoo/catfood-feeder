@@ -585,6 +585,28 @@ describe("food decision", () => {
         .status,
     ).toBe("outside_scope");
   });
+  it.each([
+    "urinary diet",
+    "URINARY food",
+    "intestinal diet",
+    "유리너리 사료",
+    "인테스티널 사료",
+    "레날 사료",
+  ])(
+    "stops clinical requests without relying on interpretation: %s",
+    (question) => {
+      const result = buildFoodDecision(catalog(), {
+        ...request,
+        question,
+        adultNonPrescription: true,
+        unresolvedRequirements: [],
+        ignoredRequirements: [question],
+      });
+      expect(result.status).toBe("outside_scope");
+      expect(result.eligible).toHaveLength(0);
+      expect(result.unresolved).toHaveLength(0);
+    },
+  );
   it("keeps saved evidence and results independent from subsequent catalog mutation", () => {
     const input = catalog();
     const result = buildFoodDecision(input, request);
