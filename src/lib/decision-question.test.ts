@@ -11,6 +11,8 @@ describe("decision question", () => {
     "urinary diet",
     "URINARY food",
     "intestinal diet",
+    "hepatic diet",
+    "cardiac diet",
     "유리너리 사료",
     "인테스티널 사료",
     "레날 사료",
@@ -30,6 +32,24 @@ describe("decision question", () => {
           question,
         )?.outsideScope,
       ).toBe(true);
+    },
+  );
+  it.each([{ citations: [] }, { citations: ["열량이 비슷한 사료"] }])(
+    "does not let an unsupported model scope flag block an ordinary question (%j)",
+    ({ citations }) => {
+      const result = validateQuestionProposal(
+        {
+          exclusions: [],
+          maxKcalDeltaPct: null,
+          citations,
+          unhandled: [],
+          outsideScope: true,
+        },
+        "열량이 비슷한 사료",
+      );
+      expect(result).not.toBeNull();
+      expect(result?.outsideScope).toBe(false);
+      expect(result?.clarifications).toContain("calories");
     },
   );
   it.each([

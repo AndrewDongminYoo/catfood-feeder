@@ -11,7 +11,7 @@ The product must do the comparison work before asking the owner to validate dema
 
 - Serve adult cats eating non-prescription dry food.
   Explicitly stop disease-specific, prescription, kitten, and pregnancy requests rather than infer suitability.
-  Apply the same clinical stop to English and Korean urinary, renal, and intestinal diet terminology, including rules-only fallback.
+  Apply the same clinical stop to English and Korean urinary, renal, intestinal, hepatic, and cardiac diet terminology, including rules-only fallback.
   Evaluate candidate brand and product names with the same clinical and life-stage gate, including Babycat wording.
 - Accept a natural-language question, current food, optional manual baseline when the food is missing, ingredient exclusions, and a maximum calorie-density change.
 - Translate the question into visible, editable conditions before evaluation.
@@ -24,6 +24,7 @@ The product must do the comparison work before asking the owner to validate dema
   Preserve the original meaning of older saved hard poultry-order requests.
   Ingredient order does not predict taste or establish the proportion of meat.
   AI proposes conditions and identifies unsupported requests; deterministic code evaluates catalog evidence.
+  Only the shared deterministic clinical predicate can block the flow for scope; an unsupported model scope flag cannot veto an ordinary question.
   An unavailable model must leave a fully usable structured form and explain the fallback.
 - Separate conditions met, conditions failed, and conditions that cannot be determined.
   Missing or broad ingredient names never establish absence of an excluded ingredient.

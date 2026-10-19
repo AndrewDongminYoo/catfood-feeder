@@ -188,7 +188,7 @@ export function validateQuestionProposal(
     exclusions: [...new Set(parsed.data.exclusions)],
     maxKcalDeltaPct: parsed.data.maxKcalDeltaPct,
     unhandled: [...new Set([...baseline.unhandled, ...parsed.data.unhandled])],
-    outsideScope: baseline.outsideScope || parsed.data.outsideScope,
+    outsideScope: baseline.outsideScope,
     clarifications: baseline.clarifications,
     notHigherKcal: baseline.notHigherKcal,
   };

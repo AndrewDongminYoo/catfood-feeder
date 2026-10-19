@@ -565,6 +565,8 @@ describe("food decision", () => {
     "Mother & Babycat",
     "Urinary",
     "Intestinal",
+    "Hepatic",
+    "Cardiac",
     "신장 관리",
   ])(
     "excludes clinical or life-stage product wording in the full identity: %s",
@@ -645,6 +647,8 @@ describe("food decision", () => {
     "urinary diet",
     "URINARY food",
     "intestinal diet",
+    "hepatic diet",
+    "cardiac diet",
     "유리너리 사료",
     "인테스티널 사료",
     "레날 사료",
