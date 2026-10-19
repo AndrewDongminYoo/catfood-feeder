@@ -12,6 +12,7 @@ The product must do the comparison work before asking the owner to validate dema
 - Serve adult cats eating non-prescription dry food.
   Explicitly stop disease-specific, prescription, kitten, and pregnancy requests rather than infer suitability.
   Apply the same clinical stop to English and Korean urinary, renal, and intestinal diet terminology, including rules-only fallback.
+  Evaluate candidate brand and product names with the same clinical and life-stage gate, including Babycat wording.
 - Accept a natural-language question, current food, optional manual baseline when the food is missing, ingredient exclusions, and a maximum calorie-density change.
 - Translate the question into visible, editable conditions before evaluation.
   Preserve explicit calorie-density tolerance numbers from 0 to 100%.

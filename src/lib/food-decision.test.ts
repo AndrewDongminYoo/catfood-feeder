@@ -531,6 +531,34 @@ describe("food decision", () => {
     input.foods[1]!.product_name = "Recipe Kitten";
     expect(buildFoodDecision(input, request).eligible).toHaveLength(0);
   });
+  it.each([
+    "Diabetic",
+    "Kidney Care",
+    "Mother & Babycat",
+    "Urinary",
+    "Intestinal",
+    "신장 관리",
+  ])(
+    "excludes clinical or life-stage product wording in the full identity: %s",
+    (name) => {
+      for (const field of ["product", "brand"] as const) {
+        const input = catalog();
+        const target = input.foods[1]!;
+        target.product_name = field === "product" ? name : "Adult recipe";
+        target.brands = {
+          ...target.brands!,
+          name: field === "brand" ? name : "Ordinary brand",
+        };
+        const report = buildFoodDecision(input, { ...request, exclusions: [] });
+        expect(
+          report.eligible.some((candidate) => candidate.food.id === 2),
+        ).toBe(false);
+        expect(
+          report.unresolved.some((candidate) => candidate.food.id === 2),
+        ).toBe(false);
+      }
+    },
+  );
   it("separates eligible, failed, and unresolved candidates without silently relaxing conditions", () => {
     const result = buildFoodDecision(
       catalog(),
