@@ -82,6 +82,94 @@ const originalQuestion =
   "지금 먹이는 사료와 비슷하면서 열량이 너무 높지 않은 건강한 사료를 찾고 있어요. 생선보다는 가금육을 더 좋아해요.";
 
 describe("decision workspace", () => {
+  it("preserves unavailable ingredient evidence in initial, saved, and exported briefs", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    const data = { ...props(), ingredientEvidenceUnavailable: true };
+    const view = render(<DecisionWorkspace {...data} />);
+    await prepare();
+    compare();
+    expect(
+      screen.getByText(/원재료 근거 자료를 불러오지 못했어요/),
+    ).toBeTruthy();
+    expect(screen.getByText("+5.0%")).toBeTruthy();
+    save();
+    const saved = JSON.parse(localStorage.getItem("catfood.decisions.v1")!)[0];
+    expect(saved.report.ingredientEvidenceUnavailable).toBe(true);
+    expect(exportDecisionBrief(decisionSnapshotSchema.parse(saved))).toContain(
+      "원재료 근거 자료: 이 검토에서는 불러오지 못했습니다",
+    );
+    const legacy = structuredClone(saved);
+    delete legacy.report.ingredientEvidenceUnavailable;
+    expect(
+      decisionSnapshotSchema.parse(legacy).report.ingredientEvidenceUnavailable,
+    ).toBe(false);
+    view.unmount();
+    render(<DecisionWorkspace {...props()} />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /저장한 검토 불러오기/ }),
+    );
+    expect(
+      screen.getByText(/원재료 근거 자료를 불러오지 못했어요/),
+    ).toBeTruthy();
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ...props(), ingredientEvidenceUnavailable: false }),
+    } as Response);
+    fireEvent.click(
+      screen.getByRole("button", { name: "현재 자료로 다시 비교하기" }),
+    );
+    await screen.findByText(/현재 카탈로그로 다시 비교했습니다/);
+    expect(
+      screen.queryByText(/원재료 근거 자료를 불러오지 못했어요/),
+    ).toBeNull();
+    save();
+    const refreshed = JSON.parse(localStorage.getItem("catfood.decisions.v1")!);
+    expect(refreshed[0].report.ingredientEvidenceUnavailable).toBe(false);
+    expect(refreshed[1].report.ingredientEvidenceUnavailable).toBe(true);
+  });
+  it.each([false, true])(
+    "preserves captured ingredient proof when a fresh read fails (HTTP ok: %s)",
+    async (ok) => {
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+      const data = props();
+      const proof = {
+        excerpt: data.foods[1]!.ingredients.map((i) => i.name).join(", "),
+        capturedAt: "2026-10-01",
+        url: "https://example.test/ingredients",
+      };
+      render(
+        <DecisionWorkspace
+          {...data}
+          ingredientEvidenceByFoodId={{ 2: proof }}
+        />,
+      );
+      await prepare();
+      compare();
+      save();
+      const before = JSON.parse(
+        localStorage.getItem("catfood.decisions.v1")!,
+      )[0];
+      expect(before.report.eligible[0].ingredientEvidence).toEqual(proof);
+      vi.mocked(fetch).mockResolvedValueOnce({
+        ok,
+        json: async () => ({
+          ...data,
+          ingredientEvidenceUnavailable: true,
+          ingredientEvidenceByFoodId: {},
+        }),
+      } as Response);
+      fireEvent.click(
+        screen.getByRole("button", { name: "현재 자료로 다시 비교하기" }),
+      );
+      await screen.findByText(
+        /표시 중인 검토와 자료 시점은 그대로 유지했습니다/,
+      );
+      save();
+      expect(
+        JSON.parse(localStorage.getItem("catfood.decisions.v1")!)[0].report,
+      ).toEqual(before.report);
+    },
+  );
   it.each([5, 10, 15])(
     "confirms pending calories through sensitivity selection (%s)",
     async (delta) => {

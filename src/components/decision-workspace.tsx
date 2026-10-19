@@ -70,6 +70,7 @@ function parseSaved(value: string): DecisionSnapshot[] {
 }
 
 export interface DecisionWorkspaceProps {
+  ingredientEvidenceUnavailable?: boolean;
   adequacyUnavailable?: boolean;
   adequacyByFoodId?: Readonly<Record<number, readonly AdequacyProof[]>>;
   available: boolean;
@@ -108,6 +109,7 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
       foods: data.foods,
       evidenceByFoodId: new Map(data.evidence),
       ingredientEvidenceByFoodId: data.ingredientEvidenceByFoodId,
+      ingredientEvidenceUnavailable: data.ingredientEvidenceUnavailable,
       adequacyByFoodId: data.adequacyByFoodId,
       adequacyUnavailable: data.adequacyUnavailable,
     }),
@@ -115,6 +117,7 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
       data.foods,
       data.evidence,
       data.ingredientEvidenceByFoodId,
+      data.ingredientEvidenceUnavailable,
       data.adequacyByFoodId,
       data.adequacyUnavailable,
     ],
@@ -255,6 +258,7 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
       if (
         !latest.available ||
         latest.adequacyUnavailable === true ||
+        latest.ingredientEvidenceUnavailable === true ||
         !Array.isArray(latest.foods) ||
         !Array.isArray(latest.evidence) ||
         !latest.ingredientEvidenceByFoodId
@@ -265,6 +269,7 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
         foods: latest.foods,
         evidenceByFoodId: new Map(latest.evidence),
         ingredientEvidenceByFoodId: latest.ingredientEvidenceByFoodId,
+        ingredientEvidenceUnavailable: latest.ingredientEvidenceUnavailable,
         adequacyByFoodId: latest.adequacyByFoodId,
         adequacyUnavailable: latest.adequacyUnavailable,
       });

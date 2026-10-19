@@ -154,6 +154,7 @@ export type DecisionCandidate = z.infer<typeof candidateSchema>;
 const reportSchema = z.object({
   createdAt: z.string(),
   adequacyUnavailable: z.boolean().default(false),
+  ingredientEvidenceUnavailable: z.boolean().default(false),
   request: decisionRequestSchema,
   status: z.enum([
     "ready",
@@ -384,6 +385,7 @@ function hasCompleteIngredientProof(
 }
 
 export interface DecisionCatalog {
+  ingredientEvidenceUnavailable?: boolean;
   adequacyUnavailable?: boolean;
   adequacyByFoodId?: Readonly<Record<number, readonly AdequacyProof[]>>;
   foods: readonly FoodWithBrand[];
@@ -457,6 +459,8 @@ export function buildFoodDecision(
   const report: DecisionReport = {
     createdAt,
     adequacyUnavailable: catalog.adequacyUnavailable ?? false,
+    ingredientEvidenceUnavailable:
+      catalog.ingredientEvidenceUnavailable ?? false,
     request,
     baseline,
     status: "ready",
@@ -705,6 +709,11 @@ export function exportDecisionBrief(snapshot: DecisionSnapshot): string {
   return [
     "# 다음 사료 검토 기록",
     `검토 시각: ${report.createdAt}`,
+    ...(report.ingredientEvidenceUnavailable
+      ? [
+          "원재료 근거 자료: 이 검토에서는 불러오지 못했습니다. 원재료 조건의 출처를 다시 확인해야 합니다.",
+        ]
+      : []),
     ...(report.adequacyUnavailable
       ? [
           "제조사 선언 자료: 이 검토에서는 불러오지 못했습니다. 선언이 없거나 영양기준에 미달한다는 뜻은 아닙니다.",

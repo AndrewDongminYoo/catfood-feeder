@@ -58,6 +58,7 @@ export async function getDecisionCatalog(options: { fresh?: boolean } = {}) {
     };
   let adequacyByFoodId = {};
   let adequacyUnavailable = false;
+  let ingredientEvidenceUnavailable = false;
   let ingredientEvidenceByFoodId: Record<number, IngredientProof> = {};
   if (isSupabaseConfigured() && catalog.foods.length) {
     try {
@@ -70,6 +71,17 @@ export async function getDecisionCatalog(options: { fresh?: boolean } = {}) {
         "Failed to load public decision ingredient evidence",
         error instanceof Error ? error.message : "query failed",
       );
+      ingredientEvidenceUnavailable = true;
+      if (options.fresh)
+        return {
+          available: false as const,
+          foods: [],
+          evidence: [],
+          ingredientEvidenceByFoodId: {},
+          ingredientEvidenceUnavailable,
+          adequacyByFoodId: {},
+          sample: false,
+        };
     }
   }
   try {
@@ -90,6 +102,7 @@ export async function getDecisionCatalog(options: { fresh?: boolean } = {}) {
   return {
     adequacyByFoodId,
     adequacyUnavailable,
+    ingredientEvidenceUnavailable,
     available: true as const,
     foods: catalog.foods,
     evidence: [...catalog.evidenceByFoodId.entries()],

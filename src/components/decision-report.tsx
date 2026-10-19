@@ -440,6 +440,14 @@ export function DecisionReport({
           조건 충족은 건강 적합성이나 종합 품질의 판정이 아닙니다.
         </p>
       </section>
+      {report.ingredientEvidenceUnavailable && (
+        <section className="card" role="status">
+          <p>
+            원재료 근거 자료를 불러오지 못했어요. 원재료 조건을 확인하려면 현재
+            자료로 다시 비교해 주세요.
+          </p>
+        </section>
+      )}
       <CandidateGroup
         baseline={report.baseline}
         adequacyUnavailable={report.adequacyUnavailable}
