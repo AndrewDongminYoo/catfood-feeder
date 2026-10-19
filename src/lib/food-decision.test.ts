@@ -66,6 +66,45 @@ function catalog() {
 
 describe("ingredient exclusion", () => {
   it.each([
+    ["fishmeal", "fish"],
+    ["WHITEFISHMEAL", "fish"],
+    ["fishoil", "fish"],
+    ["cornmeal", "grain"],
+    ["oatmeal", "grain"],
+    ["oatflour", "grain"],
+    ["wheatbran", "grain"],
+  ] as const)("rejects the compact derivative %s", (name, exclusion) => {
+    expect(
+      assessIngredientExclusion([{ name, position: 1 }], exclusion, true)
+        .status,
+    ).toBe("failed");
+    const input = catalog();
+    input.foods[1]!.ingredients = [{ name, position: 1 }];
+    input.ingredientEvidenceByFoodId[2]!.excerpt = name;
+    const report = buildFoodDecision(input, {
+      ...request,
+      exclusions: [exclusion],
+    });
+    expect(report.eligible.some((candidate) => candidate.food.id === 2)).toBe(
+      false,
+    );
+    expect(
+      report.excluded
+        .find((candidate) => candidate.food.id === 2)
+        ?.conditions.find((condition) => condition.key === exclusion)?.status,
+    ).toBe("failed");
+  });
+  it.each([
+    ["cornflower", "grain"],
+    ["ryegrass", "grain"],
+    ["fishmint", "fish"],
+  ] as const)("retains word boundaries for %s", (name, exclusion) => {
+    expect(
+      assessIngredientExclusion([{ name, position: 1 }], exclusion, true)
+        .status,
+    ).toBe("met");
+  });
+  it.each([
     ["밀", "grain", "failed"],
     ["flounder", "fish", "failed"],
     ["hydrolyzed liver", "chicken", "unknown"],
@@ -141,6 +180,35 @@ describe("ingredient exclusion", () => {
 });
 
 describe("food decision", () => {
+  it.each(["fishoil", "salmonoil", "Fish oil", "Salmon oil"])(
+    "excludes %s but skips it when assessing the first protein preference",
+    (name) => {
+      const input = catalog();
+      input.foods[1]!.ingredients = [
+        { name, position: 1 },
+        { name: "Chicken meal", position: 2 },
+      ];
+      input.ingredientEvidenceByFoodId[2]!.excerpt = `${name}, Chicken meal`;
+      expect(
+        assessIngredientExclusion(input.foods[1]!.ingredients, "fish", true)
+          .status,
+      ).toBe("failed");
+      for (const preferred of ["fish", "chicken"] as const) {
+        const report = buildFoodDecision(input, {
+          ...request,
+          exclusions: [],
+          preferredProteins: [preferred],
+        });
+        const preference = report.eligible.find(
+          (candidate) => candidate.food.id === 2,
+        )!.preference;
+        expect(preference.status).toBe(
+          preferred === "fish" ? "other" : "preferred",
+        );
+        expect(preference.detail).toContain("2번째 “Chicken meal”");
+      }
+    },
+  );
   it.each([
     "Kangaroo meal",
     "Marine protein",

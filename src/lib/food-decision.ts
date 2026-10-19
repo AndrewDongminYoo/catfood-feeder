@@ -190,9 +190,9 @@ const MATCHERS: Record<IngredientExclusion, RegExp> = {
   duck: /\bduck\b|오리/i,
   beef: /\bbeef\b|\bbovine\b|소고기|쇠고기|우육|우지/i,
   lamb: /\blamb\b|\bmutton\b|양고기|양육/i,
-  fish: /\b(?:fish|salmon|tuna|trout|cod|herring|sardine|anchovy|mackerel|hake|pollock|whitefish|menhaden|flounder|halibut|sole|carp|tilapia|sea\s*bass)\b|생선|어류|어분|어유|연어|참치|송어|대구|청어|정어리|멸치|고등어|명태|가자미|광어|넙치|잉어|농어/i,
+  fish: /\b(?:fish|salmon|tuna|trout|cod|herring|sardine|anchovy|mackerel|hake|pollock|whitefish|menhaden|flounder|halibut|sole|carp|tilapia|sea\s*bass)(?:meal|oil)?\b|생선|어류|어분|어유|연어|참치|송어|대구|청어|정어리|멸치|고등어|명태|가자미|광어|넙치|잉어|농어/i,
   grain:
-    /\b(?:grains?|cereals?|rice|wheat|barley|oats?|corn|maize|rye|millet|sorghum|spelt)\b|곡물|곡류|쌀|현미|백미|밀가루|보리|귀리|옥수수|호밀|수수|기장|^밀(?:$|\s|분|단백|글루텐|전분)/i,
+    /\b(?:grains?|cereals?|rice|wheat|barley|oats?|corn|maize|rye|millet|sorghum|spelt)(?:meal|flour|bran)?\b|곡물|곡류|쌀|현미|백미|밀가루|보리|귀리|옥수수|호밀|수수|기장|^밀(?:$|\s|분|단백|글루텐|전분)/i,
 };
 const GENERIC_ANIMAL =
   /\b(?:animal|meat|digest)\b|\bnatural\s+flavou?rs?\b|육류|동물성|천연향미|가수분해\s*단백/i;
@@ -239,9 +239,13 @@ function assessPreference(
       );
     if (
       !includesTissue &&
-      /^(?:(?:fresh|raw|whole|rendered|dried|dehydrated)\s+)*(?:[\p{L}-]+\s+){0,2}(?:fats?|oils?|tallow|lard|broth|stock|flavou?rs?)$|^(?:신선한\s*|생\s*)?(?:닭|칠면조|오리|소|돼지|연어|생선|동물성|가금류)?\s*(?:지방|우지|돈지|계지|어유|육수|향미)$/iu.test(
+      (/^(?:(?:fresh|raw|whole|rendered|dried|dehydrated)\s+)*(?:[\p{L}-]+\s+){0,2}(?:fats?|oils?|tallow|lard|broth|stock|flavou?rs?)$|^(?:신선한\s*|생\s*)?(?:닭|칠면조|오리|소|돼지|연어|생선|동물성|가금류)?\s*(?:지방|우지|돈지|계지|어유|육수|향미)$/iu.test(
         mainName,
-      )
+      ) ||
+        (MATCHERS.fish.test(mainName) &&
+          /^(?:(?:fresh|raw|whole|rendered|dried|dehydrated)\s+)*[a-z]+oil$/i.test(
+            mainName,
+          )))
     )
       continue;
     const otherBird = /\b(?:goose|quail|pheasant)\b|거위|메추리|꿩/i.test(
