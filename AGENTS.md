@@ -72,7 +72,9 @@ Reference centrality is not measured because this session has no LSP or codegrap
 - Do not use the Supabase service-role client in browser or client-component code.
 - Do not treat price crawling or Korean recall syncing as current scope.
 - Do not silently relax an owner condition, infer ingredient absence from missing data, or present label exclusions as allergy safety.
-- Preserve explicit numeric calorie limits and owner confirmation of qualitative calorie and poultry-order criteria.
+- Preserve explicit numeric calorie limits and owner confirmation of qualitative calorie and interpreted poultry preferences.
+- Keep protein preferences separate from hard exclusions: preferences only prioritize, and missing ingredient proof remains unknown.
+- Preserve the guided current-food → change-reason → conditions → candidate flow and legacy saved hard poultry-order requests.
 - Explicit rechecks use `/api/advisor/catalog` to read fresh data, not the page's initial props.
 - Do not advertise local snapshots and manual rechecks as automatic monitoring.
 - Keep legacy `/advisor?current=...` links compatible; the default workspace is the consumer product.

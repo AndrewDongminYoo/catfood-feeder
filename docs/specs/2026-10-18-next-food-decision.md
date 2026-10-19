@@ -14,7 +14,10 @@ The product must do the comparison work before asking the owner to validate dema
 - Accept a natural-language question, current food, optional manual baseline when the food is missing, ingredient exclusions, and a maximum calorie-density change.
 - Translate the question into visible, editable conditions before evaluation.
   Preserve explicit calorie-density tolerance numbers from 0 to 100%.
-  Ask the owner to confirm the meaning of qualitative calorie preferences and poultry-first ingredient order.
+  Ask the owner to confirm the meaning of qualitative calorie wording and interpreted poultry preferences.
+  Optional protein preferences change candidate order only; hard exclusions always take precedence.
+  Assess preferred proteins from the first declared animal ingredient with complete literal source proof, ignoring standalone fat, oil, broth, stock, and flavor entries for this preference assessment.
+  Preserve the original meaning of older saved hard poultry-order requests.
   Ingredient order does not predict taste or establish the proportion of meat.
   AI proposes conditions and identifies unsupported requests; deterministic code evaluates catalog evidence.
   An unavailable model must leave a fully usable structured form and explain the fallback.
@@ -51,7 +54,9 @@ No database migration, dependency addition, or weakening of RLS is required.
 ## Design contract
 
 Preserve the existing teal accent, white cards, neutral background, Korean sans body, and serif display tokens.
-Use a mobile-first decision worksheet: question and conditions, result summary, candidate dossiers, then saved briefs.
+Use four guided steps: current food, reason to change or custom question, relevant conditions, then candidates and saving.
+Offer everyday reason choices and reveal optional exclusion and preference questions when relevant or requested.
+Lead results with up to three matching candidates and their reasons and tradeoffs; allow expansion of the remaining candidates, evidence, and calorie sensitivity.
 At wide widths use an asymmetric introduction and form, followed by readable comparison cards.
 Use visible labels, native controls, 44px targets, keyboard focus, status announcements, reduced-motion support, and no horizontal page overflow at 375px.
 Copy voice: warm.
@@ -74,4 +79,6 @@ The operator authorized foundational document changes and continued implementati
 No PR, remote push, production schema write, account changes, or purchase is needed to satisfy this delivery.
 Historical data counts remain dated observations rather than live coverage claims.
 The Google document supplied in this session informs the separation of proposal, evidence, and decision.
-Oracle retrieval was attempted, but its identity gate prevented a project query; do not represent this as an absence of precedent.
+The initial Oracle retrieval was blocked by an identity gate.
+The guided-flow follow-up resolved the personal `catfood-feeder` project identity and consulted source-currency and nutrient-provenance precedent.
+The resulting constraints are reflected in the source and guaranteed-analysis rules in [BLUEPRINT](../../BLUEPRINT.md).

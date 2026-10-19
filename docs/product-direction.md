@@ -31,11 +31,13 @@ Nutrient interval simulation requires evidence-backed bounds and is not implemen
 
 ## First complete experience
 
-1. Describe the current food and the reason for changing it.
-2. Confirm or edit ingredient exclusions and the permitted calorie-density change.
-   Clarify qualitative calorie wording and whether poultry preference should mean poultry appearing before fish in the declared ingredient order.
+1. Choose the current food, then select a reason to change or write a question.
+2. Confirm the permitted calorie-density change and reveal relevant ingredient follow-ups.
+   Separate ingredients that must be excluded from preferred proteins that only change candidate order.
+   Clarify qualitative calorie wording; ingredient order never predicts taste or establishes meat proportions.
    Preserve an explicit numerical limit exactly.
-3. Read candidates in three distinct sets: conditions met, unresolved, and conditions failed.
+3. Start with up to three matching candidates and their specific reasons and tradeoffs.
+   Expand other matching candidates, unresolved candidates, failed conditions, or calorie sensitivity when needed.
 4. Inspect source excerpts, original ingredient wording and order, capture dates, tradeoffs, and the next concrete question.
 5. Select or defer a candidate and save the exact brief with a reason.
 6. Reopen the historical brief or explicitly compare again using the current catalog.

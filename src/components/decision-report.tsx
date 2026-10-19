@@ -43,6 +43,29 @@ function Candidate({
           </span>
         </div>
       </header>
+      <section className="decision-fit">
+        <h4>먼저 살펴볼 이유</h4>
+        <p>
+          {candidate.preference.status === "preferred"
+            ? "선호한 원료의 표기가 먼저 확인됐어요."
+            : candidate.preference.status === "other"
+              ? "선호한 원료와 다른 후보예요. 제외 조건은 아래에서 따로 확인해 주세요."
+              : candidate.preference.status === "unknown"
+                ? "선호 원료는 추가 확인이 필요해요. 확인된 비교 조건을 함께 보세요."
+                : "확인된 조건과 현재 사료의 차이를 함께 비교할 수 있어요."}
+        </p>
+        {candidate.preference.status !== "not_requested" && (
+          <p>{candidate.preference.detail}</p>
+        )}
+        <h4>선택할 때 확인할 점</h4>
+        <p>
+          {candidate.kcalDeltaPct === null
+            ? "열량 차이를 확인하지 못해 급여량 차이를 판단할 수 없어요."
+            : candidate.kcalDeltaPct === 0
+              ? "표기 열량은 같아도 배합과 급여량 안내는 다를 수 있어요."
+              : "열량 밀도가 달라 같은 무게를 먹여도 섭취 열량이 달라집니다. 포장의 급여량을 확인해 주세요."}
+        </p>
+      </section>
       <table className="decision-label-table">
         <caption>원문 근거가 있는 보증성분 표기</caption>
         <thead>
@@ -137,11 +160,14 @@ function Candidate({
           <p>현재 수치와 일치하는 원문 근거를 확인하지 못했습니다.</p>
         )}
       </details>
-      <ul className="decision-caveats">
-        {candidate.notes.map((note) => (
-          <li key={note}>{note}</li>
-        ))}
-      </ul>
+      <details className="decision-evidence">
+        <summary>구매 전 확인할 한계</summary>
+        <ul className="decision-caveats">
+          {candidate.notes.map((note) => (
+            <li key={note}>{note}</li>
+          ))}
+        </ul>
+      </details>
       <div className="decision-actions">
         <button
           className="primary"
@@ -281,7 +307,7 @@ export function DecisionReport({
           </p>
           <h2>
             {report.eligible.length
-              ? "비교할 후보와 선택의 근거가 모였습니다"
+              ? `먼저 살펴볼 후보 ${Math.min(3, report.eligible.length)}개를 골랐어요`
               : "선택을 막는 정보부터 확인해 보세요"}
           </h2>
           <p>
@@ -309,7 +335,7 @@ export function DecisionReport({
         </div>
         <dl>
           <div>
-            <dt>조건 충족</dt>
+            <dt>비교 후보</dt>
             <dd>{report.eligible.length}</dd>
           </div>
           <div>
@@ -328,44 +354,54 @@ export function DecisionReport({
           조건 충족은 건강 적합성이나 종합 품질의 판정이 아닙니다.
         </p>
       </section>
-      <section className="card decision-sensitivity">
-        <h2>열량 허용 폭을 바꾸면 선택지가 얼마나 달라질까요?</h2>
-        <p>
-          원재료 조건을 유지한 채 열량 차이의 허용 폭만 바꿔 봤습니다. 생물학적
-          효과나 성공 확률을 계산한 값이 아닙니다.
-        </p>
-        <div>
-          {report.sensitivity.map((s) => (
-            <button
-              type="button"
-              key={s.maxKcalDeltaPct}
-              className="ghost"
-              disabled={historical || comparisonDisabled}
-              onClick={() =>
-                onToleranceChange(s.maxKcalDeltaPct as 5 | 10 | 15)
-              }
-            >
-              <span>{s.maxKcalDeltaPct}% 이내</span>
-              <strong>{s.eligibleCount}개</strong>
-              <small>이 조건으로 다시 비교</small>
-            </button>
-          ))}
-        </div>
-      </section>
       <CandidateGroup
         baseline={report.baseline}
-        title="입력한 조건을 충족한 후보"
-        description="근거가 확인된 열량 차이가 작은 순서입니다. 열량을 비교할 수 없는 후보는 뒤에 표시합니다. 더 건강한 사료 순위가 아닙니다."
+        title="먼저 비교할 후보"
+        description="선호한 원료의 표기가 확인된 후보를 먼저, 그 안에서는 현재와 열량 차이가 작은 순서로 보여드립니다. 선호와 달라도 필수 조건을 통과하면 후보로 남깁니다. 건강이나 품질 순위가 아닙니다."
         candidates={report.eligible}
         onSelect={onSelect}
       />
-      <CandidateGroup
-        baseline={report.baseline}
-        title="확인하면 선택지가 될 수 있는 후보"
-        description="조건을 완화하지 않았습니다. 아래 질문에 답할 자료가 생기면 다시 비교할 수 있습니다."
-        candidates={report.unresolved}
-        onSelect={onSelect}
-      />
+      <details className="card decision-sensitivity">
+        <summary>열량 기준을 바꾸며 더 비교하기</summary>
+        <section>
+          <h2>열량 허용 폭을 바꾸면 선택지가 얼마나 달라질까요?</h2>
+          <p>
+            원재료 조건을 유지한 채 열량 차이의 허용 폭만 바꿔 봤습니다.
+            생물학적 효과나 성공 확률을 계산한 값이 아닙니다.
+          </p>
+          <div>
+            {report.sensitivity.map((s) => (
+              <button
+                type="button"
+                key={s.maxKcalDeltaPct}
+                className="ghost"
+                disabled={historical || comparisonDisabled}
+                onClick={() =>
+                  onToleranceChange(s.maxKcalDeltaPct as 5 | 10 | 15)
+                }
+              >
+                <span>{s.maxKcalDeltaPct}% 이내</span>
+                <strong>{s.eligibleCount}개</strong>
+                <small>이 조건으로 다시 비교</small>
+              </button>
+            ))}
+          </div>
+        </section>
+      </details>
+      {report.unresolved.length > 0 && (
+        <details className="card decision-more">
+          <summary>
+            자료를 더 확인하면 비교할 수 있는 후보 {report.unresolved.length}개
+          </summary>
+          <CandidateGroup
+            baseline={report.baseline}
+            title="확인하면 선택지가 될 수 있는 후보"
+            description="조건을 완화하지 않았습니다. 아래 질문에 답할 자료가 생기면 다시 비교할 수 있습니다."
+            candidates={report.unresolved}
+            onSelect={onSelect}
+          />
+        </details>
+      )}
       {report.excluded.length > 0 && (
         <details className="card decision-excluded">
           <summary>

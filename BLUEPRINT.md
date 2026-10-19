@@ -10,13 +10,15 @@ The [implementation spec](docs/specs/2026-10-18-next-food-decision.md) defines t
 
 ## Product architecture
 
-- `/` enters `/advisor`, the question-to-decision workspace.
+- `/` enters `/advisor`: current food, reason to change, relevant conditions, then candidates.
 - The question interpreter proposes explicit, editable conditions.
 - The decision engine evaluates calorie-density tolerance and declared-ingredient exclusions against evidence.
-- Qualitative calorie preferences and poultry-first ingredient order require owner confirmation before counting as fulfilled conditions.
+- Qualitative calorie wording requires owner confirmation before counting as a fulfilled condition.
+- Optional protein preferences prioritize evidence-backed ingredient order without excluding alternatives or predicting taste.
+- Hard ingredient exclusions take precedence over preferences; older saved poultry-order conditions retain their original meaning.
 - Explicit numeric calorie tolerances are preserved rather than rounded to a preset.
 - Results distinguish conditions met, unresolved, and conditions failed.
-- Candidate briefs expose original sources, remaining questions, and the effect of changing a preference.
+- The result leads with up to three matching candidates, their reasons and tradeoffs; remaining candidates, sources, and calorie sensitivity are expandable.
 - Versioned local snapshots preserve the decision, sources, and selection reason.
 - The public catalog, two-food comparison, recalls, feeding history, and curator workbench remain supporting surfaces.
 - Legacy `/advisor?current=...` links retain their original behavior.
@@ -32,6 +34,8 @@ The [implementation spec](docs/specs/2026-10-18-next-food-decision.md) defines t
 - Guaranteed-analysis minima and maxima are bounds, not exact measured concentrations.
 - Do not score overall health, safety, or quality.
 - Do not relax the owner's conditions without an explicit action.
+- Reinterpreting question wording preserves existing ingredient exclusions, the current-calorie ceiling, legacy poultry-order conditions, and manually chosen preferences.
+- An unclassified leading ingredient cannot be skipped to claim a later preferred animal as the first animal ingredient.
 
 ## Domain calculations
 

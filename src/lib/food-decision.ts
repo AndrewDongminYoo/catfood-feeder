@@ -2,6 +2,21 @@ import { z } from "zod";
 import type { FoodWithBrand, Ingredient, NutrientEvidence } from "./catalog";
 import { findMatchingNutrientEvidence } from "./nutrient-evidence";
 import { classifyNutrientBound } from "./advisor";
+import {
+  deriveIngredientForm,
+  deriveIngredientSpecificity,
+} from "./ingredient-form";
+
+export const PREFERENCE_LABELS = {
+  poultry: "가금육",
+  chicken: "닭고기",
+  turkey: "칠면조",
+  duck: "오리",
+  beef: "소고기",
+  lamb: "양고기",
+  fish: "생선",
+} as const;
+export type ProteinPreference = keyof typeof PREFERENCE_LABELS;
 
 export const EXCLUSION_LABELS = {
   chicken: "닭고기",
@@ -24,11 +39,18 @@ export const exclusionSchema = z.enum([
 ]);
 export const decisionRequestSchema = z.object({
   question: z.string().trim().max(1200),
+  changeReason: z.string().trim().max(160).default(""),
   catName: z.string().trim().max(60),
   currentFoodId: z.number().int().nonnegative().nullable(),
   manualCurrentName: z.string().trim().max(160),
   manualKcal: z.number().finite().min(500).max(10000).nullable(),
   exclusions: z.array(exclusionSchema).max(7),
+  preferredProteins: z
+    .array(
+      z.enum(["poultry", "chicken", "turkey", "duck", "beef", "lamb", "fish"]),
+    )
+    .max(7)
+    .default([]),
   maxKcalDeltaPct: z.number().finite().min(0).max(100).nullable(),
   notHigherKcal: z.boolean().default(false),
   poultryFirst: z.boolean().default(false),
@@ -97,6 +119,15 @@ const labelFactSchema = z.object({
 type LabelFact = z.infer<typeof labelFactSchema>;
 export type DecisionCondition = z.infer<typeof conditionSchema>;
 const candidateSchema = z.object({
+  preference: z
+    .object({
+      status: z.enum(["preferred", "other", "unknown", "not_requested"]),
+      detail: z.string(),
+    })
+    .default({
+      status: "not_requested",
+      detail: "선호 원료를 정하지 않았습니다.",
+    }),
   food: z.object({
     id: z.number().int(),
     product_name: z.string(),
@@ -177,6 +208,99 @@ function isUnspecifiedAnimal(name: string): boolean {
         ([family, matcher]) => family !== "grain" && matcher.test(name),
       ))
   );
+}
+
+function assessPreference(
+  ingredients: readonly Ingredient[],
+  proof: IngredientProof | null,
+  preferences: readonly ProteinPreference[],
+): DecisionCandidate["preference"] {
+  if (!preferences.length)
+    return {
+      status: "not_requested",
+      detail: "선호 원료를 정하지 않았습니다.",
+    };
+  if (!proof)
+    return {
+      status: "unknown",
+      detail: "전체 원재료 근거가 없어 선호 원료의 표기를 확인하지 못했습니다.",
+    };
+  for (const ingredient of ingredients) {
+    const mainName = ingredient.name
+      .split(/[（(]/, 1)[0]!
+      .replace(/\b(?:preserved|stabilized)\b.*$/i, "")
+      .trim();
+    const includesTissue =
+      /\b(?:meat|meal|liver|heart|kidney|organ|offal|protein)\b|고기|육분|생육|내장|단백|간(?:\s|$)/i.test(
+        mainName,
+      );
+    if (
+      !includesTissue &&
+      /^(?:(?:fresh|raw|whole|rendered|dried|dehydrated)\s+)*(?:[\p{L}-]+\s+){0,2}(?:fats?|oils?|tallow|lard|broth|stock|flavou?rs?)$|^(?:신선한\s*|생\s*)?(?:닭|칠면조|오리|소|돼지|연어|생선|동물성|가금류)?\s*(?:지방|우지|돈지|계지|어유|육수|향미)$/iu.test(
+        mainName,
+      )
+    )
+      continue;
+    const otherBird = /\b(?:goose|quail|pheasant)\b|거위|메추리|꿩/i.test(
+      ingredient.name,
+    );
+    const family =
+      (["chicken", "turkey", "duck", "beef", "lamb", "fish"] as const).find(
+        (key) => MATCHERS[key].test(ingredient.name),
+      ) ??
+      (otherBird || GENERIC_POULTRY.test(ingredient.name) ? "poultry" : null);
+    if (!family && isUnspecifiedAnimal(ingredient.name))
+      return {
+        status: "unknown",
+        detail: `앞선 동물성 표기 “${ingredient.name}”의 종류를 확인해야 합니다.`,
+      };
+    if (!family && deriveIngredientSpecificity(ingredient.name) !== "species") {
+      if (
+        /^(?:(?:dried|ground|whole|brown|white|dehydrated)\s+)*(?:peas?|potatoes|potato|rice|corn|maize|wheat|oats?|barley|lentils?|chickpeas?|beans?|soy|beet|pumpkin|carrot|tomato|apple|cranberries|blueberries|flaxseed|sunflower|kelp|chicory|yeast|cellulose|salt|taurine|vitamins?|minerals?|tocopherols?)(?:\s+(?:protein|flour|meal|starch|fiber|fibre|root|pulp|pomace|extract))*$|^(?:완두콩?|감자|쌀|옥수수|보리|귀리|렌틸|병아리콩|대두|비트|호박|당근|토마토|사과|크랜베리|블루베리|아마씨|해바라기|다시마|치커리|효모|셀룰로오스|소금|타우린|비타민|미네랄)(?:\s*(?:단백질|분말|전분|섬유질|추출물))*$/i.test(
+          mainName,
+        )
+      )
+        continue;
+      return {
+        status: "unknown",
+        detail: `앞선 원재료 “${ingredient.name}”의 유래를 분류하지 못해 뒤의 원료로 선호 일치를 판단하지 않았습니다.`,
+      };
+    }
+    const requestedBird = preferences.some((key) =>
+      ["chicken", "turkey", "duck"].includes(key),
+    );
+    if (
+      family === "poultry" &&
+      !otherBird &&
+      requestedBird &&
+      !preferences.includes("poultry")
+    )
+      return {
+        status: "unknown",
+        detail: `“${ingredient.name}”은 가금육의 종을 밝히지 않았습니다.`,
+      };
+    const matched =
+      family !== null &&
+      (preferences.includes(family) ||
+        (preferences.includes("poultry") &&
+          ["chicken", "turkey", "duck"].includes(family)));
+    const form = deriveIngredientForm(ingredient.name);
+    const formText = {
+      fresh: "생육 표기",
+      dried: "건조 표기",
+      meal: "육분·분말 표기",
+      by_product: "부산물 표기",
+      unspecified: "형태 미확인",
+    }[form];
+    return {
+      status: matched ? "preferred" : "other",
+      detail: `지방·오일·육수 표기를 제외하고 처음 확인한 동물성 원재료는 ${ingredient.position}번째 “${ingredient.name}”입니다 (${formText}). ${matched ? "선호한 원료의 표기와 맞습니다." : "선호한 원료와 다르지만 제외 조건에 걸리지 않으면 후보로 남깁니다."} 기호성이나 육류 함량 비율을 뜻하지 않습니다.`,
+    };
+  }
+  return {
+    status: "unknown",
+    detail: "선호 원료와 대조할 동물성 원재료의 종류를 확인하지 못했습니다.",
+  };
 }
 
 export function assessIngredientExclusion(
@@ -332,6 +456,7 @@ export function buildFoodDecision(
     request.maxKcalDeltaPct === null &&
     !request.notHigherKcal &&
     !request.poultryFirst &&
+    !request.preferredProteins.length &&
     !request.unresolvedRequirements.length &&
     !request.pendingClarifications.length
   )
@@ -489,6 +614,11 @@ export function buildFoodDecision(
           "연결된 리콜 이력이 있습니다. 제품·브랜드 범위와 대상 로트를 원문에서 확인해 주세요.",
         );
       return {
+        preference: assessPreference(
+          food.ingredients,
+          ingredientEvidence,
+          request.preferredProteins,
+        ),
         food: {
           id: food.id,
           product_name: food.product_name,
@@ -512,8 +642,15 @@ export function buildFoodDecision(
     });
   candidates.sort(
     (a, b) =>
+      ({ preferred: 0, other: 1, unknown: 2, not_requested: 0 })[
+        a.preference.status
+      ] -
+        { preferred: 0, other: 1, unknown: 2, not_requested: 0 }[
+          b.preference.status
+        ] ||
       Math.abs(a.kcalDeltaPct ?? Infinity) -
-        Math.abs(b.kcalDeltaPct ?? Infinity) || a.food.id - b.food.id,
+        Math.abs(b.kcalDeltaPct ?? Infinity) ||
+      a.food.id - b.food.id,
   );
   for (const candidate of candidates) {
     if (candidate.conditions.some((c) => c.status === "failed"))
@@ -545,6 +682,8 @@ export function exportDecisionBrief(snapshot: DecisionSnapshot): string {
     "# 다음 사료 검토 기록",
     `검토 시각: ${report.createdAt}`,
     `질문: ${report.request.question || "입력한 조건으로 비교"}`,
+    `바꾸려는 이유: ${report.request.changeReason || "별도 기록 없음"}`,
+    `선호 원료: ${report.request.preferredProteins.map((key) => PREFERENCE_LABELS[key]).join(", ") || "없음"} (제외 조건이 아닌 우선순위)`,
     `현재 사료: ${report.baseline.name}`,
     `현재 열량: ${report.baseline.kcal ?? "미확인"} kcal/kg (${report.baseline.origin === "owner" ? "직접 입력" : "카탈로그 근거"})`,
     ...(report.baseline.evidence
@@ -570,6 +709,7 @@ export function exportDecisionBrief(snapshot: DecisionSnapshot): string {
       .map((c) =>
         [
           `\n## ${c.food.brand} ${c.food.product_name}`,
+          `- 선호 원료 확인: ${c.preference.detail}`,
           ...c.conditions.map(
             (x) =>
               `- ${x.label}: ${x.status === "met" ? "표기 기준 충족" : x.status === "failed" ? "불충족" : "확인 필요"} — ${x.detail}`,

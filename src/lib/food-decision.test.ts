@@ -141,6 +141,140 @@ describe("ingredient exclusion", () => {
 });
 
 describe("food decision", () => {
+  it.each([
+    "Kangaroo meal",
+    "Marine protein",
+    "캥거루육분",
+    "Kangaroo meal with peas",
+  ])(
+    "does not skip unclassified leading animal ingredient %s to claim a preference",
+    (name) => {
+      const input = catalog();
+      input.foods[1]!.ingredients = [
+        { name, position: 1 },
+        { name: "Chicken meal", position: 2 },
+      ];
+      input.ingredientEvidenceByFoodId[2]!.excerpt = `${name}, Chicken meal`;
+      const report = buildFoodDecision(input, {
+        ...request,
+        exclusions: [],
+        preferredProteins: ["chicken"],
+      });
+      expect(
+        report.eligible.find((c) => c.food.id === 2)!.preference.status,
+      ).toBe("unknown");
+    },
+  );
+  it.each(["Chicken meat and fat", "Chicken liver (with chicken broth)"])(
+    "retains the animal part of compound ingredient %s for preferences",
+    (name) => {
+      const input = catalog();
+      input.foods[1]!.ingredients = [
+        { name, position: 1 },
+        { name: "Salmon meal", position: 2 },
+      ];
+      input.ingredientEvidenceByFoodId[2]!.excerpt = `${name}, Salmon meal`;
+      const preference = (preferredProteins: ("chicken" | "fish")[]) =>
+        buildFoodDecision(input, {
+          ...request,
+          exclusions: [],
+          preferredProteins,
+        }).eligible.find((c) => c.food.id === 2)!.preference;
+      expect(preference(["chicken"]).status).toBe("preferred");
+      expect(preference(["chicken"]).detail).toContain(`1번째 “${name}”`);
+      expect(preference(["fish"]).status).toBe("other");
+    },
+  );
+  it.each([
+    ["Chicken fat", "chicken"],
+    ["Fresh chicken fat", "chicken"],
+    ["Raw chicken fat", "chicken"],
+    ["Whole chicken fat", "chicken"],
+    ["우지", "beef"],
+    ["Beef tallow", "beef"],
+  ] as const)(
+    "does not prioritize %s as a protein preference",
+    (fat, preference) => {
+      const input = catalog();
+      input.foods[1]!.ingredients = [
+        { name: fat, position: 1 },
+        { name: "Salmon meal", position: 2 },
+      ];
+      input.ingredientEvidenceByFoodId[2]!.excerpt = `${fat}, Salmon meal`;
+      const report = buildFoodDecision(input, {
+        ...request,
+        exclusions: [],
+        preferredProteins: [preference],
+      });
+      expect(
+        report.eligible.find((c) => c.food.id === 2)?.preference.status,
+      ).toBe("other");
+    },
+  );
+  it.each(["Goose meal", "Quail", "거위 고기"])(
+    "recognizes %s as poultry without claiming a specific preferred bird",
+    (name) => {
+      const input = catalog();
+      input.foods[1]!.ingredients = [{ name, position: 1 }];
+      input.ingredientEvidenceByFoodId[2]!.excerpt = name;
+      const result = (preferredProteins: ("poultry" | "chicken")[]) =>
+        buildFoodDecision(input, {
+          ...request,
+          exclusions: [],
+          preferredProteins,
+        }).eligible.find((c) => c.food.id === 2)!.preference.status;
+      expect(result(["poultry"])).toBe("preferred");
+      expect(result(["chicken"])).toBe("other");
+    },
+  );
+  it("prioritizes an evidenced preference without excluding other matching foods", () => {
+    const input = catalog();
+    input.foods[2]!.kcal_per_kg = 4200;
+    input.evidenceByFoodId.set(3, [evidence(4200)]);
+    input.foods[2]!.ingredients = [
+      { name: "Chicken meal", position: 1 },
+      { name: "peas", position: 2 },
+    ];
+    input.ingredientEvidenceByFoodId[3]!.excerpt = "Chicken meal, peas";
+    const report = buildFoodDecision(input, {
+      ...request,
+      exclusions: [],
+      preferredProteins: ["poultry"],
+    });
+    expect(report.eligible.map((c) => c.food.id)).toEqual([4, 3, 2]);
+    expect(
+      report.eligible.find((c) => c.food.id === 3)?.preference,
+    ).toMatchObject({
+      status: "preferred",
+      detail: expect.stringContaining("Chicken meal"),
+    });
+    expect(
+      report.eligible.find((c) => c.food.id === 2)?.preference?.status,
+    ).toBe("other");
+    expect(report.excluded).toHaveLength(0);
+  });
+  it("keeps a preference unknown when the complete ingredient proof is missing", () => {
+    const input = catalog();
+    delete input.ingredientEvidenceByFoodId[2];
+    const report = buildFoodDecision(input, {
+      ...request,
+      exclusions: [],
+      preferredProteins: ["fish"],
+    });
+    expect(
+      report.eligible.find((c) => c.food.id === 2)?.preference?.status,
+    ).toBe("unknown");
+  });
+  it("never lets a preferred ingredient override a hard exclusion", () => {
+    const input = catalog();
+    input.foods[1]!.ingredients = [{ name: "Chicken", position: 1 }];
+    input.ingredientEvidenceByFoodId[2]!.excerpt = "Chicken";
+    const report = buildFoodDecision(input, {
+      ...request,
+      preferredProteins: ["chicken"],
+    });
+    expect(report.excluded.map((c) => c.food.id)).toContain(2);
+  });
   it("keeps poultry label order unknown when an earlier animal organ has no named species", () => {
     const input = catalog();
     input.foods[1]!.ingredients = [

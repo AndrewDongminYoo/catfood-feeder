@@ -37,7 +37,12 @@ The "ACANA Grasslands" case in `src/lib/fixtures.ts` drives `src/lib/fixtures.te
 ### Consumer decision workspace
 
 `src/lib/food-decision.ts` evaluates declared ingredient exclusions and calorie-density tolerance, separates met/unknown/failed conditions, and defines versioned local snapshots and export.
-`src/components/decision-workspace.tsx` owns the editable question-to-brief flow; `decision-report.tsx` exposes sources and specific follow-up questions.
+`src/components/decision-workspace.tsx` owns the guided current-food, change-reason, condition, and candidate stages; `decision-report.tsx` leads with up to three matching candidates and exposes sources and specific follow-up questions.
+Optional protein preferences prioritize the first declared animal ingredient supported by complete source proof, excluding standalone fat, oil, broth, stock, and flavor entries from that preference assessment.
+Preferences never change hard eligibility, and ingredient order does not establish taste or meat proportions.
+An unclassified leading ingredient blocks a positive preference claim, and a compound meat-and-fat entry is not a standalone fat.
+Question reinterpretation unions exclusions and preferences with the current selections and retains the current-calorie ceiling and old hard poultry-order condition.
+Only explicit controls remove those selections.
 `src/lib/decision-question.ts` validates interpretation proposals; `/api/advisor/question` bounds optional model work using the existing durable quota with a 30-attempt daily ceiling.
 The only Anthropic transport remains in `source-extraction.ts`.
 The structured form continues to work when model interpretation is unavailable.
@@ -49,7 +54,8 @@ Do not relax RLS to provide this projection.
 Saved briefs live in browser storage and preserve original evidence and results.
 Rechecking is explicit and does not overwrite an older saved snapshot.
 `/api/advisor/catalog` bypasses the advisor cache for that explicit fresh read and sends a no-store response.
-Qualitative calorie and poultry-order requests remain pending until the owner confirms the corresponding comparison rules.
+Qualitative calorie requests and interpreted poultry preferences remain pending until the owner confirms their meaning.
+New poultry preferences only change order; preserve the original hard `poultryFirst` behavior of older saved requests.
 There is no consumer-triggered background web investigation, automatic monitoring, verified seller availability, or payment integration in this slice.
 Legacy `/advisor?current=...` links retain their earlier deterministic behavior.
 

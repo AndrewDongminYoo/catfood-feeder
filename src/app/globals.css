@@ -1399,6 +1399,108 @@ pre {
 .decision-workspace {
   padding-top: 36px;
 }
+.decision-steps ol {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px;
+}
+.decision-steps li {
+  min-width: 0;
+  padding: 12px 8px;
+  color: var(--mut);
+  border-bottom: 2px solid var(--line);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.decision-steps li[aria-current="step"] {
+  color: var(--accent);
+  border-color: var(--accent);
+  font-weight: 700;
+}
+.decision-steps li span {
+  display: block;
+  font-size: 12px;
+}
+.decision-current-step {
+  max-width: 700px;
+  margin-inline: auto;
+}
+.decision-form :is(h2, h3) {
+  line-height: 1.5;
+  word-break: keep-all;
+}
+.decision-form h2 {
+  font-size: 23px;
+  margin: 0 0 16px;
+}
+.decision-form h3 {
+  font-size: 18px;
+  margin-top: 0;
+}
+.decision-current-step > p,
+.decision-question-input > p,
+.decision-followups > p {
+  color: var(--mut);
+  font-size: 14px;
+  line-height: 1.8;
+}
+.decision-reason-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 10px;
+  margin: 20px 0;
+}
+.decision-reason-options button {
+  min-height: 56px;
+  padding: 14px;
+  text-align: left;
+  white-space: normal;
+  line-height: 1.7;
+}
+.decision-reason-options button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  outline: 2px solid var(--accent);
+}
+.decision-followups > section {
+  margin: 24px 0;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+}
+.decision-followups > button {
+  margin: 8px 10px 8px 0;
+}
+.decision-fit {
+  padding: 14px;
+  border-radius: var(--r-control);
+  background: var(--accent-soft);
+  margin-bottom: 20px;
+}
+.decision-fit p {
+  font-size: 13px;
+  line-height: 1.8;
+  margin: 8px 0 16px;
+}
+.decision-fit p:last-child {
+  margin-bottom: 0;
+}
+.decision-more {
+  margin: 20px 0;
+}
+.decision-more > summary,
+.decision-sensitivity > summary {
+  min-height: 44px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.decision-sensitivity > section > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
 .decision-hero {
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(240px, 1fr);
@@ -1871,6 +1973,10 @@ pre {
 .decision-saved li > div {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+.decision-saved li > button {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .decision-saved strong {
   font-size: 14px;

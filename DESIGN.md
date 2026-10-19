@@ -46,11 +46,15 @@ No new tokens or animation are introduced for the research workflow.
 
 ## 9. Consumer decision worksheet
 
-The main screen starts with the owner's question, not an empty catalog.
+The main screen starts with the current food and proceeds through the reason to change, relevant conditions, and candidates.
+Show a visible four-step progress indicator and preserve input when moving back.
 Use the existing teal accent, white cards, and neutral surfaces.
 A large opening question anchors an asymmetric desktop layout; the same content stacks at narrow widths.
 Keep a single visual language with the existing tokens and no new font or component dependency.
 
+Offer everyday reasons before asking the owner to write a question.
+Keep ingredient exclusions separate from optional protein preferences and reveal these follow-ups when relevant or requested.
+Lead the comparison with up to three matching candidates and their reasons and tradeoffs; expand the other candidates and calorie sensitivity on demand.
 Separate condition confirmation, comparison, evidence, and saving into a visible sequence.
 The summary uses counts for met, unresolved, and failed conditions rather than a health score.
 Candidate cards expose signed calorie-density differences, original ingredient order, source excerpts and dates, and concrete follow-up questions.

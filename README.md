@@ -6,11 +6,12 @@ The app turns your question into editable conditions and builds a comparison bri
 ## Use the product
 
 Open `/` or `/advisor`.
-Describe your current food and why you want a change, then confirm the conditions read from the question.
-Qualitative calorie requests and poultry preferences require an explicit confirmation of the comparison rule.
-Calorie tolerances preserve an explicitly requested number from 0 to 100%; poultry preference compares declared ingredient order, not taste or the proportion of meat.
-Choose the current food, or enter the package name and kcal/kg when it is missing from the catalog.
-Compare candidates, inspect their sources, and save or download the actual brief with your choice or reason for deferring it.
+Start with the current food, then choose a reason to change or write your own question.
+Enter the package name and optional kcal/kg when the current food is missing from the catalog.
+Confirm the calorie condition and any relevant ingredient exclusions or preferences in the next step.
+Qualitative calorie requests require explicit confirmation; an explicitly requested number from 0 to 100% is preserved.
+Ingredient preferences only prioritize candidates and never exclude alternatives; original ingredient order does not predict taste or establish the proportion of meat.
+Compare the first three matching candidates, expand the rest when needed, inspect their sources, and save or download the actual brief with your choice or reason for deferring it.
 Saved briefs preserve their original data; rechecking against the current catalog is a separate action.
 That action requests fresh public catalog rows and evidence from the server rather than reusing the page's initial data.
 
@@ -68,6 +69,7 @@ pnpm build
 ## Data and privacy
 
 The model proposes comparison conditions; catalog facts come from validated evidence.
+Reinterpreting an edited question adds proposed exclusions and preferences without silently removing existing selections; removal uses the explicit controls.
 Ingredient exclusions require the complete current ingredient proof and preserve ambiguous wording as unknown.
 Question interpretation uses the existing server-side provider and a site-wide ceiling of 30 paid attempts per 24-hour quota window.
 No account is required for the first comparison.
