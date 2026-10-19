@@ -22,6 +22,7 @@ The product must do the comparison work before asking the owner to validate dema
   Ask the owner to confirm the meaning of qualitative calorie wording and interpreted poultry preferences.
   Negated lower-calorie wording remains unresolved and never selects a calorie ceiling automatically.
   Permissive wording does not impose a ceiling; explicit sensitivity selection confirms the calorie tolerance without clearing other pending criteria.
+  Do not connect a high-calorie adjective to a later unrelated negation; wording that requires additional context remains unresolved until the owner confirms or omits it.
   Optional protein preferences change candidate order only; hard exclusions always take precedence.
   A shared exclusion operator applies to every listed ingredient in Korean and English questions and citations.
   Unsupported list members and ambiguous exceptions remain unresolved; negated exclusions never create hard conditions.

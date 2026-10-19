@@ -138,14 +138,12 @@ export function parseDecisionQuestion(
       : null;
   const clarifications: QuestionInterpretation["clarifications"] = [];
   const unsupportedCalorieWording =
-    /(?:열량|칼로리)[^.!?。]{0,20}(?:낮지\s*(?:않|말)|안\s*낮|낮은\s*(?:것|게|건)?\s*(?:아니|아닌)|높지\s*않아도|낮을\s*필요(?:는|가|도)?\s*없)/.test(
+    /(?:열량|칼로리)[^.!?。]{0,20}(?:높은|낮지\s*(?:않|말)|안\s*낮|낮은\s*(?:것|게|건)?\s*(?:아니|아닌)|높지\s*않아도|낮을\s*필요(?:는|가|도)?\s*없)/.test(
       question,
     );
   const notHigherKcal =
     !unsupportedCalorieWording &&
-    /(?:열량|칼로리)[^.!?。]{0,20}(?:높지|높은.*않|넘지|이하|낮)/.test(
-      question,
-    );
+    /(?:열량|칼로리)[^.!?。]{0,20}(?:높지|넘지|이하|낮)/.test(question);
   if (numericDelta === null && /열량|칼로리|kcal|비슷/.test(question))
     clarifications.push("calories");
   if (

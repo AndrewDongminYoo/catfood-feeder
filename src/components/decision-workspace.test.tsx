@@ -429,6 +429,56 @@ describe("decision workspace", () => {
       screen.getByLabelText(/이 요구를 이번 비교에서 제외하기/),
     ).toBeTruthy();
   });
+  it("does not exclude a higher-calorie candidate because of an unrelated negation", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    const data = props();
+    data.foods[1]!.ingredients = [{ name: "Salmon", position: 1 }];
+    render(
+      <DecisionWorkspace
+        {...data}
+        ingredientEvidenceByFoodId={{
+          2: {
+            excerpt: "Salmon",
+            capturedAt: "2026-10-01",
+            url: "https://example.test/ingredients",
+          },
+        }}
+      />,
+    );
+    await prepare("열량이 높은 것도 상관없어요. 닭고기는 원하지 않아요");
+    expect(
+      (
+        screen.getByLabelText(
+          "현재 사료보다 열량이 높지 않은 후보",
+        ) as HTMLInputElement
+      ).checked,
+    ).toBe(false);
+    fireEvent.click(
+      screen.getByRole("button", { name: "이 열량 기준으로 비교하기" }),
+    );
+    compare();
+    save();
+    const pending = JSON.parse(localStorage.getItem("catfood.decisions.v1")!)[0]
+      .report;
+    expect(pending.request.notHigherKcal).toBe(false);
+    expect(pending.request.pendingClarifications).toEqual([]);
+    expect(pending.request.unresolvedRequirements.join(" ")).toContain(
+      "방향성 열량 조건",
+    );
+    expect(pending.excluded).toHaveLength(0);
+    expect(pending.unresolved).toHaveLength(1);
+    edit();
+    fireEvent.click(screen.getByLabelText(/이 요구를 이번 비교에서 제외하기/));
+    compare();
+    save();
+    const confirmed = JSON.parse(
+      localStorage.getItem("catfood.decisions.v1")!,
+    )[0].report;
+    expect(confirmed.request.notHigherKcal).toBe(false);
+    expect(confirmed.eligible).toHaveLength(1);
+    expect(confirmed.eligible[0].kcalDeltaPct).toBe(5);
+    expect(confirmed.excluded).toHaveLength(0);
+  });
   it("restores the unsupported-requirement editor without another interpretation", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
     const view = render(<DecisionWorkspace {...props()} />);

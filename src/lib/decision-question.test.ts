@@ -161,6 +161,11 @@ describe("decision question", () => {
   );
   it.each([
     "현재보다 열량이 낮지 않은 사료",
+    "열량이 높은 것도 상관없어요. 닭고기는 원하지 않아요",
+    "열량이 높은 것도 상관없어요, 닭고기는 원하지 않아요",
+    "열량이 높은 사료도 괜찮아요; 포장은 바꾸지 않아요",
+    "열량 차이는 8% 이내, 높은 것도 상관없어요. 포장은 바꾸지 않아요",
+    "열량이 높은 사료를 원하지 않아요",
     "칼로리가 낮지않은 사료",
     "열량이 안 낮은 사료",
     "열량이 낮은 게 아닌 사료",
@@ -192,6 +197,7 @@ describe("decision question", () => {
     "현재보다 열량이 낮은 사료",
     "현재보다 열량이 높지 않은 사료",
     "열량이 높지 않아야 해요",
+    "열량이 현재 사료를 넘지 않는 후보",
   ])("retains an affirmative ceiling request: %s", (question) => {
     expect(parseDecisionQuestion(question).notHigherKcal).toBe(true);
   });
