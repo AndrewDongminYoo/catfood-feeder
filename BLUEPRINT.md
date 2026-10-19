@@ -1,152 +1,84 @@
-# BLUEPRINT — 수입 건사료 큐레이션 & 급여 기록 서비스
+# BLUEPRINT — Next Food Decision
 
-> 작성 기준: 대화에서 확정된 결정 종합. 코드네임 미정(이하 "서비스").
+Status: The operator approved the consumer decision direction and autonomous implementation on 2026-10-18.
 
 ## Goal
 
-국내에 구조화된 공개 데이터가 존재하지 않는 **수입 건사료의 성분 데이터를 어드민이 감독하는 로컬 연구 에이전트와 함께 검증·큐레이션**하고, 그 데이터 위에 **급여 기록 관리**를 얹어 보호자가 계속 돌아오게 만드는 서비스.
+Let an owner ask what imported dry cat food to buy next for their cat and receive a useful, source-backed decision brief.
+[Product Direction](docs/product-direction.md) owns positioning, scope, delivery standards, and revenue hypotheses.
+The [implementation spec](docs/specs/2026-10-18-next-food-decision.md) defines the current slice.
 
-핵심 자산은 크롤링 가능한 가격이 아니라 **검증 가능한 출처 자료 + 정규화한 성분 데이터 + 도메인 판단 기준 + 축적된 연구 이력**이다.
+## Product architecture
 
-## Success Criteria
+- `/` enters `/advisor`: current food, reason to change, relevant conditions, then candidates.
+- The question interpreter proposes explicit, editable conditions.
+- The decision engine evaluates calorie-density tolerance and declared-ingredient exclusions against evidence.
+- Qualitative calorie wording requires owner confirmation before counting as a fulfilled condition.
+- Optional protein preferences prioritize evidence-backed ingredient order without excluding alternatives or predicting taste.
+- Hard ingredient exclusions take precedence over preferences; older saved poultry-order conditions retain their original meaning.
+- Explicit numeric calorie tolerances are preserved rather than rounded to a preset.
+- Results distinguish conditions met, unresolved, and conditions failed.
+- The result leads with up to three matching candidates, their reasons and tradeoffs; remaining candidates, sources, and calorie sensitivity are expandable.
+- Versioned local snapshots preserve the decision, sources, and selection reason.
+- The public catalog, two-food comparison, recalls, feeding history, and curator workbench remain supporting surfaces.
+- Legacy `/advisor?current=...` links retain their original behavior.
 
-- 보호자가 "성분 기준으로" 사료를 찾고 비교할 수 있다 (단백질 열량비, Ca:P, 곡물/글루텐 free 등).
-- 모든 성분 수치에 **출처(제조사/국내라벨/추정/계산)가 명시**되어, 실측과 추정이 절대 섞이지 않는다.
-- 급여 기록으로 "교체 시 영양/열량 급변"을 감지해 인사이트를 준다.
-- 반복 가능한 조사와 입력을 로컬 에이전트가 수행하여, 어드민 한 명이 값을 다시 타이핑하지 않고도 지속 업데이트할 수 있다 (= 2023년의 정체를 반복하지 않는다).
+## Non-negotiable evidence rules
 
-## Next Product Slice — 원재료 데이터 슬라이스
+- Separate manufacturer, Korean-label, estimated, and derived values throughout storage, reads, calculations, presentation, and export.
+- A literal quote proves what the source says, not product identity, market identity, current formulation, or health suitability.
+- Check source identity and currentness, product identity, numeric value, and unit before using evidence.
+- Missing evidence is unknown, never a negative ingredient assertion or zero nutrient value.
+- Broad animal names cannot establish exclusion of a specific animal.
+- Label ingredient absence cannot establish allergy safety or absence of cross-contact.
+- Guaranteed-analysis minima and maxima are bounds, not exact measured concentrations.
+- Do not score overall health, safety, or quality.
+- Do not relax the owner's conditions without an explicit action.
+- Reinterpreting question wording preserves existing ingredient exclusions, the current-calorie ceiling, legacy poultry-order conditions, and manually chosen preferences.
+- An unclassified leading ingredient cannot be skipped to claim a later preferred animal as the first animal ingredient.
 
-제품 방향, 비목표, 측정된 커버리지 기준선, 수익화 태세는 [Product Direction](docs/product-direction.md)이 소유한다.
-이 절은 그 문서를 인용하며 내용을 다시 적지 않는다.
+## Domain calculations
 
-다음 슬라이스는 발행된 사료의 원재료 구성을 채우는 작업이다.
-원재료는 그 자체가 수익 모델이 아니라 B2B 데이터 API, 제외 원료 소비자 필터, 제휴라는 세 경로의 공통 선행조건이므로, 이 슬라이스는 세 경로를 모두 열어 둔 채 진행한다.
-원재료가 비어 있던 원인은 데이터 부재가 아니라 근거 적용 경로에 원재료 통로가 없었던 배관 부재였다.
-적용 통로는 구현되었고, 2026-09-11 retained-capture backfill에서 발행 제품 125개 중 79개의 원재료를 채웠다.
+`src/lib/domain.ts` remains the shared calculation and validation implementation.
+NFE is `100 − (protein + fat + fiber + ash + moisture)` when the necessary inputs are present.
+A literal manufacturer or Korean-label NFE value takes precedence over an inferred one.
+Ash resolution is a label value, then the explicitly estimated 9.0% extrusion fallback, otherwise no calculation.
+Manufacturer-declared energy ratios take precedence over derived ratios.
+ACANA Grasslands remains the arithmetic regression fixture.
+These formulas provide consistent label comparisons, not exact intake measurements or clinical advice.
 
-작업 순서는 수율 측정, 저장 스키마 확정(`{name, position}`, `form`은 파생), 적용 통로 개설, 보관된 캡처만 사용하는 재추출, 나머지 집합의 후속 분리다.
-자연어 입력과 MCP는 이 슬라이스가 동작한 뒤로 미룬다.
+## Trust boundaries
 
-### Advisor v0 관찰 파일럿 게이트 (은퇴)
+- The server retains the only Anthropic transport in `src/lib/source-extraction.ts`.
+- Optional public question interpretation is bounded, validates its response, and cannot write catalog data.
+- Existing quota infrastructure limits paid interpretation requests globally; failures retain the structured form.
+- Curator routes own source capture, extraction, evidence application, and publication authorization.
+- Research agents propose evidence through the broker and cannot publish.
+- Public ingredient evidence is projected on the server only for the already-public food IDs and matching current sources.
+- Never expose service credentials or private captured source text to a client.
+- User feeding data remains RLS-scoped.
 
-8개 유효 완료 세션을 다음 슬라이스의 판정 기준으로 삼던 관찰 파일럿은 **한 번도 실행하지 않은 채 0/8에서 은퇴**했다 (2026-08-22).
-이후 세션이 남은 스캐폴딩을 진행 중인 작업으로 오해하지 않도록 삭제 대신 은퇴로 기록한다.
-발행된 `/advisor` 화면 자체는 철회하지 않으며, 철회된 것은 다음 슬라이스를 결정하는 게이트로서의 8세션 관찰이다.
+## Implementation and delivery
 
-## Constraints / Non-goals
+Use Next.js App Router, TypeScript, the existing CSS tokens, and the pinned pnpm toolchain.
+Keep the webpack development fallback until its ADR reversal criteria are met.
+No new framework, state library, database migration, or dependency is needed for the first complete decision workflow.
+Run tests, typecheck, lint, production build, and actual rendered desktop/mobile checks.
+Do not stop at a plan, checklist, or request that the operator interview users with an incomplete product.
 
-- **최저가 탐색·자동 가격 크롤링은 1차 범위에서 제외.** 과거 구현은 수입사료 카테고리 부실, 구매처 분산, 대상 사이트 변경, 쇼핑몰 약관 리스크를 해결하지 못했다. 수요 확인 후 수동·제휴를 우선하고 크롤링은 후순위로 검토한다.
-- **자동 성분 연구는 핵심 운영 경로다.** 과거 자율 검색의 실패는 검색·수집·추출·모델 가용성·DB 쓰기를 한 요청에 결합한 실패 격리 문제였으며, 자동 수집 자체의 불가능성을 입증하지 않았다. 로컬 에이전트가 앱 요청 밖에서 출처를 조사하고, 서버가 캡처·근거·충돌·권한을 검증한다.
-- **현재 서비스는 어드민 전용 연구실이자 정보 저장소다.** 공개 기여자·평판·커뮤니티 조정·멀티테넌트 기능은 연구 루프가 안정되기 전까지 범위에서 제외한다.
-- 사료 안전성은 법적으로 민감 → **단정적 주장 금지**, 출처·날짜·범위로 표기.
-- 기존 스프레드시트(2023, ~300행)는 **스키마/판단기준의 참조자료로만** 사용. 행 데이터는 신뢰도 만료로 재수집.
-- 구 크롤러 리포(various_catfood_crawler)는 폐기. 살릴 코드 없음(대상 사이트 DOM 만료).
+## Operational limits
 
-## 확정된 기술 결정
+This release does not claim fresh background research, stock or price verification, automatic source-change monitoring, or cloud-synced decision records.
+An owner can explicitly recheck a saved decision using the current catalog and retain the old snapshot.
+The recheck reads the server through `/api/advisor/catalog` with no response cache and bypasses the advisor catalog cache.
+Explicit manufacturer adequacy declarations are collected from retained current captures and applied only after product-name review.
+They are independent source-linked evidence, displayed with the original capture date, life stage, method, and quoted source.
+They do not inherit the nutrient verification stamp or alter eligibility.
+Sales market, current package equivalence, and standard edition remain unverified; a manufacturer claim does not establish app certification or complete numerical compliance.
+Retired or private sources disappear from current public reads; saved decisions retain their historical copy.
 
-- **프론트/풀스택**: Next.js (App Router) + TypeScript. (SEO·콘텐츠 적합성·본업 RN/React 전이)
-- **DB/백엔드**: Supabase (Postgres). 공개 카탈로그는 현재 1시간 단위 ISR(`revalidate = 3600`)로 제공.
-- **검색/필터**: 데이터 규모 작음 → 클라이언트 사이드 필터로 시작.
-- **AI 연구**: 현재는 성분표 텍스트를 `/api/extract`에서 Claude로 구조화한다. 목표 경로는 로컬 에이전트가 비동기 조사·추출을 수행하고, 서버가 최소 권한 제안 경계에서 캡처와 결정론적 검증 및 권한 있는 쓰기만 담당하는 구조다.
-- **리콜**: openFDA Food Enforcement API(주간 갱신, REST). 한국은 공공데이터포털 확인 필요(미확정).
+## Historical decisions
 
-## AI 네이티브 운영 원칙
-
-- 정상 경로에서 로컬 에이전트는 출처 탐색, 캡처 제안, 근거 추출, 비공개 DRAFT 제안까지 수행한다.
-- 서버는 URL 안전성, 원문 보존, literal evidence, 숫자·단위, 도메인 규칙, 충돌, 권한 있는 DB 쓰기를 검증한다.
-- 첫 전환 단계의 공개 발행은 어드민이 승인한다. 어드민은 값을 다시 입력하지 않고 근거·충돌·예외를 판정한다.
-- 모든 성공·실패·거절·재시도·대체 관계를 연구 원장에 남기며, 가정·출처·도구·방법이 달라지지 않은 실패를 반복하지 않는다.
-- `data_verified_at` 하나에 사람 검증, 발행 상태, 검증 방법을 계속 혼합하지 않는다. 다음 스키마 변경에서 이 상태들을 분리한다.
-- 상세한 전환 배경과 첫 작업 범위는 [AI-Native Catalog Turnaround](docs/notes/2026-08-05-ai-native-catalog-turnaround.md)에 기록한다.
-
-## 핵심 도메인 규칙 (입력·계산의 근거)
-
-- 회분(Ash)·열량은 **제조사 원문에 없는 경우가 많고**, 국내 수입 라벨(검역 의무표기)에 존재.
-  → 한 소스로 한 행을 못 채운다. **필드 단위 출처 분리**가 전제.
-- 회분 처리 3단 폴백: (1) 국내 라벨 실측 → (2) 익스트루전이면 9.0% 추정 → (3) 그 외(동결건조/오븐) 계산 보류.
-- **P/F/C·열량은 2경로**: (1) 제조사가 "X% from protein…" 직접 명시 → 그대로 사용(최우선),
-  (2) 없으면 NFE 역산으로 계산. NFE = 100 − (단백질+지방+섬유+회분+수분).
-- 검증된 해피케이스: **ACANA Grasslands (두원실업 + Champion Petfoods)** — 제조사가 열량비 37/23/40 + 3850kcal/kg 명시,
-  국내 라벨 회분 9.0%. NFE 공식 검산 일치(100−(36+18+4+9+10)=23 = 제조사 명시 23%). → 회귀 테스트 케이스로 고정.
-- 서로 다른 출처 종류의 값이 겹치면 적용 순서와 무관하게 기존 값과 provenance를 유지하고 후속 후보를 건너뛴다.
-  동일 출처 종류를 갱신할 때 값이 같으면 current evidence만 새 capture로 교체하고, 값이 다르면 자동 덮어쓰기 없이 conflict 후보로 남긴다.
-- 위험성분(에톡시퀸 등)은 **라벨 미표기·사후 검출**이라 필터 가치 낮음 → 컬럼 강등. 대신 **리콜 이력**을 1급으로.
-
-> Phase 체크박스는 코드가 존재한다는 증명이며, 그 뒤의 데이터가 존재한다는 증명이 아니다.
-> 완료 표시된 Phase 2·3·4 중 실제 커버리지가 비어 있는 항목은 [Product Direction](docs/product-direction.md)의 측정 기준선이 소유한다.
-
-## Phase 0 — 데이터 모델 확정
-
-- [x] `brands` (수입사 nullable, 변경 잦음) / `foods` / `prices`(보류) / `recalls` 스키마 마이그레이션 SQL 작성
-- [x] `foods`: 핵심 필터 수치(protein/fat/fiber/ash/moisture/Ca/P/kcal)는 평탄 numeric 컬럼
-- [x] `carb_pct`는 generated stored 해제 → 일반 컬럼(회분 유무로 계산 가능 여부 갈림) + `carb_is_estimated boolean`
-- [x] `ca_p_ratio`만 generated stored 유지 (calcium/phosphorus, 단 phosphorus>0)
-- [x] `nutrient_sources jsonb` 컬럼: 항목별 출처 메타 {protein_pct:"manufacturer", ash_pct:"kr_label", ...}
-- [x] `ingredients jsonb` 컬럼 존재. 저장 형태는 [Product Direction](docs/product-direction.md)이 소유하며 `{name, position}`으로 확정했다(2026-09-11 retained-capture backfill 기준 발행 행 79/125개에 값이 있다).
-- [x] `cooking_method` enum(extrusion/baked/freeze_dried/dried) — 회분 추정 허용 여부 결정에 사용
-- [x] `data_verified_at timestamptz` — 오래된 데이터 갱신 우선순위 쿼리용
-- [x] 기능성 불리언: grain_free / meal_free / has_probiotics / has_cranberry / has_yucca
-- [x] GIN 인덱스(caution_ingredients), brand_id 인덱스
-
-## Phase 1 — 연구 워크벤치 (현재 구현 기반)
-
-- [x] 프로토타입(catfood-admin-tool.jsx)을 Next.js 관리자 페이지로 이식
-- [x] Claude 호출을 `/api/extract` 서버 라우트로 이동(키 비노출)
-- [x] **이중 입력칸**: 제조사 원문 + 국내 라벨 원문 분리 입력
-- [x] 제조사 P/F/C·열량 직접 추출("X% from protein" / "kcal/kg" 패턴) → manufacturer 출처
-- [x] 회분 3단 폴백 UI(라벨값 / 익스트루전 9.0 추정 / 계산불가) + cooking_method 연동
-- [x] 각 수치에 **출처 드롭다운**(제조사/국내라벨/추정) + 원문 근거 구절 대조 표시
-- [x] 추정/계산값과 실측값 시각 구분(추정은 회색·물음표, P/F/C는 "제조사 명시" vs "NFE 계산" 배지)
-- [x] 두 소스 충돌 감지 경고
-- [x] 검증 규칙(합계>100 차단 / 단백질<30 / 지방>30 / 탄수>35 / Ca:P 역전 경고)
-- [x] 저장 시 Supabase insert + data_verified_at 기록
-- [x] ACANA Grasslands 회귀 테스트 케이스 내장
-
-## Phase 2 — 공개 카탈로그
-
-- [x] 사료 목록/상세 페이지 (ISR, 1시간 재검증)
-- [x] 다중 필터: 그레인프리 / 단백질 35%+ / Ca:P 정상범위 / 제조법 / 단백질 열량비 상위 등
-- [x] 두 제품 나란히 비교 뷰
-- [x] 성분 출처·"라벨 보증치 기반" 고지 노출(단정 표현 회피)
-- [x] 검색(클라이언트 사이드)
-
-## Phase 3 — 리콜 통합
-
-- [x] openFDA Food Enforcement 동기화 잡(주간) → recalls 테이블
-- [x] 브랜드/제품 매칭(recalling_firm ↔ brands, 느슨한 연결, food_id nullable)
-- [x] 상세 페이지에 리콜 이력 배지 + 사유/로트/출처 링크(FDA 원문)
-- [x] "실시간 경보 아님 / 이력 정보" 명시(openFDA 약관: 상태 미갱신, 경보 용도 금지)
-- [x] 한국 공공데이터(검역본부/식품안전나라) 사료 회수 API 현황 조사
-
-## Phase 4 — 급여 기록 (재방문 동력)
-
-- [x] 반려묘 프로필(다묘 가정 지원) + 사용자 인증(Supabase Auth)
-- [x] 급여 로그: 제품 + 기간(시작/교체일). 사용자 실제 패턴 = 약 6주(한 달 반) 주기 교체
-- [x] 교체 타임라인 시각화
-- [x] **교체 인사이트**: 직전↔신규 제품의 P/F/C·열량 폭 급변 감지·경고
-      (도메인 근거: 열량 급변은 간 부담 → 비슷한 사료끼리 점진 교체 권장)
-- [x] (후순위) 리콜 제품을 급여 중이면 알림
-
-## Phase 5 — (보류) 가격/알림
-
-- [ ] 수요 확인 후 착수. 공식 제휴(쿠팡파트너스 등) → 수동/제보 → 크롤링(최후·약관검토) 순.
-
-## Phase 6 — AI 네이티브 연구 에이전시
-
-- [x] 자동 수집 불가라는 결론을 재검토하고 전환 결정 기록
-- [x] 기존 evidence-backed DRAFT를 재입력 없이 검증·발행하는 상태 전이 구현
-- [x] 사람 검증 시각, 발행 상태, 검증 방법 분리
-- [x] 연구 실행 식별자와 research ledger 연결
-- [x] service-role을 에이전트에 노출하지 않는 최소 권한 제안 경계 구현
-- [x] 로컬 에이전트 조사 실행과 성공·실패·재시도 이력을 저장하는 연구 원장 구현
-- [x] 출처·단위·제품 식별·값 충돌을 어드민에게 보내는 예외 큐 구현
-
-## Open Questions
-
-- 코드네임/도메인.
-- 한국 리콜 데이터의 실제 가용 소스(공공데이터포털 엔드포인트 존재 여부).
-- **보장성분의 경계값 모델링.** 라벨 값은 전부 경계다 — 단백·지방·칼슘·인은 이상(min), 회분·수분·섬유는 이하(max). 현재는 점추정값 하나로 저장하고 `num()`이 `이하`/`이상`을 버리므로, NFE 탄수화물(`100 − 합계`)에 체계적 편향이 남는다. 회분을 전사하든 추정하든 동일하게 발생하며, 이 방법론에 내재된 한계다. 원장 경로에서는 `food_nutrient_evidence.excerpt`에 `"조회분 7% 이하"`가 통째로 남아 값이 잃은 정보를 근거가 보존하므로, 나중에 모델링하기로 하면 소급 복원이 가능하다. 결정할 것: 필드별 경계 종류를 스키마에 둘지, 아니면 파생값의 불확실성 표기로만 다룰지. (2026-07-21 논의)
-  2026-08-20 v0 결정: 현재 근거 문구에서 문자 그대로 복원한 최소·최대 표기만 노출하고, 그 외에는 `unspecified`로 반환하며, advisor v0에서 안전하지 않은 영양소 점수 정렬을 제외한다.
-  근거 문구의 경계 표기 범위가 부족하다고 확인되면 영속 qualifier 저장과 구간 전파를 별도 후속 결정으로 다룬다.
-- **비익스트루전 회분 기본값.** `resolveAsh`는 익스트루전에만 9.0% 추정 폴백을 둔다. AAFCO 계열(회분 미표기) + 베이크드·동결건조 + 국내 텍스트 라벨 없음이 겹치면 회분이 null이라 `carb_pct`와 열량비가 통째로 비어 카탈로그에 빈 껍데기로 올라간다. 표본이 몇 건인지 모르는 상태에서 상수를 정하면 근거 없는 숫자를 하나 더 만드는 것이므로, 실제 비중을 확인하기 전까지는 계산 보류(null)를 유지한다 — "모른다"가 정직하게 드러나는 편이 낫다. 결정할 것: 조리법별 기본값을 둘 만한 표본이 쌓였는지. (2026-07-21 논의, Phase 3 대상은 익스트루전)
+The previous phases, their completion marks, and historical coverage are preserved in [the earlier blueprint](docs/notes/2026-10-18-blueprint-before-consumer-decision.md).
+They are implementation history and do not define acceptance of the consumer product.
+The old observed pilot gate is retired and must not be resumed as an outstanding delivery task.

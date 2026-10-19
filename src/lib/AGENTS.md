@@ -19,6 +19,11 @@
 
 ## CONVENTIONS
 
+`food-decision.ts` owns consumer condition evaluation and versioned saved briefs.
+`decision-question.ts` interprets requests without creating catalog facts.
+`decision-catalog.ts` projects only published-food ingredient evidence through a server-only privileged read.
+Unknown ingredient wording, missing evidence, and owner-entered values must retain their distinct status.
+
 - Keep `domain.ts` independent of Next.js server-only APIs because it is shared with client flows.
 - Preserve `Source` values and field-level `nutrient_sources` metadata when adding nutrients.
 - Run `computeDerived` and `validate` together for catalog writes.

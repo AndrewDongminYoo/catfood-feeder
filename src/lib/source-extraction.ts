@@ -246,6 +246,7 @@ type ExtractionAttempt =
 async function requestExtraction(
   apiKey: string,
   sources: readonly CapturedExtractionSource[],
+  decisionPrompt?: string,
 ): Promise<ExtractionAttempt> {
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -257,8 +258,13 @@ async function requestExtraction(
       },
       body: JSON.stringify({
         // 원료 배열이 긴 제품에서 2000으로는 JSON이 중간에 잘려 추출 전체가 버려진다.
-        max_tokens: 4096,
-        messages: [{ role: "user", content: buildExtractionPrompt(sources) }],
+        max_tokens: decisionPrompt ? 800 : 4096,
+        messages: [
+          {
+            role: "user",
+            content: decisionPrompt ?? buildExtractionPrompt(sources),
+          },
+        ],
         model: "claude-sonnet-4-6",
       }),
       signal: AbortSignal.timeout(30_000),
@@ -277,6 +283,29 @@ async function requestExtraction(
     if (error instanceof DOMException && error.name === "TimeoutError")
       return { kind: "timeout" };
     return { kind: "error" };
+  }
+}
+
+/** 질문 해석도 같은 서버 전용 모델 경계를 쓴다. 반환값은 별도의 조건 스키마로 검증한다. */
+export async function proposeDecisionConditions(
+  prompt: string,
+): Promise<unknown> {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) return null;
+  const result = await requestExtraction(key, [], prompt);
+  if (result.kind !== "response" || !result.ok) return null;
+  const parsed = anthropicResponseSchema.safeParse(result.body);
+  if (!parsed.success) return null;
+  const text = parsed.data.content
+    .filter((b) => b.type === "text")
+    .map((b) => b.text ?? "")
+    .join("")
+    .replace(/^```(?:json)?\s*|\s*```$/g, "")
+    .trim();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
   }
 }
 

@@ -6,6 +6,8 @@ import {
 } from "@/components/advisor-results";
 import { findAdvisorCandidates, parseAdvisorSearchParams } from "@/lib/advisor";
 import { getAdvisorCatalog } from "@/lib/catalog";
+import { getDecisionCatalog } from "@/lib/decision-catalog";
+import { DecisionWorkspace } from "@/components/decision-workspace";
 
 export const revalidate = 3600;
 
@@ -62,6 +64,9 @@ export default async function AdvisorPage({
   searchParams: Promise<AdvisorPageSearchParams>;
 }) {
   const params = await searchParams;
+  if (params.current === undefined) {
+    return <DecisionWorkspace {...await getDecisionCatalog()} />;
+  }
   const catalog = await getAdvisorCatalog();
   const view = viewState(catalog, params);
   const query = view.query?.ok ? view.query.query : null;

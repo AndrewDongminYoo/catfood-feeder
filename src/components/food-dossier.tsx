@@ -1,3 +1,5 @@
+import type { AdequacyProof } from "@/lib/adequacy-evidence";
+import { AdequacyEvidence } from "./adequacy-evidence";
 import type { FoodWithBrand, NutrientEvidence } from "@/lib/catalog";
 import {
   type EvidenceTone,
@@ -11,9 +13,13 @@ import { IngredientChips } from "./ingredient-chips";
 import { RecallHistory } from "./recall-history";
 
 export function FoodDossier({
+  adequacy = [],
+  adequacyUnavailable = false,
   evidence = [],
   food,
 }: {
+  adequacy?: readonly AdequacyProof[];
+  adequacyUnavailable?: boolean;
   evidence?: readonly NutrientEvidence[];
   food: FoodWithBrand;
 }) {
@@ -22,6 +28,13 @@ export function FoodDossier({
 
   return (
     <div className="dossier-grid">
+      <div className="card dossier-section">
+        <AdequacyEvidence
+          headingLevel={2}
+          proofs={adequacy}
+          unavailable={adequacyUnavailable}
+        />
+      </div>
       <section className="card dossier-section">
         <h2>균형을 읽는 법</h2>
         <p className="learning-note">

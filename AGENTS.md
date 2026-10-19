@@ -4,8 +4,11 @@
 
 ## OVERVIEW
 
-Catfood Admin is a mobile-first Next.js App Router application for curated, source-tagged imported cat-food nutrition data and feeding records.
-The core asset is human-verified nutrient data, not price crawling.
+Catfood Feeder is a mobile-first Next.js App Router product that helps an owner choose the next imported dry cat food using explicit conditions and source-backed comparison briefs.
+`/` enters the decision workspace at `/advisor`; catalog, research, and feeding surfaces support that decision.
+The product must complete a useful question-to-brief flow before asking the operator to run interviews or sell it.
+`docs/product-direction.md` owns the product direction; issue lists are backlogs, not strategy.
+Copy voice: warm.
 
 ## STRUCTURE
 
@@ -23,16 +26,21 @@ catfood-feeder/
 
 ## WHERE TO LOOK
 
-| Task                               | Location                            | Notes                                                       |
-| ---------------------------------- | ----------------------------------- | ----------------------------------------------------------- |
-| Domain calculations and validation | `src/lib/domain.ts`                 | Shared by server and client.                                |
-| Catalog reads and offline fallback | `src/lib/catalog.ts`                | Uses `react.cache`; fixtures apply without Supabase config. |
-| Nutrition extraction               | `src/lib/source-extraction.ts`      | The only Anthropic caller; routes adapt payloads to it.     |
-| Catalog writes                     | `src/app/api/foods/route.ts`        | Curator authorization, source validation, and admin client. |
-| Auth and session refresh           | `src/lib/supabase/`, `src/proxy.ts` | Select client by trust boundary.                            |
-| Database changes                   | `supabase/migrations/`              | Ordered migrations are the schema source of truth.          |
-| Catalog ingest                     | `scripts/README.md`                 | Writing is the default; pass `--dry` for a dry run.         |
-| Product decisions                  | `BLUEPRINT.md`                      | Read before changing domain logic or scope.                 |
+| Task                               | Location                                | Notes                                                                    |
+| ---------------------------------- | --------------------------------------- | ------------------------------------------------------------------------ |
+| Consumer decision engine           | `src/lib/food-decision.ts`              | Conditions, evidence gates, snapshots, and export.                       |
+| Consumer question and brief UI     | `src/components/decision-workspace.tsx` | Owner input, comparison, local saved decisions.                          |
+| Question interpretation            | `src/app/api/advisor/question/`         | Bounded proposals, editable conditions, no catalog writes.               |
+| Ingredient evidence projection     | `src/lib/decision-catalog.ts`           | Server-only; public IDs and matching current sources only.               |
+| Domain calculations and validation | `src/lib/domain.ts`                     | Shared by server and client.                                             |
+| Catalog reads and offline fallback | `src/lib/catalog.ts`                    | Uses `unstable_cache`; fixtures apply without Supabase config.           |
+| Manufacturer adequacy declarations | `src/lib/adequacy-repository.ts`        | Independent source-linked claims; public RLS and service-only apply RPC. |
+| Nutrition extraction               | `src/lib/source-extraction.ts`          | The only Anthropic caller; routes adapt payloads to it.                  |
+| Catalog writes                     | `src/app/api/foods/route.ts`            | Curator authorization, source validation, and admin client.              |
+| Auth and session refresh           | `src/lib/supabase/`, `src/proxy.ts`     | Select client by trust boundary.                                         |
+| Database changes                   | `supabase/migrations/`                  | Ordered migrations are the schema source of truth.                       |
+| Catalog ingest                     | `scripts/README.md`                     | Writing is the default; pass `--dry` for a dry run.                      |
+| Product decisions                  | `BLUEPRINT.md`                          | Read before changing domain logic or scope.                              |
 
 ## CODE MAP
 
@@ -64,6 +72,13 @@ Reference centrality is not measured because this session has no LSP or codegrap
 - Do not call Anthropic from a client component or expose `ANTHROPIC_API_KEY` with a `NEXT_PUBLIC_` prefix.
 - Do not use the Supabase service-role client in browser or client-component code.
 - Do not treat price crawling or Korean recall syncing as current scope.
+- Do not silently relax an owner condition, infer ingredient absence from missing data, or present label exclusions as allergy safety.
+- Preserve explicit numeric calorie limits and owner confirmation of qualitative calorie and interpreted poultry preferences.
+- Keep protein preferences separate from hard exclusions: preferences only prioritize, and missing ingredient proof remains unknown.
+- Preserve the guided current-food → change-reason → conditions → candidate flow and legacy saved hard poultry-order requests.
+- Explicit rechecks use `/api/advisor/catalog` to read fresh data, not the page's initial props.
+- Do not advertise local snapshots and manual rechecks as automatic monitoring.
+- Keep legacy `/advisor?current=...` links compatible; the default workspace is the consumer product.
 
 ## UNIQUE STYLES
 

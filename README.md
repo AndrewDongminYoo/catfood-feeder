@@ -1,62 +1,104 @@
-# 수입 건사료 큐레이션 — 관리자 입력 도구
+# Catfood Feeder — Next Food Decision
 
-성분표 텍스트(제조사 + 국내 라벨)를 구조화 데이터로 추출하고, 출처별로 태깅·검증한 뒤 저장하는 모바일 우선 Next.js 앱.
+Ask what imported dry cat food to buy next for your cat.
+The app turns your question into editable conditions and builds a comparison brief with matching candidates, evidence, uncertainties, and specific follow-up questions.
 
-## 빠른 시작
+## Use the product
+
+Open `/` or `/advisor`.
+Start with the current food, then choose a reason to change or write your own question.
+Enter the package name and optional kcal/kg when the current food is missing from the catalog.
+Confirm the calorie condition and any relevant ingredient exclusions or preferences in the next step.
+Qualitative calorie requests require explicit confirmation; an explicitly requested number from 0 to 100% is preserved.
+Ingredient preferences only prioritize candidates and never exclude alternatives; original ingredient order does not predict taste or establish the proportion of meat.
+Compare the first three matching candidates, expand the rest when needed, inspect their sources, and save or download the actual brief with your choice or reason for deferring it.
+Saved briefs preserve their original data; rechecking against the current catalog is a separate action.
+That action requests fresh public catalog rows and evidence from the server rather than reusing the page's initial data.
+
+The comparison covers adult-cat non-prescription dry food.
+It does not establish health suitability, allergy safety, or exact nutrient concentrations.
+Seller search does not verify stock, price, formulation, or the sales market.
+
+## Run locally
 
 ```bash
 pnpm install
 mkdir -p ~/.config/catfood-feeder
-cp .env.example ~/.config/catfood-feeder/env   # ANTHROPIC_API_KEY 등 입력
-chmod 600 ~/.config/catfood-feeder/env         # 비밀은 저장소 밖에 둔다
-pnpm dev                                       # http://localhost:3000
+cp .env.example ~/.config/catfood-feeder/env
+chmod 600 ~/.config/catfood-feeder/env
+pnpm dev
 ```
 
-`/new` 에서 "샘플" 버튼 → ACANA Grasslands 해피케이스가 채워집니다.
+Configure the external secrets file with Supabase and Anthropic credentials.
+Without catalog configuration the app identifies its sample mode; sample fixtures are not a usable buying catalog.
+Without optional AI interpretation, the structured comparison conditions remain usable.
+The development server is at `http://localhost:3000` and intentionally uses webpack.
 
-## 핵심 설계
+## Product and technical sources
 
-- **이중 입력**: 제조사 원문(P/F/C·kcal 명시 자동 인식) + 국내 라벨(회분·열량 보충).
-- **출처 분리**: 모든 성분 값에 manufacturer / kr_label / estimated / derived 태그. 실측과 추정을 섞지 않음.
-- **회분 3단 폴백**: 라벨 실측 → 익스트루전이면 9.0% 추정 → 그 외 계산 보류.
-- **P/F/C 2경로**: 제조사 "X% from protein" 직접 명시 우선, 없으면 NFE 역산.
-- **환각 방지**: 모든 추출 수치에 원문 근거 구절 표시. 근거 없으면 빨갛게 격리, 저장 전 수동 확인 강제.
-- **AI 호출은 서버에서만**(`/api/extract`) — API 키 비노출.
+- [Product direction](docs/product-direction.md): the owner's job, scope, revenue hypothesis, and delivery standard.
+- [Blueprint](BLUEPRINT.md): domain and trust-boundary decisions.
+- [Current spec](docs/specs/2026-10-18-next-food-decision.md): question-to-decision contract.
+- [Design](DESIGN.md): the existing visual system and decision workspace.
+- [Scripts](scripts/README.md): catalog research and curator operations.
 
-## 도메인 검산 (ACANA Grasslands)
+## Architecture
 
-제조사 명시 P/F/C 37/23/40, 3850 kcal/kg. 국내 라벨 회분 9.0%.
-NFE = 100 − (단백질36 + 지방18 + 섬유4 + 회분9 + 수분10) = 23% → 제조사 명시 23%와 일치.
-
-## 구조
-
-```log
-supabase/migrations/     확정 스키마 (brands/foods/recalls/prices/cats/feeding_logs + RLS)
-src/lib/domain.ts        파생 계산·검증·제조사 P/F/C 파싱 (서버/클라 공용)
-src/app/api/extract/     Claude 추출 서버 라우트
-src/app/api/foods/       관리자 저장·출처·발행 라우트(Supabase server key)
-src/app/api/research/    로컬 조사 에이전트 broker (서버가 출처를 재수집·재검증)
-src/app/api/recalls/     openFDA 리콜 동기화 라우트
-src/app/new/             입력 도구 (모바일 우선)
-src/app/foods/           공개 카탈로그/상세
-src/app/compare/         제품 비교
-src/app/feeding/         급여 기록/교체 인사이트
+```plaintext
+src/app/advisor/                   Consumer decision workspace and legacy advisor URLs
+src/app/api/advisor/question/      Bounded question interpretation, no catalog mutation
+src/lib/food-decision.ts           Evidence-gated conditions, briefs, snapshot schema, export
+src/lib/decision-question.ts       Question interpretation and response validation
+src/lib/decision-catalog.ts        Published-only ingredient evidence projection
+src/components/decision-*.tsx      Question, conditions, candidate briefs, saved decisions
+src/lib/catalog.ts                Public catalog and nutrient evidence
+src/lib/source-extraction.ts       Server-only Anthropic transport
+src/app/new/                      Curator capture, extraction, review, and publication
+supabase/migrations/              Ordered schema source of truth
 ```
 
-## 배포 (Vercel)
+## Verify
 
-1. GitHub 푸시 → Vercel 임포트.
-2. 환경변수 설정(`ANTHROPIC_API_KEY`, Supabase 키, `ADMIN_EMAILS`, `ADMIN_WRITE_SECRET`, `CRON_SECRET`).
-3. Supabase CLI로 `supabase/migrations/`의 모든 마이그레이션 적용.
-4. 스케줄러가 `/api/recalls/sync`를 호출할 때 `Authorization: Bearer $CRON_SECRET` 헤더를 설정.
+```bash
+pnpm test
+pnpm typecheck
+pnpm lint
+pnpm build
+```
 
-## 보류 범위
+## Data and privacy
 
-- 가격/알림은 BLUEPRINT Phase 5의 보류 범위입니다.
-- 한국 리콜 데이터는 공개 API 엔드포인트와 이용조건이 확인되기 전까지 동기화하지 않습니다.
+The model proposes comparison conditions; catalog facts come from validated evidence.
+Reinterpreting an edited question adds proposed exclusions and preferences without silently removing existing selections; removal uses the explicit controls.
+Ingredient exclusions require the complete current ingredient proof and preserve ambiguous wording as unknown.
+Question interpretation uses the existing server-side provider and a site-wide ceiling of 30 paid attempts per 24-hour quota window.
+No account is required for the first comparison.
+Decision records are saved only in this browser, up to 12 records, and can be exported as Markdown.
+There is no automatic investigation, purchase, background monitoring, or account synchronization in this slice.
 
-## 라이선스
+## Manufacturer adequacy declarations
 
-Copyright (c) 2026 Dongmin Yu. All rights reserved.
-소스 코드는 참고용으로만 공개되어 있으며, 오픈 소스가 아닙니다.
-저작권자의 서면 허락 없이 사용, 복제, 수정, 재배포할 수 없으며, 자세한 내용은 [`LICENSE`](LICENSE)에 있습니다.
+Collect explicit AAFCO and FEDIAF declarations from retained current manufacturer captures for published foods:
+
+```bash
+node scripts/collect-adequacy.mjs
+node scripts/collect-adequacy.mjs --out /tmp/adequacy-review.json --food-ids 30,141
+```
+
+This command reads the database and optionally writes a new local review file; it never updates catalog rows or replaces captures.
+Drafts retain the literal statement, source, original capture date, explicit life stage and substantiation method.
+Multiple declarations in one capture go to an identity-review queue.
+Reviewed single-product claims can be applied through the curator broker with `node scripts/apply-adequacy.mjs reviewed.json --apply`; without `--apply`, the command only validates the manifest.
+The independent `food_adequacy_declarations` table preserves source ownership, original capture date, source hash, quoted product name, and applying origin.
+Public reads require a published food and a current fetched manufacturer source.
+Candidate cards and product details show the manufacturer claim, life stage, method, quote, and capture date; saved decisions preserve the original claim.
+Sales market, current-package equivalence, and standard edition remain unverified.
+These claims do not establish certification or numerical compliance and do not change candidate eligibility.
+See [the collected declarations](docs/notes/2026-10-19-manufacturer-adequacy-review.json) and [the reviewed application manifest](docs/notes/2026-10-19-manufacturer-adequacy-apply.json).
+
+## License
+
+Copyright (c) 2026 Dongmin Yu.
+All rights reserved.
+This source is reference-only and is not open source.
+See [LICENSE](LICENSE).

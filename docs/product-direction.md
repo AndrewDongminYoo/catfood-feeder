@@ -1,128 +1,91 @@
 # Product Direction
 
-> Status: Accepted product-direction record. Supersedes the Advisor v0 observed pilot gate.
-> Decision date: 2026-08-22.
-> This file owns the positioning statement, the non-goals, the measured coverage baseline, and the monetization posture.
-> `BLUEPRINT.md` cites this file rather than restating it.
+Status: Accepted by the operator on 2026-10-18.
+This document owns the product positioning, delivery standard, scope, and monetization hypothesis.
+The former direction is preserved in [the historical record](notes/2026-10-18-product-direction-before-consumer-decision.md).
 
 ## Positioning
 
-> A service that helps an owner choosing the next imported dry cat food compare the nutrient change and the ingredient composition against the food currently being fed, together with the evidence level behind each value.
+Help an owner decide what imported dry cat food to buy next by turning their question into explicit conditions, comparing those conditions with source-backed product facts, and preserving the reasons and remaining questions behind their choice.
+The first person this product must serve is the operator choosing the next food for their own cat.
 
-The scope is locked to that sentence.
-A candidate is shown because it satisfies stated deterministic conditions, never because the service judged it healthier.
+## The job to complete
 
-## Non-goals
+An owner arrives with a current food and a reason to consider a change.
+They leave with a manageable set of candidates, the differences that matter to their conditions, original evidence, and specific questions that could change the decision.
+They can save or download the actual brief and revisit it without silently replacing its evidence with today's data.
 
-- Dogs, wet food, prescription and disease-specific diets.
-- Automatic health scores, safety verdicts, or any composite quality ranking.
-- Price crawling and lowest-price discovery (`Phase 5` remains deferred).
-- Public contribution, reputation, and community moderation systems.
-- Natural-language chat input and an MCP adapter, both of which stay later than a working ingredient slice.
+The deliverable is a completed decision workflow.
+A working research pipeline, an issue backlog, a generic chat box, and a catalog page alone do not satisfy it.
+Do not make the operator invent a sales pitch or interview protocol to compensate for a product that cannot yet answer a useful question.
 
-## Measured baseline (2026-08-22)
+## AI and judgment
 
-Evidence basis: Supabase REST count queries with the service-role key, plus direct `psql` reads over `POSTGRES_URL_NON_POOLING`.
-No truncated output.
+AI interprets a question and proposes editable conditions.
+Deterministic code checks supported conditions against the catalog and its current evidence.
+The owner confirms the interpretation and makes the purchase decision.
+A model may not invent product facts, decide that a food is healthier, convert a missing value to zero, or erase an inconvenient unknown.
 
-| Dimension                                            | Measured  |
-| ---------------------------------------------------- | --------- |
-| `foods` total / published                            | 349 / 125 |
-| `food_nutrient_evidence` rows                        | 2,251     |
-| `food_research_runs`                                 | 430       |
-| `brands`                                             | 107       |
-| Published rows with protein, fat, carb, energy split | 125 / 125 |
-| Published rows with `kcal_per_kg`                    | 83 / 125  |
-| Published rows with `ash_pct`                        | 78 / 125  |
-| Published rows with a non-empty `ingredients` array  | 0 / 125   |
-| Published rows with `grain_free = true`              | 0 / 125   |
-| `recalls` rows                                       | 2         |
-| `auth.users` / `cats` / `feeding_logs`               | 1 / 1 / 0 |
-| Advisor v0 observed pilot sessions                   | 0 of 8    |
+Preference sensitivity is useful: show how candidate availability changes when the owner changes the permitted calorie-density difference.
+Nutrient interval simulation requires evidence-backed bounds and is not implemented by inventing ranges around a fallback constant.
 
-> 2026-09-08 refresh: `recalls` contains 3 rows, and the repository contains 13 `.mjs` scripts.
-> The dated table remains the 2026-08-22 baseline; the other values shown there were unchanged when remeasured.
-> 2026-09-10 tranche A refresh: `food_ingredient_evidence` contains 47 current rows, and 47 of 125 published foods have a non-empty `ingredients` array.
-> Tranche A applied 47 of 60 targets, while 13 targets returned no provable ingredient draft.
-> 2026-09-11 completion refresh: tranche B applied 32 of 44 targets after one transient timeout was retried, while 12 targets returned no provable ingredient draft.
-> The completed retained-capture backfill produced 79 current ingredient evidence rows and filled 79 of 125 published foods.
+## First complete experience
 
-Two readings follow from this table.
+1. Choose the current food, then select a reason to change or write a question.
+2. Confirm the permitted calorie-density change and reveal relevant ingredient follow-ups.
+   Separate ingredients that must be excluded from preferred proteins that only change candidate order.
+   Clarify qualitative calorie wording; ingredient order never predicts taste or establishes meat proportions.
+   Preserve an explicit numerical limit exactly.
+3. Start with up to three matching candidates and their specific reasons and tradeoffs.
+   Expand other matching candidates, unresolved candidates, failed conditions, or calorie sensitivity when needed.
+4. Inspect source excerpts, original ingredient wording and order, capture dates, tradeoffs, and the next concrete question.
+5. Select or defer a candidate and save the exact brief with a reason.
+6. Reopen the historical brief or explicitly compare again using the current catalog.
+7. Search for sellers, then verify the package, market, formulation, stock, and price before buying.
 
-**The research engine works and the presentation layer oversold it.**
-430 research runs produced 2,251 evidence rows across 125 published products, and every published row carries a complete protein/fat/carb/energy profile.
-Meanwhile `Phase 2`, `Phase 3`, and `Phase 4` are all marked complete in `BLUEPRINT.md` while the data behind their features is empty or sparse: the grain-free filter filters nothing, the recall badge reads three rows as of the 2026-09-08 refresh, and the feeding log that was designed as the return-visit driver has never been written to, including by the owner.
-A completed checkbox proves the code exists, not that the data does.
+## Scope
 
-**Retention and revenue premises are untested.**
-With one account, one cat, and zero feeding logs, any subscription or retention framing rests on an unmeasured assumption.
-This document therefore does not select a revenue model.
+The first release compares adult-cat non-prescription dry foods.
+Disease-specific diets, prescription replacement, kitten diets, pregnancy, and lactation require a different product and are stopped in this flow.
+Ingredient exclusion means absence of a declared ingredient in the reviewed list; it does not establish cross-contact absence or allergy safety.
+Guaranteed-analysis minima and maxima do not establish actual point quantities.
+The product has no overall health score, safety verdict, or composite quality rank.
 
-## Why the ingredient slice comes first
+Keep the public catalog and curator tools as supporting surfaces.
+The main entry point is the decision workspace, not an empty database browser.
+Existing advisor query links retain their earlier deterministic behavior.
 
-Every monetization path the project has floated is blocked on a different measured gap.
+## Revenue hypothesis
 
-| Path                     | Requires                                           | Measured state                                                                                               |
-| ------------------------ | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Affiliate and commerce   | a join from a catalog row to a purchasable listing | no such join exists; a `foods` row is a manufacturer recipe and weight variants were deliberately merged out |
-| B2B data API or MCP      | ingredients and coverage as the sellable asset     | 79 of 125 published rows have ingredients after the retained-capture backfill                                |
-| Consumer advisor product | `kcal_per_kg` on both sides of a comparison        | absent on 42 of 125 published rows                                                                           |
+The first unit of value is one useful food-selection brief for an owner.
+Do not gate the first useful result behind an account, payment, or an interview.
+A paid investigation or decision service is a hypothesis to evaluate using the product's concrete output and the unresolved work it exposes.
+A business-embedded version may later distribute the same decision capability.
+Neither a consumer subscription nor B2B data licensing has demonstrated demand in this repository.
 
-Ingredient data is the only asset that all three paths need, so it is the common precondition rather than a revenue model of its own.
-The slice deliberately keeps all three paths open.
+Ongoing paid monitoring requires persistent decision-to-evidence dependencies and reliable re-evaluation after source changes.
+Browser snapshots and a recheck button do not establish that capability, so do not sell or advertise automatic monitoring yet.
 
-### What would settle the revenue model later
+## Delivery standard
 
-- **B2B**: an inbound request from a Korean pet commerce or content service that names coverage and provenance as the reason.
-- **Consumer advisor**: repeated evidence that owners open the evidence detail and connect a chosen candidate to a feeding log.
-- **Affiliate**: demonstrated traffic on the published catalog, which does not exist yet and is not measured by any instrumentation in the product.
+A release must let a person complete a meaningful question-to-brief flow using actual catalog data.
+Tests must cover missing evidence, mismatching quotes, ambiguous ingredients, clinical requests, unsupported questions, denied browser storage, saved-result preservation, and model failure.
+Inspect the rendered experience at desktop and narrow mobile widths.
+A green unit suite does not prove usable coverage or a compelling decision brief.
 
-None of these can be observed today, and adding analytics to manufacture them is out of scope.
+Only after the product produces that material should evaluation ask which part changed an owner's choice, which unanswered question prevented a choice, and whether resolving it is worth paying for.
+This is a follow-on learning activity, never a substitute for delivery.
 
-## Ingredient channel and retained-capture backfill
+## Historical coverage
 
-The original gap was missing plumbing, not missing data.
+Historical measured counts are in the archived direction document.
+Re-measure before making a current completeness claim.
+The public experience must expose its own missing evidence rather than advertise historical counts as guaranteed coverage.
 
-The ingredient evidence table, literal-evidence apply RPC, curator apply route, extraction output, and retained-capture backfill runner are implemented.
-The retained-capture production backfill is complete.
-It applied 79 of 104 targets across both tranches, while 25 targets returned no provable ingredient draft.
-The measured catalog state is now 79 published rows with a non-empty ingredient list.
+## Current limits
 
-Retained captures already hold the source text.
-Of the 125 published products, **104 have a comma-separated ingredient run inside the capture of their current (`is_current`) source**, and 21 have none.
-Of those 104, sixty hold exactly one such run and forty-four hold several.
-
-An earlier pass reported 75 rather than 104.
-That count capped an ingredient entry at 40 characters, so a long parenthetical such as `chicken fat (preserved with tocopherols and citric acid)` broke the chain and split one list into fragments — which also inflated the apparent per-page ambiguity.
-Widening the entry pattern to break only on commas, semicolons, and newlines corrected both.
-
-The 104 is still an upper bound, and the residual failures are semantic rather than syntactic.
-Reading fourteen samples by hand on 2026-08-23: of ten one-run captures, seven held a real ingredient list, two matched only a parenthetical herb sub-list, and one was marketing prose; among several-run captures the first match is sometimes site navigation.
-No regular expression separates those cases, so this figure selects and orders candidates while the extraction pass settles identity and completeness.
-The real yield is set by that pass, not by this figure.
-
-## Slice scope
-
-1. **Measure the yield.** Run the existing extraction against 10 to 15 of the 104 matching products and count how many return a list that matches the product identity. That measured rate, not 104, is the planning number.
-2. **Fix the shape before re-extraction freezes it.** The stored model is `{name, position}` and nothing more. `position` carries the descending-weight order that labels encode and is the actual value of ingredient data. Form (fresh / dried / meal / by-product) and specificity (a named species versus 가금육 or 육류) are both already encoded in the label's own wording, so they are derived in `src/lib/ingredient-form.ts` rather than stored: storing them would freeze one interpretation into every row at re-extraction time, while deriving them lets the rules improve without another paid pass. This follows the pattern the project already uses for energy ratios and conflicts, which the server computes rather than trusting from the model. `pct` is not modelled because these labels rarely state it. Eight source files consume the field today, excluding tests and generated types.
-3. **Open the apply channel.** Complete: ingredients now use a sibling evidence route and RPC under the same literal-evidence requirement as nutrients.
-4. **Re-extract the matching set** using only retained captures, with no new research.
-5. **Defer the remainder.** The 21 products without an in-capture list split into those needing a fresh fetch and those needing vision transcription. That split is a follow-on and must not block step 4.
-
-## Surface retirement
-
-Each pivot has added surface without retiring the previous one: 32 `page.tsx` and `route.ts` entry points and 13 scripts now stand behind four phases marked complete over partly-empty data.
-Before the next surface is added, the dead ones are candidates for removal rather than repair — the grain-free and functional-flag filters that match nothing, and the recall badge reading three rows as of the 2026-09-08 refresh.
-Retirement is a separate decision from this slice and is recorded here so it is not lost.
-
-## What this retires
-
-The Advisor v0 observed pilot gate is withdrawn at 0 of 8 sessions, without having run.
-It is retired rather than deleted so a later session does not read its scaffolding as work in flight.
-
-- `BLUEPRINT.md` sections «Next Product Slice» and «Advisor v0 관찰 파일럿 게이트».
-- `docs/plans/2026-08-20-advisor-v0-pilot.md`.
-- The owner-only ledger root named in that plan, which holds protocol scaffolding and a one-byte ledger.
-
-Advisor v0 itself is not withdrawn.
-The shipped `/advisor` surface stays as built; what is withdrawn is the eight-session observation as the gate that decides the next slice.
+The local AI interpreter uses the existing Anthropic integration with a durable site-wide daily budget; structured conditions remain usable if it is unavailable.
+It interprets questions and does not perform a fresh consumer-initiated web investigation.
+Saved briefs live in this browser and can be exported; they are not account-synced or monitored in the background.
+Explicit rechecks read fresh server catalog data and preserve a historical brief if that read fails.
+Retailer search is not verified availability, an affiliate integration, or a price comparison.

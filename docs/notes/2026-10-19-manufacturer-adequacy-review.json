@@ -1,0 +1,2073 @@
+{
+  "version": 1,
+  "generatedAt": "2026-10-19T01:14:09.825Z",
+  "scope": "retained_current_manufacturer_captures_for_published_cat_foods",
+  "sourceCount": 125,
+  "foodCount": 124,
+  "declarationSourceCount": 57,
+  "declarationFoodCount": 57,
+  "declarations": [
+    {
+      "status": "draft",
+      "statement": "Natural Balance Original Ultra Fat Cats Chicken Meal & Salmon Meal recipe cat food is formulated to meet the nutritional levels established by the AAFCO cat food nutrient profiles for maintenance.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 197,
+      "productName": "내추럴발란스 캣 팻캣 닭&연어 저칼로리 고양이",
+      "sourceId": 3,
+      "url": "https://www.naturalbalanceinc.com/cat-recipes/dry/fat-cats/fat-cats-low-calorie-recipe",
+      "capturedAt": "2026-07-21T10:37:30.421+00:00",
+      "sourceContentHash": "0302935519a0a4724c578abb9fb3cca3053f03bdb68201159e7e4a5474cfe864",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "ACANA™ Highest Protein Kitten Food is formulated to meet the nutritional levels established by FEDIAF for Growth of Kittens.",
+      "standard": "FEDIAF",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "growth",
+      "species": "cat",
+      "foodId": 95,
+      "productName": "아카나 캣 하이프로틴 키튼",
+      "sourceId": 37,
+      "url": "https://www.acana.com/en-CA/cats/cat-food/highest-protein%2C-kitten-recipe/ns-aca-highest-protein-kitten.html",
+      "capturedAt": "2026-08-08T16:19:27.258+00:00",
+      "sourceContentHash": "f9a0c90ea85f53825d01d78c3d802bc5f31a3da09a579d5cba96cd3ce5a99505",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "ACANA Grasslands Cat is formulated to meet the nutritional levels established by FEDIAF for All Life Stages.",
+      "standard": "FEDIAF",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 141,
+      "productName": "아카나 캣 그래스랜드",
+      "sourceId": 38,
+      "url": "https://www.acana.com/en-CA/cats/cat-food/highest-protein%2C-grasslands/ns-aca-grasslands-new-cat.html",
+      "capturedAt": "2026-08-08T16:47:37.746+00:00",
+      "sourceContentHash": "b040705454b97fc5e92b3765b74cf5835b763bfb8f43cbe9a1743cbfa0bf2aff",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "ACANA Bountiful Catch is formulated to meet the nutritional levels established by FEDIAF for Adult Maintenance.",
+      "standard": "FEDIAF",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "unspecified",
+      "foodId": 123,
+      "productName": "아카나 캣 바운티풀 캐치",
+      "sourceId": 39,
+      "url": "https://www.acana.com/en-CA/cats/cat-food/bountiful-catch/ns-aca-bountiful-catch-cat.html",
+      "capturedAt": "2026-08-08T16:49:30.553+00:00",
+      "sourceContentHash": "de601826a40f1053ecc8d5c64e09442e1322fd80b4b05a629397886e856f7533",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "ACANA Wild Prairie Cat is formulated to meet the nutritional levels established by FEDIAF for All Life Stages.",
+      "standard": "FEDIAF",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 38,
+      "productName": "아카나 캣 와일드 프레이리",
+      "sourceId": 40,
+      "url": "https://www.acana.com/en-CA/cats/cat-food/highest-protein%2C-wild-prairie/ns-aca-wild-prairie-new-cat.html",
+      "capturedAt": "2026-08-08T16:49:43.415+00:00",
+      "sourceContentHash": "3491ff20ca438d33d8d097ee1cb3d2b063b6076a511e7b2211e7f32d725d2370",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "ACANA Paciﬁca Cat is formulated to meet the nutritional levels established by FEDIAF for All Life Stages.",
+      "standard": "FEDIAF",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 67,
+      "productName": "아카나 캣 패시피카",
+      "sourceId": 41,
+      "url": "https://www.acana.com/en-CA/cats/cat-food/highest-protein%2C-pacifica/ns-aca-pacifica-new-cat.html",
+      "capturedAt": "2026-08-08T16:49:58.586+00:00",
+      "sourceContentHash": "f2a91973638f56be5bb55f6ea6659dfca22f066050b58a92f6470ba5d4eb6b6e",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "ACANA Homestead Harvest is formulated to meet the nutritional levels established by FEDIAF for Adult Maintenance.",
+      "standard": "FEDIAF",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "unspecified",
+      "foodId": 30,
+      "productName": "아카나 캣 홈스테드 하비스트",
+      "sourceId": 42,
+      "url": "https://www.acana.com/en-CA/cats/cat-food/homestead-harvest/ns-aca-homestead-cat.html",
+      "capturedAt": "2026-08-08T16:50:20.625+00:00",
+      "sourceContentHash": "b45ae06828afd81e6a5e2d2cc412c6690cbc9d12596934ade377f53e98dd5832",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "ACANA First Feast is formulated to meet the nutritional levels established by FEDIAF for All Life Stages.",
+      "standard": "FEDIAF",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "unspecified",
+      "foodId": 138,
+      "productName": "아카나 퍼스트 피스트 캣",
+      "sourceId": 43,
+      "url": "https://www.acana.com/en-CA/cats/cat-food/first-feast/ns-aca-first-feast-cat.html",
+      "capturedAt": "2026-08-08T16:50:33.952+00:00",
+      "sourceContentHash": "4273c8184a5e6c77806bd1581c8ddcda5274f4875f0ec405995d517bb9df316e",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "ORIJEN Kitten Food is formulated to meet the nutritional levels established by the FEDIAF Cat Food Nutrient Profiles for Growth of Kittens.",
+      "standard": "FEDIAF",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "growth",
+      "species": "cat",
+      "foodId": 74,
+      "productName": "오리젠 캣 키튼",
+      "sourceId": 45,
+      "url": "https://www.orijenpetfoods.com/en-CA/cats/cat-food/kitten-formula/ns-ori-kitten.html",
+      "capturedAt": "2026-08-08T16:51:04.753+00:00",
+      "sourceContentHash": "73844bf6ec02a4072192759576e56b55db886cb200ab8b509e8f3b8831a93df8",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "오리젠 식스 피쉬는 전체 생애 단계를 위해 FEDIAF에서 지정한 영양 수준을 충족할 수 있도록 제조되었습니다.",
+      "standard": "FEDIAF",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "unspecified",
+      "foodId": 58,
+      "productName": "오리젠 캣 6피쉬",
+      "sourceId": 46,
+      "url": "https://apac.orijenpetfoods.com/ko-KR/ap-ori-ns-sixfish-cat.html",
+      "capturedAt": "2026-08-08T16:52:12.281+00:00",
+      "sourceContentHash": "4b52a6464ab5e2d1b85e302f5b53d344b9afc71667581caa6a3e97270cca388d",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "ORIJEN™ Fit & Trim Cat is formulated to meet the nutritional levels established by FEDIAF for Adult Maintenance.",
+      "standard": "FEDIAF",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 51,
+      "productName": "오리젠 캣 피트&트림",
+      "sourceId": 47,
+      "url": "https://emea.orijenpetfoods.com/en/cats/cat-food/eu-ori-ns-ori-fittrim-cat.html",
+      "capturedAt": "2026-08-08T16:52:59.986+00:00",
+      "sourceContentHash": "7e4ba697bd97a8d80165eeb893656c46eb6090b5750f735bb079dec35eb4501b",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Natural Balance Original Ultra Grain Free Indoor Chicken & Salmon Meal Recipe cat food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 82,
+      "productName": "내추럴발란스 캣 오리지날 울트라 그레인프리 인도어 닭&연어",
+      "sourceId": 144,
+      "url": "https://www.naturalbalanceinc.com/cat-recipes/dry/original-ultra/indoor-grain-free-chicken-salmon-meal-recipe",
+      "capturedAt": "2026-08-08T17:49:29.214+00:00",
+      "sourceContentHash": "88d290d181b251eb5c838d17dca260af4ed59312989de4aa37868e28b6685705",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Natural Balance Limited Ingredient Grain Free Salmon & Green Pea Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 213,
+      "productName": "내추럴발란스 캣 LI 연어&완두 레시피 고양이",
+      "sourceId": 145,
+      "url": "https://www.naturalbalanceinc.com/cat-recipes/dry/limited-ingredient/grain-free-green-pea-salmon",
+      "capturedAt": "2026-08-08T17:49:42.474+00:00",
+      "sourceContentHash": "209015613bf789deb2d44cfe71948dc3d37413681e8cf259a727cdd0bc4f6e0a",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Natural Balance Ultra Protein Real Chicken & Chicken Meal Recipe Kitten Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for All Life Stages.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 215,
+      "productName": "내추럴발란스 캣 울트라 프로틴 리얼 치킨 키튼 레시피",
+      "sourceId": 146,
+      "url": "https://www.naturalbalanceinc.com/cat-recipes/dry/ultra-protein/real-chicken-and-chicken-meal-kitten-recipe",
+      "capturedAt": "2026-08-08T17:49:50.533+00:00",
+      "sourceContentHash": "362bb49c8ce4aa6dac8ca0cb8c175fb40a9b3fadda965025f797074d4ff12c07",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Natural Balance Limited Ingredient Grain Free Chicken & Green Pea Recipe Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 224,
+      "productName": "내추럴발란스 캣 LI 닭고기&완두 포뮬라",
+      "sourceId": 147,
+      "url": "https://www.naturalbalanceinc.com/cat-recipes/dry/limited-ingredient/grain-free-green-pea-chicken",
+      "capturedAt": "2026-08-08T17:49:59.072+00:00",
+      "sourceContentHash": "11d6156dd07f847fe1049d7ad6c5f57b3a4e39e404dc1ce7dd1ab8c381f27059",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Natural Balance Ultra Protein Real Chicken & Chicken Meal Recipe Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for All Life Stages.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 234,
+      "productName": "내추럴발란스 캣 울트라 프로틴 리얼 치킨 레시피",
+      "sourceId": 148,
+      "url": "https://www.naturalbalanceinc.com/cat-recipes/dry/ultra-protein/real-chicken-chicken-meal-recipe",
+      "capturedAt": "2026-08-08T17:50:09.075+00:00",
+      "sourceContentHash": "78ecdddb470d99b52f920c56450575027bfcda149bb450ab5ed5af35619af9c6",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Natural Balance Ultra Protein Real Salmon & Chicken Meal Recipe Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for All Life Stages.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 303,
+      "productName": "내추럴발란스 캣 울트라 프로틴 리얼 살몬&치킨 레시피",
+      "sourceId": 149,
+      "url": "https://www.naturalbalanceinc.com/cat-recipes/dry/ultra-protein/real-salmon-and-chicken-meal-recipe",
+      "capturedAt": "2026-08-08T17:50:17.693+00:00",
+      "sourceContentHash": "157e736efcba9f206e71c154d7087ee12edbdfbcd6eafe92618e5ee0a39b1076",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Natural Balance Ultra Protein Plus Skin & Coat and Digestive Health Real Salmon & Chicken Meal Recipe Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for All Life Stages.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 423,
+      "productName": "내추럴발란스 캣 울트라 프로틴+ 스킨&코트&다이제스티브 레시피",
+      "sourceId": 151,
+      "url": "https://www.naturalbalanceinc.com/cat-recipes/dry/ultra-protein-plus/skin-coat-digestive-health-real-salmon-chicken-meal-recipe",
+      "capturedAt": "2026-08-08T17:50:35.363+00:00",
+      "sourceContentHash": "f00e3018409cfd9634a6c2ba963cd1098f76e4d0d30247e2691ebcdf5eaa9576",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Natural Balance Ultra Protein Plus Immune & Digestive Health Real Chicken & Chicken Meal Recipe Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for All Life Stages.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 444,
+      "productName": "내추럴발란스 캣 울트라 프로틴+ 이뮨&다이제스티브 레시피",
+      "sourceId": 152,
+      "url": "https://www.naturalbalanceinc.com/cat-recipes/dry/ultra-protein-plus/immune-digestive-health-real-chicken-recipe",
+      "capturedAt": "2026-08-08T17:50:44.13+00:00",
+      "sourceContentHash": "e4019ebb02c9bec534565674226f0db931afd1803b3c6eb20b51f2a8026b4b2e",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Nutrition Statement: Wellness CORE Original Deboned Turkey, Turkey Meal & Chicken Meal Recipe Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 633,
+      "productName": "웰니스 캣 코어 그레인프리 오리지날",
+      "sourceId": 164,
+      "url": "https://wellnesspetfood.com.au/cat-wellness/natural-cat-food/core-grain-free-dry-cat/original-turkey-chicken/",
+      "capturedAt": "2026-08-08T17:59:02.687+00:00",
+      "sourceContentHash": "83dc5f413439b95228d6cf74715f98d09c669d142540aca8694f05fbe31d0ea9",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Nutrition Statement: Wellness CORE Indoor Deboned Chicken, Turkey and Chicken Meals Recipe Adult Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 648,
+      "productName": "웰니스 캣 코어 인도어",
+      "sourceId": 165,
+      "url": "https://wellnesspetfood.com.au/cat-wellness/natural-cat-food/core-grain-free-dry-cat/indoor-chicken/",
+      "capturedAt": "2026-08-08T17:59:20.543+00:00",
+      "sourceContentHash": "3317ffccfee27b4fb6270cd4c197e760bb0c75ff86f4bed89fee4f8f106a36f4",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Nutrition Statement: Wellness CORE Kitten Deboned Turkey, Turkey Meal & Deboned Chicken Recipe Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for growth and gestation/lactation.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "growth_reproduction",
+      "species": "cat",
+      "foodId": 674,
+      "productName": "웰니스 캣 코어 키튼",
+      "sourceId": 166,
+      "url": "https://wellnesspetfood.com.au/cat-wellness/natural-cat-food/core-grain-free-dry-cat/kitten-turkey/",
+      "capturedAt": "2026-08-08T17:59:42.135+00:00",
+      "sourceContentHash": "a18149ea3aa0d33f8b4b3e82f9684b5747e2016eedd3face877f27e06ea41bf5",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Nutrition Statement: Wellness CORE Indoor Salmon & Herring Meal Recipe Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 675,
+      "productName": "웰니스 캣 코어 그레인프리 인도어 오션",
+      "sourceId": 167,
+      "url": "https://wellnesspetfood.com.au/cat-wellness/natural-cat-food/core-grain-free-dry-cat/indoor-salmon-herring/",
+      "capturedAt": "2026-08-08T17:59:58.675+00:00",
+      "sourceContentHash": "1732e2a7883cf28b6368707334da6dde433af1910ec08245f28b24da6fa5b689",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Now Fresh Grain-Free Adult Recipe is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for Maintenance.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 159,
+      "productName": "now 캣 프레쉬 그레인프리 어덜트",
+      "sourceId": 168,
+      "url": "https://nowfresh.com/en/cat-food/dry/grain-free-adult-recipe-with-turkey-salmon-duck",
+      "capturedAt": "2026-08-08T18:00:57.991+00:00",
+      "sourceContentHash": "08a6e1198353661b312e5e5ab13937414e9630368392935c6e585d471f7a81a9",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Now Fresh Grain-Free Senior Recipe is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for Maintenance.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 196,
+      "productName": "now 캣 프레쉬 그레인프리 시니어",
+      "sourceId": 169,
+      "url": "https://nowfresh.com/en/cat-food/dry/grain-free-senior-recipe-with-turkey-salmon-duck",
+      "capturedAt": "2026-08-08T18:01:25.351+00:00",
+      "sourceContentHash": "60fd14135616647324470e4ae1bb802c932a7b22a7ccf05c9485246a455d54fe",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Now Fresh Grain-Free Kitten Recipe is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for Growth.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "growth",
+      "species": "cat",
+      "foodId": 270,
+      "productName": "now 캣 프레쉬 그레인프리 키튼",
+      "sourceId": 170,
+      "url": "https://nowfresh.com/en/cat-food/dry/grain-free-kitten-recipe-with-turkey-salmon-duck",
+      "capturedAt": "2026-08-08T18:01:52.034+00:00",
+      "sourceContentHash": "c108d7881cb4277454d59c561a3e3fcce79fa6da171c991289fdebcc4bcd3b56",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Now Fresh Good Gravy™ Grain Free Adult Chicken Recipe for Cats is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for Maintenance.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 292,
+      "productName": "now 캣 프레쉬 그레인프리 굿그레이비 어덜트 치킨",
+      "sourceId": 171,
+      "url": "https://nowfresh.com/en/cat-food/good-gravy/chicken-recipe-for-adults",
+      "capturedAt": "2026-08-08T18:02:18.537+00:00",
+      "sourceContentHash": "e56ad888330bfe47ca53823771667ad68240911da0a16285c0f79128cd72efd1",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Now Fresh Good Gravy™ Grain Free Adult Salmon Recipe for Cats is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for Maintenance.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 302,
+      "productName": "now 캣 프레쉬 그레인프리 굿그레이비 어덜트 연어",
+      "sourceId": 172,
+      "url": "https://nowfresh.com/en/cat-food/good-gravy/salmon-recipe-for-adults",
+      "capturedAt": "2026-08-08T18:02:37.809+00:00",
+      "sourceContentHash": "dc4d0b9b9496cc9bebe5c618a3050c4a6b806dbef7f872885a77a950f0e453fd",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Now Fresh Grain-Free Fish Adult Recipe is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for Maintenance.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 461,
+      "productName": "now 캣 프레쉬 그레인프리 피쉬 레시피 어덜트",
+      "sourceId": 173,
+      "url": "https://nowfresh.com/en/cat-food/dry/grain-free-adult-recipe-with-trout-salmon-herring",
+      "capturedAt": "2026-08-08T18:02:56.97+00:00",
+      "sourceContentHash": "117557b02187356607285368e48be0884d0a581e9595ad2a057c56f612a07724",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Sensitivities Limited Ingredient Grain-Free Duck Recipe is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for All Life Stages.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 205,
+      "productName": "go! 캣 솔루션 LID 오리 레시피",
+      "sourceId": 174,
+      "url": "https://go-solutions.com/en-us/cat-food/dry/sensitivities-limited-ingredient-grain-free-duck-recipe",
+      "capturedAt": "2026-08-08T18:04:05.918+00:00",
+      "sourceContentHash": "01e4a5623804b51be2da4fd76c77674d33a10fb56f119f6cdb742c0312fb5aad",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Carnivore Grain-Free Chicken, Turkey + Duck Recipe is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for All Life Stages.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 325,
+      "productName": "go! 캣 솔루션 카니보 그레인프리 치킨&칠면조&오리 레시피",
+      "sourceId": 175,
+      "url": "https://go-solutions.com/en-us/cat-food/dry/carnivore-grain-free-chicken-turkey-duck-recipe",
+      "capturedAt": "2026-08-08T18:04:25.609+00:00",
+      "sourceContentHash": "afd2dafe4661f68d6f28d73dfac7027110f03c86c1418c3876f8b1b54db5b9ac",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Skin + Coat Care Chicken Recipe With Grains is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for All Life Stages.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 348,
+      "productName": "go! 캣 솔루션 스킨&코트 치킨 레시피",
+      "sourceId": 176,
+      "url": "https://go-solutions.com/en-us/cat-food/dry/skin-coat-care-chicken-recipe-with-grains",
+      "capturedAt": "2026-08-08T18:04:45.047+00:00",
+      "sourceContentHash": "c6c98bfefe365b12ce28e8c591a73e915ba5efa937881f04578f2a17271edb87",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Weight Management + Joint Care Grain Free Chicken Recipe is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for Maintenance.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 354,
+      "productName": "go! 캣 솔루션 웨이트 매니지먼트 치킨 레시피",
+      "sourceId": 177,
+      "url": "https://go-solutions.com/en-us/cat-food/dry/weight-management-joint-care-grain-free-chicken-recipe",
+      "capturedAt": "2026-08-08T18:05:06.66+00:00",
+      "sourceContentHash": "c2580425bc07edb0afbda4e852b612da0fd7c7199c62f9636e963cf86bc4e37d",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Digestion + Gut Health Salmon Recipe with Ancient Grains is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for All Life Stages.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 483,
+      "productName": "go! 캣 솔루션 다이제스천 연어 레시피",
+      "sourceId": 178,
+      "url": "https://go-solutions.com/en-us/cat-food/dry/digestion-gut-health-salmon-recipe-with-ancient-grains",
+      "capturedAt": "2026-08-08T18:05:29.664+00:00",
+      "sourceContentHash": "2f2e3ff8e1ea5f1d03f1ddd1df859d335603432c7999c0875ddf4fdcb4b264fb",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "NUTRITION STATEMENT: Catit Recipes Double Fusion SKIN & COAT dry cat food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 537,
+      "productName": "캣잇 더블퓨전레시피 스킨앤코트",
+      "sourceId": 179,
+      "url": "https://www.catit.com/products/dry-food/recipes-double-fusion-skin-coat-ocean-fish-recipe-sea/",
+      "capturedAt": "2026-08-08T18:06:22.554+00:00",
+      "sourceContentHash": "e63d11e6143ad753ac2445be32997254efb0b4ddf15d595c5ba0a03a2cf9b737",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "NUTRITION STATEMENT: Catit Recipes Double Fusion WEIGHT CONTROL dry cat food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 538,
+      "productName": "캣잇 더블퓨전레시피 웨이트 컨트롤",
+      "sourceId": 180,
+      "url": "https://www.catit.com/products/dry-food/recipes-double-fusion-weight-control-chicken-recipe-sea/",
+      "capturedAt": "2026-08-08T18:06:49.531+00:00",
+      "sourceContentHash": "7341a170fc0588982920848bf59633ea1d39dae2b768b0e5982955ee94d0e207",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "NUTRITION STATEMENT: Catit Recipes Double Fusion SENIOR dry cat food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 539,
+      "productName": "캣잇 더블퓨전레시피 시니어",
+      "sourceId": 181,
+      "url": "https://www.catit.com/products/dry-food/recipes-double-fusion-senior-chicken-recipe-sea/",
+      "capturedAt": "2026-08-08T18:07:15.815+00:00",
+      "sourceContentHash": "1347dcdd912a2fd321189e956e4c3e5bcd407b4dfc7279bee0af8a5827875434",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "NUTRITION STATEMENT: Catit Recipes Double Fusion INDOOR dry cat food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 540,
+      "productName": "캣잇 더블퓨전레시피 인도어",
+      "sourceId": 182,
+      "url": "https://www.catit.com/products/dry-food/recipes-double-fusion-indoor-chicken-recipe-sea/",
+      "capturedAt": "2026-08-08T18:07:35.989+00:00",
+      "sourceContentHash": "f3a094e29a792f94b4718234a558dcf365622a05ccd4e502322aa5efbac031a5",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "NUTRITION STATEMENT: Catit Recipes Double Fusion ADULT dry cat food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 541,
+      "productName": "캣잇 더블퓨전레시피 어덜트",
+      "sourceId": 183,
+      "url": "https://www.catit.com/products/dry-food/recipes-double-fusion-adult-chicken-recipe-sea/",
+      "capturedAt": "2026-08-08T18:07:56.096+00:00",
+      "sourceContentHash": "9f828424fc76ad8328c3f9d3d80714e867adc858ab1c900c9f7f0040fd1fe0b0",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "NUTRITION STATEMENT: Catit Recipes Double Fusion KITTEN dry cat food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for growth.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "growth",
+      "species": "cat",
+      "foodId": 547,
+      "productName": "캣잇 더블퓨전레시피 키튼",
+      "sourceId": 185,
+      "url": "https://www.catit.com/products/dry-food/recipes-double-fusion-kitten-chicken-recipe-sea/",
+      "capturedAt": "2026-08-08T18:08:44.599+00:00",
+      "sourceContentHash": "44aca2238b9ad7bc81ded5a2d1e6a45d4025f04eaf57a3762d73c07cbd29c0c7",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Calorie Content Metabolizable Energy (calculated) 3564 kcal/kg Metabolizable Energy (calculated) 388 kcal/cup AAFCO NUTRITIONAL ADEQUACY STATEMENT AvoDerm Natural® Indoor Formula cat food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for Adult Cats.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 344,
+      "productName": "아보덤 캣 인도어",
+      "sourceId": 324,
+      "url": "https://avodermnatural.com/products/indoor-formula/",
+      "capturedAt": "2026-08-08T19:06:53.275+00:00",
+      "sourceContentHash": "93faa0c2771c283abfbf186cd07ff8c7d9865922324df45f687a7495a9f5d6f3",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Calorie Content Metabolizable Energy (calculated) 375 kcal/cup Metabolizable Energy (calculated) 3753 kcal/kg AAFCO NUTRITIONAL ADEQUACY STATEMENT AvoDerm Chicken & Herring Meal Formula cat food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for All Life Stages DAILY FEEDING GUIDELINESADULT FEEDING CHART 3-5 lbs: 1/4 to 1/2 cup 5-10 lbs: 1/2 to 1 cup 10-15 lbs: 1 to 1 1/3 cups PREGNANT FEMALES During pregnancy increase, the feeding amount during the last 1/3 of pregnancy to 1 1/2 times the amount recommended as shown for the adult.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 458,
+      "productName": "아보덤 캣 치킨&청어 어덜트",
+      "sourceId": 325,
+      "url": "https://avodermnatural.com/products/chicken-herring-meal-formula/",
+      "capturedAt": "2026-08-08T19:06:56.615+00:00",
+      "sourceContentHash": "87559286742fed74858a93a696fc59b7696487d8a993012a7602307286df2eee",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "ct, Rosemary Extract *With USA and Globally Sourced Ingredients †Manufactured in a facility that also uses grains Nutrition Guaranteed Analysis Crude Protein, Min: 35.0% Crude Fat, Min: 14.0% Crude Fiber, Max: 5.0% Moisture, Max: 12.0% Taurine, Min: 0.10% Calorie Content ME = 3,593 kcal/kg; 423 kcal/cup Nutrient Profile BIXBI Liberty Salmon Recipe is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Proﬁles for All Life Stages.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 391,
+      "productName": "빅스비 캣 리버티 연어",
+      "sourceId": 436,
+      "url": "https://bixbipet.com/product/liberty-dry-cat-food-salmon-recipe/",
+      "capturedAt": "2026-08-08T20:09:53.11+00:00",
+      "sourceContentHash": "ff67d29bda5a74ad5e0a085f4790f7d86664f33de9975ada1a4d68ef337d3099",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Schidigera Extract *With USA and Globally Sourced Ingredients †Manufactured in a facility that also uses grains Nutrition Guaranteed Analysis Crude Protein, Min: 36.5% Crude Fat, Min: 14.5% Crude Fiber, Max: 5.0% Moisture, Max: 12.0% Taurine, Min: 0.10% Calorie Content ME = 3,797 kcal/kg; 431 kcal/cup Nutrient Profile BIXBI Liberty Chicken Recipe is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Proﬁles for All Life Stages.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 527,
+      "productName": "빅스비 캣 리버티 치킨",
+      "sourceId": 437,
+      "url": "https://bixbipet.com/product/liberty-dry-cat-food-chicken-recipe/",
+      "capturedAt": "2026-08-08T20:09:53.854+00:00",
+      "sourceContentHash": "fc6e2a3ebb293708eb8ae8f7a56c37b045a383dbc003ca47afbb605c305bede5",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "on Guaranteed Analysis Crude Protein, Min: 37.0% Crude Fat, Min: 12.0% Crude Fiber, Max: 5.0% Moisture, Max: 12.0% Taurine, Min: 0.10% L-Carnitine, Min*: 130mg/kg Omega-6 Fatty Acids, Min*: 2.5% Omega-3 Fatty Acids, Min*: 0.50% Calorie Content ME = 3,490 kcal/kg; 411 kcal/cup Nutrient Profile BIXBI Liberty Indoor Cat Health Chicken & Salmon Recipe is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for Maintenance.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 528,
+      "productName": "빅스비 캣 리버티 인도어 치킨&연어",
+      "sourceId": 438,
+      "url": "https://bixbipet.com/product/liberty-dry-food-for-cats-indoor-health-chicken-salmon-recipe/",
+      "capturedAt": "2026-08-08T20:09:54.676+00:00",
+      "sourceContentHash": "11e1d26aa922bd62467b57c93d8a60c24ec2820e107ce2b3bfda966b782def6d",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Calorie Content (calculated): 3,800 kcal/kg or 455 kcal/cup ME Nutrience Grain Free Subzero Fraser Valley Formula is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for all life stages.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 341,
+      "productName": "뉴트리언스 캣 서브제로 프레이져벨리",
+      "sourceId": 460,
+      "url": "https://nutrience.hk/product/fraser-valley-high-protein-cat-food/",
+      "capturedAt": "2026-08-08T20:29:20.175+00:00",
+      "sourceContentHash": "60df58a3c5214fa8882efb4202013d09a2f06b7d4c9f9f46c15e1ae6ab66e9db",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Calorie Content (calculated): 3,855 kcal/kg or 462 kcal/cup ME Nutrience Grain Free Subzero Canadian Pacific Formula is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for all life stages.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 349,
+      "productName": "뉴트리언스 캣 서브제로 캐내디언 퍼시픽",
+      "sourceId": 461,
+      "url": "https://nutrience.hk/product/canadian-pacific-high-protein-cat-food/",
+      "capturedAt": "2026-08-08T20:29:21.996+00:00",
+      "sourceContentHash": "ee337aeba75db213eb863e2fe3f5f9df52c84fb941152dc2a98eab99dfa8898b",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "RAWZ® Dehydrated Chicken, Turkey & Chicken Recipe Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for All Life Stages.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 182,
+      "productName": "로우즈 캣 밀프리 치킨",
+      "sourceId": 464,
+      "url": "https://rawznaturalpetfood.com/product/meal-free-turkey-and-chicken-cat-food/",
+      "capturedAt": "2026-08-08T20:32:24.157+00:00",
+      "sourceContentHash": "48fbf3e6fda062b4044e5f2f910c5bad223df805ed755fb56c87af783491bd6a",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "is: CRUDE PROTEIN 32.0% min CRUDE FAT 15.0% min CRUDE FIBER 6.0% max MOISTURE 12.0% ZINC 100 ppm min VITAMIN E 40 IU/kg min TAURINE 0.12% min OMEGA-3 FATTY ACIDS 0.5% min OMEGA-6 FATTY ACIDS 3.0% min Caloric Content 3,690 kcal/kg, 490 kcal/cup AAFCO Cat Food Nutrient Profiles Lucy Pet Formulas for Life ™ Salmon, Pumpkin and Quinoa Formula Cat Food is formulated to meet the nutritional levels established by AAFCO Cat Food Nutrient Profiles for maintenance.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 590,
+      "productName": "루시펫 캣 연어 호박 퀴노아",
+      "sourceId": 466,
+      "url": "https://www.lucypetproducts.com/shop/salmon-pumpkin-quinoa-dry-cat-food-3-pack/",
+      "capturedAt": "2026-08-08T20:33:16.545+00:00",
+      "sourceContentHash": "fc5b73a4863841a668f7c36a0cdc243125172c6d0c4aa7075dcafd1a2eca6e62",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "in CRUDE FAT 15.0% min CRUDE FIBER 5.0% max MOISTURE 10.0% ZINC 100 ppm min VITAMIN E 40 IU/kg min TAURINE 0.12% min OMEGA-3 FATTY ACIDS 0.5% min OMEGA-6 FATTY ACIDS 3.0% min Caloric Content 3,600 kcal/kg, 500 kcal/cup Grams per cup: 137.4g AAFCO Cat Food Nutrient Profiles Lucy Pet™ Formulas for Life™ Chicken, Brown Rice & Pumpkin Formula Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for All Life Stages.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 591,
+      "productName": "루시펫 캣 치킨 현미 호박 LID",
+      "sourceId": 467,
+      "url": "https://www.lucypetproducts.com/shop/chicken-brown-rice-and-pumpkin-limited-ingredient/",
+      "capturedAt": "2026-08-08T20:33:19.057+00:00",
+      "sourceContentHash": "233ff5e4680dcd8527094539a31f80808f4273de2e361b3915780e817116dd89",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Petcurean Summit Meadow Roast Adult Recipe for Cats is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for Maintenance.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 440,
+      "productName": "써밋 캣 미도우 로스트 치킨 오리 레시피",
+      "sourceId": 470,
+      "url": "https://summitpetfood.com/en-us/cat-food/meadow-roast-chicken-meal-duck-meal-recipe",
+      "capturedAt": "2026-08-08T20:35:26.618+00:00",
+      "sourceContentHash": "fbee384f9c10b87dca209fa5fd55205799297b61b052c4252ebe869e8dcf5f58",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "NutriSource® PureVita™ Chicken & Peas Entrée Grain Free Cat Food is formulated to meet the nutritional levels established by the Association of American Feed Control Officials (AAFCO) Cat Food Nutrient Profiles for all life stages.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 22,
+      "productName": "퓨어비타 캣 그레인프리 치킨",
+      "sourceId": 477,
+      "url": "https://discovernutrisource.com/products/chicken-and-peas-entr-e-cat-food",
+      "capturedAt": "2026-08-08T20:41:00.233+00:00",
+      "sourceContentHash": "126b19da44df28457e80c63b85d1097307d4293dd804dc5906710e470f12b5d8",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "NutriSource® PureVita™ Salmon & Peas Entrée Grain Free Cat Food is formulated to meet the nutritional levels established by the Association of American Feed Control Officials (AAFCO) Cat Food Nutrient Profiles for all life stages.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 181,
+      "productName": "퓨어비타 캣 그레인프리 연어&완두",
+      "sourceId": 598,
+      "url": "https://discovernutrisource.com/products/salmon-and-peas-entr-e-cat-food",
+      "capturedAt": "2026-08-08T22:36:15.944+00:00",
+      "sourceContentHash": "418422434680a5732617fa114b5fc1886ea4c9a83234ea5acd9b3132bf4c92b4",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Gather Free Acres Organic Free-Run Chicken Recipe for Adult Cats is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for Maintenance.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "adult_maintenance",
+      "species": "cat",
+      "foodId": 121,
+      "productName": "게더 캣 프리 에이커 치킨 레시피",
+      "sourceId": 600,
+      "url": "https://gatherpetfood.com/en-us/cat-food/free-acres-recipe-with-organic-free-run-chicken",
+      "capturedAt": "2026-08-08T22:38:49.57+00:00",
+      "sourceContentHash": "5dd1ca938d6cb3c935e9346a787bdb6021c7169f965dcc8202fdf941c5360de4",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Fussie Cat® Market Fresh Salmon & Chicken Recipe for cats is formulated to meet the nutritional levels established by the Association of American Feed Control Officials (AAFCO) Cat Food Nutrient Profiles for all life stages.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 173,
+      "productName": "퍼시캣 연어&치킨 레시피",
+      "sourceId": 646,
+      "url": "https://fussiecat.com/product/market-fresh-dry-food-salmon-recipe/",
+      "capturedAt": "2026-08-09T00:05:05.986+00:00",
+      "sourceContentHash": "8820d0b0b6b0c1d8232b6b88dba98da28ab813d2e14bb7fa635bbf31d4285ef4",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Fussie Cat® Market Fresh Chicken & Turkey Recipe for cats is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for all life stages.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 232,
+      "productName": "퍼시캣 치킨&칠면조 레시피",
+      "sourceId": 647,
+      "url": "https://fussiecat.com/product/market-fresh-dry-food-chicken-and-turkey-meal-recipe/",
+      "capturedAt": "2026-08-09T00:05:06.915+00:00",
+      "sourceContentHash": "02564ad5c64da9b58511889a076215783d56459a8f76dc017a08134267c6eb7e",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    },
+    {
+      "status": "draft",
+      "statement": "Fussie Cat® Market Fresh Salmon Recipe for cats is formulated to meet the nutritional levels established by the Association of American Feed Control Officials (AAFCO) Cat Food Nutrient Profiles for all life stages.",
+      "standard": "AAFCO",
+      "edition": null,
+      "method": "formulation",
+      "lifeStage": "all_life_stages",
+      "species": "cat",
+      "foodId": 278,
+      "productName": "퍼시캣 연어 레시피",
+      "sourceId": 648,
+      "url": "https://fussiecat.com/product/market-fresh-dry-food-salmon-recipe-2/",
+      "capturedAt": "2026-08-09T00:05:07.501+00:00",
+      "sourceContentHash": "36f80c14015854ce8e8ce17deeb40ab16f9f66b582f9efca2467f8aaba0eb5f0",
+      "salesMarket": null,
+      "reviewRequired": {
+        "productIdentity": true,
+        "salesMarket": true,
+        "currentPackage": true
+      }
+    }
+  ],
+  "unresolved": [
+    {
+      "foodId": 53,
+      "sourceId": 48,
+      "url": "https://www.leonardo-catfood.com/leonardo-fresh-meat-fresh-duck-1.5-kg",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 56,
+      "sourceId": 49,
+      "url": "https://www.leonardo-catfood.com/leonardo-adult-complete-32-16-1.8-kg",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 79,
+      "sourceId": 50,
+      "url": "https://www.leonardo-catfood.com/leonardo-senior-1.8-kg",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 85,
+      "sourceId": 51,
+      "url": "https://www.leonardo-catfood.com/leonardo-fresh-meat-fresh-salmon",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 160,
+      "sourceId": 52,
+      "url": "https://www.leonardo-catfood.com/leonardo-adult-light-sterilised-7.5-kg",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 167,
+      "sourceId": 53,
+      "url": "https://www.leonardo-catfood.com/leonardo-adult-gf-salmon",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 214,
+      "sourceId": 54,
+      "url": "https://www.leonardo-catfood.com/leonardo-senior-gf",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 264,
+      "sourceId": 55,
+      "url": "https://www.leonardo-catfood.com/leonardo-kitten",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 274,
+      "sourceId": 56,
+      "url": "https://www.leonardo-catfood.com/leonardo-adult-duck-0.3-kg",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 282,
+      "sourceId": 57,
+      "url": "https://www.leonardo-catfood.com/leonardo-adult-gf-poultry-1.8-kg",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 424,
+      "sourceId": 58,
+      "url": "https://www.leonardo-catfood.com/leonardo-adult-fish-1.8-kg",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 89,
+      "sourceId": 132,
+      "url": "https://www.instinctpetfood.com/products/ultimate-protein-kibble-chicken",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 186,
+      "sourceId": 133,
+      "url": "https://www.instinctpetfood.com/products/limited-ingredient-diet-kibble-for-cats-turkey",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 200,
+      "sourceId": 134,
+      "url": "https://www.instinctpetfood.com/products/original-kibble-for-cats-chicken",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 249,
+      "sourceId": 136,
+      "url": "https://www.instinctpetfood.com/products/limited-ingredient-diet-kibble-for-cats-rabbit",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 404,
+      "sourceId": 137,
+      "url": "https://www.instinctpetfood.com/products/original-kibble-for-cats-rabbit",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 405,
+      "sourceId": 138,
+      "url": "https://www.instinctpetfood.com/products/raw-boost-kibble-for-cats-chicken",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 407,
+      "sourceId": 139,
+      "url": "https://www.instinctpetfood.com/products/original-kibble-for-cats-salmon",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 454,
+      "sourceId": 140,
+      "url": "https://www.instinctpetfood.com/products/raw-boost-kibble-for-cats-healthy-weight",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 596,
+      "sourceId": 141,
+      "url": "https://www.instinctpetfood.com/products/raw-boost-kibble-for-cats-indoor-health-chicken",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 654,
+      "sourceId": 142,
+      "url": "https://www.instinctpetfood.com/products/limited-ingredient-diet-kibble-for-cats-salmon",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 472,
+      "sourceId": 158,
+      "url": "https://brit-petfood.com/en/products/cats/479580-brit-care-cat-grain-free-sterilized-and-weight-control",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 526,
+      "sourceId": 159,
+      "url": "https://brit-petfood.com/en/products/cats/479579-brit-care-cat-grain-free-sterilized-urinary-health",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 560,
+      "sourceId": 160,
+      "url": "https://brit-petfood.com/en/products/cats/479182-brit-care-cat-grain-free-sensitive-healthy-digestion-and-delicate-taste",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 561,
+      "sourceId": 161,
+      "url": "https://brit-petfood.com/en/products/cats/479578-brit-care-cat-grain-free-indoor-anti-stress",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 594,
+      "sourceId": 163,
+      "url": "https://brit-petfood.com/en/products/cats/773362-brit-premium-by-nature-cat-adult-chicken",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 283,
+      "sourceId": 187,
+      "url": "https://www.ovenbakedtradition.com/en/product/food-for-adult-cats-of-all-lifestyle-chicken/",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 308,
+      "sourceId": 188,
+      "url": "https://www.ovenbakedtradition.com/en/product/weight-management-food-for-cats-of-all-lifestyle-chicken/",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 449,
+      "sourceId": 190,
+      "url": "https://www.ovenbakedtradition.com/en/product/food-for-adult-cats-of-all-lifestyle-fish/",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 359,
+      "sourceId": 334,
+      "url": "https://www.oasy.com/en/for-your-cat/dry-food-cat/cat-adult-chicken",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 459,
+      "sourceId": 335,
+      "url": "https://www.oasy.com/en/for-your-cat/dry-food-cat/cat-adult-light-in-fat-chicken",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 491,
+      "sourceId": 336,
+      "url": "https://www.oasy.com/en/for-your-cat/for-your-cat/dry-food-cat/cat-adult-salmon",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 500,
+      "sourceId": 337,
+      "url": "https://www.oasy.com/en/for-your-cat/dry-food-cat/kitten-chicken",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 523,
+      "sourceId": 338,
+      "url": "https://www.oasy.com/en/for-your-cat/dry-food-cat/cat-adult-sterilized-chicken",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 524,
+      "sourceId": 339,
+      "url": "https://www.oasy.com/en/for-your-cat/dry-food-cat/cat-adult-sterilized-salmon",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 108,
+      "sourceId": 376,
+      "url": "https://wealtz.co.kr/51/?idx=392",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 118,
+      "sourceId": 377,
+      "url": "https://wealtz.co.kr/catfood/?idx=387",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 168,
+      "sourceId": 378,
+      "url": "https://wealtz.co.kr/39/?idx=388",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 207,
+      "sourceId": 379,
+      "url": "https://wealtz.co.kr/catfood/?idx=386",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 244,
+      "sourceId": 380,
+      "url": "https://wealtz.co.kr/catfood/?idx=390",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 388,
+      "sourceId": 381,
+      "url": "https://wealtz.co.kr/catfood/?idx=389",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 616,
+      "sourceId": 382,
+      "url": "https://wealtz.co.kr/catfood/?idx=391",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 455,
+      "sourceId": 416,
+      "url": "https://naturalgreatness.com/en/alimentacion-para-gatos/Wild-instinct",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 493,
+      "sourceId": 417,
+      "url": "https://naturalgreatness.com/en/alimentacion-para-gatos/Top-Mountain",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 592,
+      "sourceId": 433,
+      "url": "https://thrivepetfoods.com/collections/dry-cat-food/products/premiumplus-chicken-with-turkey-complete-dry-cat-food",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 593,
+      "sourceId": 434,
+      "url": "https://thrivepetfoods.com/products/premiumplus-chicken-complete-dry-cat-food",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 665,
+      "sourceId": 435,
+      "url": "https://thrivepetfoods.com/collections/grain-free-cat-food/products/premiumplus-salmon-and-herring-complete-dry-cat-food",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 623,
+      "sourceId": 442,
+      "url": "https://www.cheriepetfood.eu/dry-food",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 630,
+      "sourceId": 443,
+      "url": "https://www.cheriepetfood.eu/dry-food",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 640,
+      "sourceId": 444,
+      "url": "https://www.cheriepetfood.eu/dry-food",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 490,
+      "sourceId": 451,
+      "url": "https://evolvepetfood.com/dry-cat-food/evolve-grain-free-chicken-chickpea-recipe-cat-food",
+      "reason": "multiple_distinct_declarations"
+    },
+    {
+      "foodId": 505,
+      "sourceId": 452,
+      "url": "https://evolvepetfood.com/dry-cat-food/evolve-classic-salmon-rice-sweet-potato-recipe-cat-food",
+      "reason": "multiple_distinct_declarations"
+    },
+    {
+      "foodId": 551,
+      "sourceId": 453,
+      "url": "https://evolvepetfood.com/all-cat-products/evolve-classic-chicken-brown-rice-recipe-cat-food",
+      "reason": "multiple_distinct_declarations"
+    },
+    {
+      "foodId": 219,
+      "sourceId": 457,
+      "url": "https://forza10usa.com/products/forza10-nutraceutic-active-kidney-renal-support-diet-cat-food",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 487,
+      "sourceId": 458,
+      "url": "https://forza10usa.com/collections/shop-cat/products/forza10-nutraceutic-active-intestinal-diet-dry-cat-food-copy",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 247,
+      "sourceId": 465,
+      "url": "https://rawznaturalpetfood.com/product/meal-free-salmon-chicken-and-whitefish-cat-food/",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 254,
+      "sourceId": 528,
+      "url": "https://www.blackwoodmall.com/product/detail.html?cate_no=38&display_group=1&product_no=25",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 298,
+      "sourceId": 529,
+      "url": "https://www.blackwoodmall.com/product/detail.html?cate_no=38&display_group=1&product_no=24",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 342,
+      "sourceId": 530,
+      "url": "https://blackwoodmall.com/product/detail.html?product_no=35",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 373,
+      "sourceId": 531,
+      "url": "https://www.blackwoodmall.com/product/detail.html?cate_no=38&display_group=1&product_no=45",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 627,
+      "sourceId": 537,
+      "url": "https://www.ovenbakedtradition.com/en/product/urinary-tract-grain-free-food-for-cats-of-all-life-stages-and-lifestyles-chicken/",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 340,
+      "sourceId": 570,
+      "url": "https://www.carnilove.co.uk/p/uncategorised/carp-trout-adult-sterilised/",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 499,
+      "sourceId": 571,
+      "url": "https://www.carnilove.co.uk/p/cat-food/dry-cat/duck-pheasant-hairball-control/",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 375,
+      "sourceId": 582,
+      "url": "https://naturalgreatness.com/en/alimentacion-para-gatos/Sensitive-Indoor",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 652,
+      "sourceId": 596,
+      "url": "https://www.poochandmutt.co.uk/products/duck-turkey-dry-cat-food?variant=39771450540216",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 559,
+      "sourceId": 675,
+      "url": "https://www.pro-nutrition.fr/products/lot-2x10kg-prestige-chat-sterilized-au-poulet",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 524,
+      "sourceId": 747,
+      "url": "https://www.oasy.com/de/fur-ihre-katze/katze-trockenfutter/cat-adult-sterilized-salmon",
+      "reason": "no_recognized_declaration"
+    },
+    {
+      "foodId": 34,
+      "sourceId": 757,
+      "url": "https://www.naturalbalanceinc.com/cat-recipes/dry/original-ultra/chicken-meal-salmon-meal-recipe",
+      "reason": "no_recognized_declaration"
+    }
+  ],
+  "identityReview": [
+    {
+      "linkedFoodId": 490,
+      "sourceId": 451,
+      "url": "https://evolvepetfood.com/dry-cat-food/evolve-grain-free-chicken-chickpea-recipe-cat-food",
+      "candidates": [
+        {
+          "status": "draft",
+          "statement": "Evolve Grain Free Deboned Chicken & Chickpea Recipe Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for all life stages.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "all_life_stages",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "EVOLVE CLASSIC DEBONED CHICKEN & BROWN RICE RECIPE Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for all life stages.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "all_life_stages",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Classic Deboned Salmon, Rice, & Sweet Potato Recipe Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for all life stages.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "all_life_stages",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Grain Free Ocean Whitefish & Egg Recipe Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for all life stages.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "all_life_stages",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Deboned Chicken, Pea, & Sweet Potato Recipe Kitten Formula cat food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for growth of kittens and reproducing females in the stages of gestation and lactation.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "growth_reproduction",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "EVOLVE CLASSIC CRAFTED MEALS CHICKEN RECIPE IN SAVORY JUICES Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "adult_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Classic Crafted Meals with Salmon in Savory Juices Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "adult_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "EVOLVE CLASSIC CRAFTED MEALS SEAFOOD MEDLEY IN SAVORY JUICES Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "adult_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Classic Crafted Meals Liver Recipe in Savory Juices Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "adult_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Classic Crafted Meals with Salmon in Savory Juices and Classic Crafted Meals Seafood Medley in Savory Juices is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "adult_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Chicken Recipe in Savory Juices Cat Food and Classic Crafted Meals with Liver in Savory Juices Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "adult_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Classic Chicken Recipe Canned Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for growth and maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "growth_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Classic Kitten Turkey Recipe Canned Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for growth and maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "growth_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Grain Free Salmon & Sweet Potato Stew in Gravy Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for growth and maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "growth_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Grain Free Chicken & Beef Recipe in Gravy Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for growth and maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "growth_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Grain Free Turkey Stew with Vegetables in Gravy Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for growth and maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "growth_maintenance",
+          "species": "cat"
+        }
+      ]
+    },
+    {
+      "linkedFoodId": 505,
+      "sourceId": 452,
+      "url": "https://evolvepetfood.com/dry-cat-food/evolve-classic-salmon-rice-sweet-potato-recipe-cat-food",
+      "candidates": [
+        {
+          "status": "draft",
+          "statement": "Evolve Classic Deboned Salmon, Rice, & Sweet Potato Recipe Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for all life stages.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "all_life_stages",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "EVOLVE CLASSIC DEBONED CHICKEN & BROWN RICE RECIPE Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for all life stages.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "all_life_stages",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Grain Free Deboned Chicken & Chickpea Recipe Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for all life stages.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "all_life_stages",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Grain Free Ocean Whitefish & Egg Recipe Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for all life stages.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "all_life_stages",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Deboned Chicken, Pea, & Sweet Potato Recipe Kitten Formula cat food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for growth of kittens and reproducing females in the stages of gestation and lactation.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "growth_reproduction",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "EVOLVE CLASSIC CRAFTED MEALS CHICKEN RECIPE IN SAVORY JUICES Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "adult_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Classic Crafted Meals with Salmon in Savory Juices Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "adult_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "EVOLVE CLASSIC CRAFTED MEALS SEAFOOD MEDLEY IN SAVORY JUICES Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "adult_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Classic Crafted Meals Liver Recipe in Savory Juices Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "adult_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Classic Crafted Meals with Salmon in Savory Juices and Classic Crafted Meals Seafood Medley in Savory Juices is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "adult_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Chicken Recipe in Savory Juices Cat Food and Classic Crafted Meals with Liver in Savory Juices Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "adult_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Classic Chicken Recipe Canned Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for growth and maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "growth_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Classic Kitten Turkey Recipe Canned Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for growth and maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "growth_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Grain Free Salmon & Sweet Potato Stew in Gravy Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for growth and maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "growth_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Grain Free Chicken & Beef Recipe in Gravy Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for growth and maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "growth_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Grain Free Turkey Stew with Vegetables in Gravy Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for growth and maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "growth_maintenance",
+          "species": "cat"
+        }
+      ]
+    },
+    {
+      "linkedFoodId": 551,
+      "sourceId": 453,
+      "url": "https://evolvepetfood.com/all-cat-products/evolve-classic-chicken-brown-rice-recipe-cat-food",
+      "candidates": [
+        {
+          "status": "draft",
+          "statement": "EVOLVE CLASSIC DEBONED CHICKEN & BROWN RICE RECIPE Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for all life stages.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "all_life_stages",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Classic Deboned Salmon, Rice, & Sweet Potato Recipe Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for all life stages.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "all_life_stages",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Grain Free Deboned Chicken & Chickpea Recipe Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for all life stages.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "all_life_stages",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Grain Free Ocean Whitefish & Egg Recipe Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for all life stages.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "all_life_stages",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Deboned Chicken, Pea, & Sweet Potato Recipe Kitten Formula cat food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for growth of kittens and reproducing females in the stages of gestation and lactation.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "growth_reproduction",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "EVOLVE CLASSIC CRAFTED MEALS CHICKEN RECIPE IN SAVORY JUICES Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "adult_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Classic Crafted Meals with Salmon in Savory Juices Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "adult_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "EVOLVE CLASSIC CRAFTED MEALS SEAFOOD MEDLEY IN SAVORY JUICES Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "adult_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Classic Crafted Meals Liver Recipe in Savory Juices Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "adult_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Classic Crafted Meals with Salmon in Savory Juices and Classic Crafted Meals Seafood Medley in Savory Juices is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "adult_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Chicken Recipe in Savory Juices Cat Food and Classic Crafted Meals with Liver in Savory Juices Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "adult_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Classic Chicken Recipe Canned Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for growth and maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "growth_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Classic Kitten Turkey Recipe Canned Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for growth and maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "growth_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Grain Free Salmon & Sweet Potato Stew in Gravy Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for growth and maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "growth_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Grain Free Chicken & Beef Recipe in Gravy Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for growth and maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "growth_maintenance",
+          "species": "cat"
+        },
+        {
+          "status": "draft",
+          "statement": "Evolve Grain Free Turkey Stew with Vegetables in Gravy Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for growth and maintenance.",
+          "standard": "AAFCO",
+          "edition": null,
+          "method": "formulation",
+          "lifeStage": "growth_maintenance",
+          "species": "cat"
+        }
+      ]
+    }
+  ]
+}
