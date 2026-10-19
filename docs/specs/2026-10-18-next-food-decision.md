@@ -37,6 +37,7 @@ The product must do the comparison work before asking the owner to validate dema
 - Show why each candidate appears, signed calorie change, original ingredient wording and order, source links and capture dates, tradeoffs, and specific follow-up questions.
   A missing value produces a useful question, not a fabricated completion.
 - Show how tightening or relaxing the calorie condition changes the eligible set.
+  Each displayed count must match selecting that tolerance, confirming only pending calories and retaining all other conditions and unknown evidence.
   This is sensitivity to the owner's preference, not a health probability or a fabricated nutrient interval.
 - Save the exact brief, conditions, source excerpts, and selection reason on this browser.
   Restoring a saved brief must preserve the historical result.

@@ -603,6 +603,26 @@ describe("food decision", () => {
       result.sensitivity.find((s) => s.maxKcalDeltaPct === 5)?.eligibleCount,
     ).toBe(1);
   });
+  it.each([{ otherPending: [] }, { otherPending: ["poultry"] }] as const)(
+    "counts sensitivity candidates after confirming only calories (%j)",
+    ({ otherPending }) => {
+      const input = catalog();
+      const pending = buildFoodDecision(input, {
+        ...request,
+        pendingClarifications: ["calories", ...otherPending],
+      });
+      expect(pending.eligible).toHaveLength(0);
+      for (const sensitivity of pending.sensitivity) {
+        const confirmed = buildFoodDecision(input, {
+          ...request,
+          pendingClarifications: [...otherPending],
+          maxKcalDeltaPct: sensitivity.maxKcalDeltaPct,
+        });
+        expect(sensitivity.eligibleCount).toBe(confirmed.eligible.length);
+        expect(sensitivity.eligibleCount).toBe(otherPending.length ? 0 : 1);
+      }
+    },
+  );
   it("does not use a mismatching quote to justify a calorie comparison", () => {
     const input = catalog();
     input.evidenceByFoodId.set(2, [evidence(3999)]);

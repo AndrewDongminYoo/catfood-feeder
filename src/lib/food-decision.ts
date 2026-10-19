@@ -690,7 +690,7 @@ export function buildFoodDecision(
         c.kcalDeltaPct !== null &&
         Math.abs(c.kcalDeltaPct) <= limit &&
         c.conditions
-          .filter((x) => x.key !== "kcal")
+          .filter((x) => x.key !== "kcal" && x.key !== "clarify-calories")
           .every((x) => x.status === "met"),
     ).length,
   }));

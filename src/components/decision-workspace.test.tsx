@@ -93,11 +93,11 @@ describe("decision workspace", () => {
         screen.getByText("선택을 막는 정보부터 확인해 보세요"),
       ).toBeTruthy();
       fireEvent.click(screen.getByText("열량 기준을 바꾸며 더 비교하기"));
-      fireEvent.click(
-        screen.getByRole("button", {
-          name: new RegExp(`^${delta}% 이내.*이 조건으로 다시 비교`),
-        }),
-      );
+      const sensitivity = screen.getByRole("button", {
+        name: new RegExp(`^${delta}% 이내.*이 조건으로 다시 비교`),
+      });
+      expect(sensitivity.textContent).toContain("1개");
+      fireEvent.click(sensitivity);
       expect(
         screen.getByRole("heading", { name: /먼저 살펴볼 후보 1개/ }),
       ).toBeTruthy();
@@ -120,6 +120,10 @@ describe("decision workspace", () => {
     await prepare("열량은 비슷하고 가금육을 선호해요");
     compare();
     fireEvent.click(screen.getByText("열량 기준을 바꾸며 더 비교하기"));
+    expect(
+      screen.getByRole("button", { name: /^10% 이내.*이 조건으로 다시 비교/ })
+        .textContent,
+    ).toContain("0개");
     fireEvent.click(
       screen.getByRole("button", { name: /^10% 이내.*이 조건으로 다시 비교/ }),
     );
