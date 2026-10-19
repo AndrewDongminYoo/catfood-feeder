@@ -82,6 +82,18 @@ const originalQuestion =
   "지금 먹이는 사료와 비슷하면서 열량이 너무 높지 않은 건강한 사료를 찾고 있어요. 생선보다는 가금육을 더 좋아해요.";
 
 describe("decision workspace", () => {
+  it("keeps an unverified ingredient percentage unresolved instead of applying it to calories", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    render(<DecisionWorkspace {...props()} />);
+    await prepare("열량은 비슷하고 닭고기 함량 20% 이내인 사료");
+    compare();
+    save();
+    const saved = JSON.parse(localStorage.getItem("catfood.decisions.v1")!)[0];
+    expect(saved.report.request.unresolvedRequirements.join(" ")).toContain(
+      "비율 조건",
+    );
+    expect(saved.report.eligible).toHaveLength(0);
+  });
   it("uses and saves a percentage before the calorie term instead of the ten-percent default", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
     const data = props();

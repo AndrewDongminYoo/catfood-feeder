@@ -56,12 +56,17 @@ export function parseDecisionQuestion(
   }
   const deltaMatch =
     question.match(
-      /(?:열량|칼로리|kcal)(?:(?!단백질|지방|수분|회분|섬유|탄수|protein|fat|moisture|ash|fiber|carb)[^.!?。%]){0,24}?\b(\d+(?:\.\d+)?)\s*%/i,
+      /(?:열량|칼로리|kcal)(?:\s*(?:차이|밀도|는|은|이|가|를|을|의|도|현재|사료|보다|와|대비|최대|최소한|최소|약|만)){0,12}\s*\b(\d+(?:\.\d+)?)\s*%/i,
     ) ??
     question.match(
       /\b(\d+(?:\.\d+)?)\s*%\s*(?:이내|이하)(?:로|의)?\s*(?:열량|칼로리|kcal)/i,
     );
   const delta = deltaMatch?.[1];
+  const deltaStart = deltaMatch?.index ?? 0;
+  const unboundRatioText = deltaMatch
+    ? question.slice(0, deltaStart) +
+      question.slice(deltaStart + deltaMatch[0].length)
+    : question;
   const calorieCondition = deltaMatch
     ? (question.slice(0, deltaMatch.index).match(/최소(?:한)?\s*$/)?.[0] ??
         "") +
@@ -100,6 +105,10 @@ export function parseDecisionQuestion(
   )
     clarifications.push("poultry");
   const unhandled: string[] = [];
+  if (/\d+(?:\.\d+)?\s*%/.test(unboundRatioText))
+    unhandled.push(
+      `이 비율 조건은 확인하지 못했습니다: “${unboundRatioText.trim().slice(0, 180)}”. 이번 비교에서 제외할지 확인해 주세요.`,
+    );
   if (unsupportedCalorieRelation || unsupportedCalorieWording)
     unhandled.push(
       "요청한 최소 감소·증가 등 방향성 열량 조건은 자동으로 적용하지 못했습니다. 차이의 최대 허용 폭과 현재 이하 조건으로 바꾸려면 직접 확인해 주세요.",

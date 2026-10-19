@@ -17,7 +17,8 @@ The product must do the comparison work before asking the owner to validate dema
 - Accept a natural-language question, current food, optional manual baseline when the food is missing, ingredient exclusions, and a maximum calorie-density change.
 - Translate the question into visible, editable conditions before evaluation.
   Preserve explicit calorie-density tolerance numbers from 0 to 100%.
-  Preserve an explicit upper percentage bound before the calorie term as well as after it, without reusing percentages attached to other nutrient conditions.
+  Preserve an explicit upper percentage bound before the calorie term as well as after it, without reusing percentages attached to other ingredient or nutrient conditions.
+  Bind the percentage to calorie wording and retain unconsumed percentage occurrences as unresolved requirements, including identical numeric values for different conditions.
   Ask the owner to confirm the meaning of qualitative calorie wording and interpreted poultry preferences.
   Negated lower-calorie wording remains unresolved and never selects a calorie ceiling automatically.
   Permissive wording does not impose a ceiling; explicit sensitivity selection confirms the calorie tolerance without clearing other pending criteria.

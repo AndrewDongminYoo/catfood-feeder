@@ -208,6 +208,21 @@ describe("decision question", () => {
     (question) =>
       expect(parseDecisionQuestion(question).outsideScope).toBe(false),
   );
+  it.each([
+    { question: "열량은 비슷하고 닭고기 함량 20% 이내인 사료", delta: null },
+    { question: "열량 차이는 8% 이내이고 닭고기 함량은 20% 이상", delta: 8 },
+    { question: "열량은 비슷하고 연어가 20% 이상인 사료", delta: null },
+    { question: "열량 차이는 8% 이내이고 닭고기 함량은 8% 이상", delta: 8 },
+    { question: "닭고기 함량은 8% 이상이고 열량 차이는 8% 이내", delta: 8 },
+    { question: "열량은 한약8% 함유 사료", delta: null },
+  ])(
+    "keeps an ingredient percentage distinct from the calorie bound: $question",
+    ({ question, delta }) => {
+      const result = parseDecisionQuestion(question);
+      expect(result.maxKcalDeltaPct).toBe(delta);
+      expect(result.unhandled.join(" ")).toContain("비율 조건");
+    },
+  );
   it("asks for calorie and poultry-label confirmation for the owner's actual question", () => {
     const result = parseDecisionQuestion(
       "지금 먹이는 사료와 비슷하면서 열량이 너무 높지 않은 건강한 사료를 찾고 있어요. 생선보다는 가금육을 더 좋아해요.",
