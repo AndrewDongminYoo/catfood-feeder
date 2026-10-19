@@ -563,6 +563,49 @@ describe("decision workspace", () => {
       ).value,
     ).toBe("닭고기 없는 사료");
   });
+  it.each([
+    ["no chicken or fish", "생선", "fish"],
+    ["닭고기와 소고기를 빼주세요", "소고기", "beef"],
+  ])(
+    "saves and enforces both offline exclusions: %s",
+    async (question, ingredient, key) => {
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+      const data = props();
+      data.foods[1]!.ingredients = [{ name: ingredient, position: 1 }];
+      render(
+        <DecisionWorkspace
+          {...data}
+          ingredientEvidenceByFoodId={{
+            2: {
+              excerpt: ingredient,
+              capturedAt: "2026-10-01",
+              url: "https://example.test/ingredients",
+            },
+          }}
+        />,
+      );
+      await prepare(question);
+      expect(
+        (screen.getByLabelText("닭고기 표기 제외") as HTMLInputElement).checked,
+      ).toBe(true);
+      expect(
+        (screen.getByLabelText(`${ingredient} 표기 제외`) as HTMLInputElement)
+          .checked,
+      ).toBe(true);
+      compare();
+      save();
+      const saved = JSON.parse(
+        localStorage.getItem("catfood.decisions.v1")!,
+      )[0];
+      expect(saved.report.request.exclusions).toEqual(["chicken", key]);
+      expect(saved.report.eligible).toHaveLength(0);
+      expect(saved.report.unresolved).toHaveLength(0);
+      expect(saved.report.excluded).toHaveLength(1);
+      expect(saved.report.excluded[0].conditions).toContainEqual(
+        expect.objectContaining({ key, status: "failed" }),
+      );
+    },
+  );
   it("requires an explicit omission of an unsupported exclusion", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
     render(<DecisionWorkspace {...props()} />);

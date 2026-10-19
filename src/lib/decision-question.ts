@@ -35,24 +35,64 @@ const NAMES: Record<IngredientExclusion, string> = {
 export function parseDecisionQuestion(
   question: string,
 ): QuestionInterpretation {
-  const exclusions: IngredientExclusion[] = [];
+  const exclusions = new Set<IngredientExclusion>();
+  const permitted = new Set<IngredientExclusion>();
   let remaining = question;
-  for (const key of Object.keys(NAMES) as IngredientExclusion[]) {
-    const name = `(?:${NAMES[key]})`;
-    const negative = new RegExp(
-      `${name}[^.!?。]{0,10}(?:빼지|제외하지|피하지|안\\s*빼|괜찮|상관없)`,
-      "i",
-    );
-    const exclude = new RegExp(
-      `${name}(?:[은는을를이가\\s]|고기|원료|표기|성분){0,8}(?:없|빼|제외|피하|피하고|안\\s*들어|프리)|(?:without|no)\\s+${name}${key === "grain" ? "|grain[-\\s]?free|그레인\\s*프리" : ""}`,
-      "i",
-    );
-    if (!negative.test(question) && exclude.test(question)) {
-      // grain-free 문구는 다른 원료까지 제외하는 지시가 아니다.
-      if (key !== "grain" && !new RegExp(name, "i").test(question)) continue;
-      exclusions.push(key);
-      remaining = remaining.replace(new RegExp(exclude.source, "gi"), " ");
+  let incompleteExclusions = false;
+  const keys = Object.keys(NAMES) as IngredientExclusion[];
+  const knownName = Object.values(NAMES).join("|");
+  // Unknown list members stay visible instead of disappearing beside known ones.
+  const item = `(?!(?:no|without|and|or)\\b)(?:(?:${knownName})(?:고기)?|[a-z]+|[가-힣]+)(?![a-z])`;
+  const separator = String.raw`\s*(?:,\s*(?:(?:and|or|및|그리고)\s+)?|\b(?:and|or)\b\s*|(?:와|과|및|그리고)\s*)`;
+  const list = `${item}(?:${separator}${item})*`;
+  const negativeAction = String.raw`빼지|제외하지|피하지|안\s*빼|괜찮|상관없`;
+  const korean = new RegExp(
+    `(${list})(?:[은는을를이가도]\\s*|\\s|원료|표기|성분){0,8}(${negativeAction}|없|빼|제외|피하|안\\s*들어|프리)`,
+    "gi",
+  );
+  const english = new RegExp(`\\b(?:without|no)\\s+(${list})`, "gi");
+  const record = (match: RegExpMatchArray, names: string, negated: boolean) => {
+    const start = match.index!;
+    const before = question
+      .slice(0, start)
+      .split(/[.!?。;]/)
+      .at(-1)!;
+    const after = question.slice(start + match[0].length).split(/[.!?。;]/)[0]!;
+    const exception =
+      /\b(?:except|but)\b|하지만|다만/i.test(after) ||
+      /^\s*(?:(?:is|are)\s+)?(?:fine|okay|ok)\b/i.test(after);
+    if (exception) incompleteExclusions = true;
+    if (exception || /\b(?:not|don't|do not)\s*$/i.test(before)) return;
+    if (negated && /\b(?:no|without)\s*$/i.test(before)) return;
+    for (const name of names.split(new RegExp(separator, "i"))) {
+      const key = keys.find((key) =>
+        new RegExp(`^(?:${NAMES[key]})(?:고기)?$`, "i").test(name.trim()),
+      );
+      if (key) (negated ? permitted : exclusions).add(key);
+      else if (!negated) incompleteExclusions = true;
     }
+    remaining = remaining.replace(match[0], " ");
+  };
+  for (const match of question.matchAll(korean))
+    record(
+      match,
+      match[1]!,
+      new RegExp(`^(?:${negativeAction})`, "i").test(match[2]!),
+    );
+  for (const match of question.matchAll(english))
+    record(match, match[1]!, false);
+  const permission = new RegExp(
+    `\\b(${list})\\s+(?:(?:is|are)\\s+)?(?:fine|okay|ok|allowed)\\b`,
+    "gi",
+  );
+  for (const match of question.matchAll(permission))
+    record(match, match[1]!, true);
+  if (/\bgrain[-\s]?free\b|그레인\s*프리/i.test(question)) {
+    exclusions.add("grain");
+    remaining = remaining.replace(/\bgrain[-\s]?free\b|그레인\s*프리/gi, " ");
+  }
+  for (const key of permitted) {
+    if (exclusions.delete(key)) incompleteExclusions = true;
   }
   const deltaMatch =
     question.match(
@@ -154,6 +194,7 @@ export function parseDecisionQuestion(
       "기호성, 급여 후 반응, 체중 변화, 알레르기 안전성은 성분표만으로 예측하지 못합니다.",
     );
   if (
+    incompleteExclusions ||
     /제외(?!하지)|없는|빼고|피하고|without|\bfree\b/i.test(remaining) ||
     /완두|콩|계란|달걀|유제품|우유|감자|토끼|\b(?:peas?|soy|egg|dairy|potato|rabbit)\b/i.test(
       question,
@@ -164,7 +205,7 @@ export function parseDecisionQuestion(
     );
   if (
     question.trim() &&
-    exclusions.length === 0 &&
+    exclusions.size === 0 &&
     numericDelta === null &&
     clarifications.length === 0 &&
     unhandled.length === 0 &&
@@ -174,7 +215,7 @@ export function parseDecisionQuestion(
       `질문의 비교 기준을 확인하지 못했습니다: “${question.slice(0, 180)}”. 아래에서 비교할 조건을 직접 정해주세요.`,
     );
   return {
-    exclusions,
+    exclusions: keys.filter((key) => exclusions.has(key)),
     maxKcalDeltaPct: numericDelta,
     unhandled,
     outsideScope: isClinicalDecisionQuestion(question),
@@ -197,6 +238,8 @@ export function validateQuestionProposal(
   if (parsed.data.citations.some((quote) => !question.includes(quote)))
     return null;
   const baseline = parseDecisionQuestion(question);
+  if (parsed.data.exclusions.some((key) => !baseline.exclusions.includes(key)))
+    return null;
   if (baseline.exclusions.some((key) => !parsed.data.exclusions.includes(key)))
     return null;
   if (

@@ -8,6 +8,87 @@ import {
 
 describe("decision question", () => {
   it.each([
+    ["no chicken or fish", ["chicken", "fish"]],
+    ["no chicken allowed", ["chicken"]],
+    ["no chicken or fish allowed", ["chicken", "fish"]],
+    ["without chicken, beef and fish", ["chicken", "beef", "fish"]],
+    ["no chicken and no fish", ["chicken", "fish"]],
+    ["오리고기와 칠면조고기를 빼주세요", ["turkey", "duck"]],
+    ["닭고기와 소고기를 빼주세요", ["chicken", "beef"]],
+    ["닭고기, 생선 및 곡물을 제외해 주세요", ["chicken", "fish", "grain"]],
+  ])("preserves every coordinated exclusion: %s", (question, exclusions) => {
+    expect(parseDecisionQuestion(question)).toMatchObject({
+      exclusions,
+      unhandled: [],
+    });
+    expect(
+      validateQuestionProposal(
+        {
+          exclusions,
+          maxKcalDeltaPct: null,
+          citations: [question],
+          unhandled: [],
+        },
+        question,
+      )?.exclusions,
+    ).toEqual(exclusions);
+  });
+  it.each([
+    "no chicken or pork",
+    "without rabbit and fish",
+    "닭고기와 돼지고기를 빼주세요",
+    "돼지고기와 소고기를 빼주세요",
+  ])("retains unsupported list members: %s", (question) => {
+    expect(parseDecisionQuestion(question).unhandled.join(" ")).toContain(
+      "제외",
+    );
+  });
+  it.each([
+    "닭고기와 소고기는 빼지 않아도 돼요",
+    "닭고기와 생선은 제외하지 마세요",
+    "not without chicken or fish",
+    "no chicken or fish except fish",
+    "no chicken, fish is fine",
+  ])("does not impose a negated or excepted list: %s", (question) => {
+    expect(parseDecisionQuestion(question).exclusions).toEqual([]);
+    expect(
+      validateQuestionProposal(
+        {
+          exclusions: ["chicken"],
+          maxKcalDeltaPct: null,
+          citations: [
+            question.includes("no chicken") ? "no chicken" : "chicken",
+          ],
+          unhandled: [],
+        },
+        question,
+      ),
+    ).toBeNull();
+  });
+  it.each([
+    ["no chicken or fish. fish is fine.", ["chicken"]],
+    ["생선은 빼주세요. 생선은 괜찮아요.", []],
+  ])(
+    "retains contradictory permissions across sentences: %s",
+    (question, exclusions) => {
+      expect(parseDecisionQuestion(question).exclusions).toEqual(exclusions);
+      expect(parseDecisionQuestion(question).unhandled.join(" ")).toContain(
+        "제외",
+      );
+      expect(
+        validateQuestionProposal(
+          {
+            exclusions: ["chicken", "fish"],
+            maxKcalDeltaPct: null,
+            citations: [question],
+            unhandled: [],
+          },
+          question,
+        ),
+      ).toBeNull();
+    },
+  );
+  it.each([
     "urinary diet",
     "URINARY food",
     "intestinal diet",
