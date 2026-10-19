@@ -38,6 +38,10 @@ describe("decision question", () => {
     "열량이 안 낮은 사료",
     "열량이 낮은 게 아닌 사료",
     "열량이 낮지 않아도 돼요",
+    "열량이 높지 않아도 돼요",
+    "칼로리가 높지않아도 괜찮아요",
+    "열량이 낮을 필요는 없어요",
+    "닭고기 없는 사료로, 열량이 높지 않아도 돼요",
     "열량 차이 10% 이내이되 열량이 낮지 않은 사료",
   ])("does not reverse a negated lower-calorie request: %s", (question) => {
     const result = parseDecisionQuestion(question);
@@ -47,7 +51,7 @@ describe("decision question", () => {
       expect(result.clarifications).toContain("calories");
     const proposed = validateQuestionProposal(
       {
-        exclusions: [],
+        exclusions: result.exclusions,
         maxKcalDeltaPct: result.maxKcalDeltaPct,
         citations: [question],
         unhandled: [],
@@ -57,12 +61,13 @@ describe("decision question", () => {
     expect(proposed?.notHigherKcal).toBe(false);
     expect(proposed?.unhandled).toEqual(result.unhandled);
   });
-  it.each(["현재보다 열량이 낮은 사료", "현재보다 열량이 높지 않은 사료"])(
-    "retains an affirmative ceiling request: %s",
-    (question) => {
-      expect(parseDecisionQuestion(question).notHigherKcal).toBe(true);
-    },
-  );
+  it.each([
+    "현재보다 열량이 낮은 사료",
+    "현재보다 열량이 높지 않은 사료",
+    "열량이 높지 않아야 해요",
+  ])("retains an affirmative ceiling request: %s", (question) => {
+    expect(parseDecisionQuestion(question).notHigherKcal).toBe(true);
+  });
   it("does not invert a minimum calorie reduction into a maximum difference", () => {
     const result = parseDecisionQuestion("열량이 현재보다 10% 이상 낮은 사료");
     expect(result.maxKcalDeltaPct).toBeNull();
