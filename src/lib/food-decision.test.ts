@@ -199,6 +199,28 @@ describe("ingredient exclusion", () => {
 });
 
 describe("food decision", () => {
+  it("never substitutes a stale manual baseline for a missing selected catalog food", () => {
+    const input = catalog();
+    input.foods = input.foods.filter((candidate) => candidate.id !== 1);
+    const values = {
+      ...request,
+      manualCurrentName: "Old manual food",
+      manualKcal: 3500,
+    };
+    const report = buildFoodDecision(input, values);
+    expect(report.status).toBe("baseline_missing");
+    expect(report.baseline.origin).toBe("unknown");
+    expect(report.baseline.kcal).toBeNull();
+    expect(report.baseline.name).not.toContain("Old manual food");
+    expect(report.eligible).toHaveLength(0);
+    const manual = buildFoodDecision(input, { ...values, currentFoodId: null });
+    expect(manual.baseline).toMatchObject({
+      name: "Old manual food",
+      kcal: 3500,
+      origin: "owner",
+    });
+    expect(manual.status).toBe("ready");
+  });
   it.each([
     ["fishoil", "fish"],
     ["salmonoil", "fish"],

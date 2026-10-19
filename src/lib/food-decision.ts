@@ -422,6 +422,9 @@ export function buildFoodDecision(
 ): DecisionReport {
   const request = decisionRequestSchema.parse(input);
   const current = catalog.foods.find((f) => f.id === request.currentFoodId);
+  const manualName =
+    request.currentFoodId === null ? request.manualCurrentName : "";
+  const manualKcal = request.currentFoodId === null ? request.manualKcal : null;
   const currentEvidence = current
     ? findMatchingNutrientEvidence(
         catalog.evidenceByFoodId.get(current.id) ?? [],
@@ -444,9 +447,9 @@ export function buildFoodDecision(
         ),
       }
     : {
-        name: request.manualCurrentName || "현재 사료 미입력",
-        kcal: request.manualKcal,
-        origin: request.manualCurrentName ? "owner" : "unknown",
+        name: manualName || "현재 사료 미입력",
+        kcal: manualKcal,
+        origin: manualName ? "owner" : "unknown",
         evidence: null,
         labelFacts: [],
         adequacy: [],
@@ -468,8 +471,7 @@ export function buildFoodDecision(
     isClinicalDecisionQuestion(request.question)
   )
     return { ...report, status: "outside_scope" };
-  if (!current && !request.manualCurrentName)
-    return { ...report, status: "baseline_missing" };
+  if (!current && !manualName) return { ...report, status: "baseline_missing" };
   if (
     !request.exclusions.length &&
     request.maxKcalDeltaPct === null &&

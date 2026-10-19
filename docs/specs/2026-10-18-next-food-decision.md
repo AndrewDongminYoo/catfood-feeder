@@ -18,6 +18,7 @@ The product must do the comparison work before asking the owner to validate dema
   Preserve explicit calorie-density tolerance numbers from 0 to 100%.
   Ask the owner to confirm the meaning of qualitative calorie wording and interpreted poultry preferences.
   Negated lower-calorie wording remains unresolved and never selects a calorie ceiling automatically.
+  Permissive wording does not impose a ceiling; explicit sensitivity selection confirms the calorie tolerance without clearing other pending criteria.
   Optional protein preferences change candidate order only; hard exclusions always take precedence.
   Assess preferred proteins from the first declared animal ingredient with complete literal source proof, ignoring standalone fat, oil, broth, stock, and flavor entries for this preference assessment.
   Preserve the original meaning of older saved hard poultry-order requests.
@@ -29,6 +30,7 @@ The product must do the comparison work before asking the owner to validate dema
   Recognize compact animal and grain derivatives such as `chickenmeal`, `chickenfat`, `fishmeal`, `cornmeal`, and `oatmeal` without matching unrelated longer words.
   Label absence never establishes allergy safety.
 - Compare calorie density only with matching evidence, or an explicitly identified owner-entered baseline.
+  Use a manual baseline only when manual mode is selected; a missing selected catalog food must not silently reuse earlier manual values.
   Minimum and maximum guaranteed-analysis figures are not exact quantities.
   Do not rank calculated carbohydrate, health, or overall food quality.
 - Show why each candidate appears, signed calorie change, original ingredient wording and order, source links and capture dates, tradeoffs, and specific follow-up questions.
