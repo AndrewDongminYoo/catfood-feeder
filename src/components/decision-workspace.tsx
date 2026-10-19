@@ -919,6 +919,9 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
               const next = {
                 ...request,
                 maxKcalDeltaPct: value,
+                pendingClarifications: (
+                  request.pendingClarifications ?? []
+                ).filter((key) => key !== "calories"),
               };
               setRequest(next);
               evaluate(next);

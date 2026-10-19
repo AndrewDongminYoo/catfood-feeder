@@ -82,6 +82,52 @@ const originalQuestion =
   "지금 먹이는 사료와 비슷하면서 열량이 너무 높지 않은 건강한 사료를 찾고 있어요. 생선보다는 가금육을 더 좋아해요.";
 
 describe("decision workspace", () => {
+  it.each([5, 10, 15])(
+    "confirms pending calories through sensitivity selection (%s)",
+    async (delta) => {
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+      render(<DecisionWorkspace {...props()} />);
+      await prepare("열량이 비슷한 사료로 찾아요");
+      compare();
+      expect(
+        screen.getByText("선택을 막는 정보부터 확인해 보세요"),
+      ).toBeTruthy();
+      fireEvent.click(screen.getByText("열량 기준을 바꾸며 더 비교하기"));
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: new RegExp(`^${delta}% 이내.*이 조건으로 다시 비교`),
+        }),
+      );
+      expect(
+        screen.getByRole("heading", { name: /먼저 살펴볼 후보 1개/ }),
+      ).toBeTruthy();
+      save();
+      const saved = JSON.parse(
+        localStorage.getItem("catfood.decisions.v1")!,
+      )[0];
+      expect(saved.report.request.pendingClarifications).toEqual([]);
+      expect(saved.report.request.maxKcalDeltaPct).toBe(delta);
+      expect(
+        saved.report.eligible.map(
+          (candidate: { food: { id: number } }) => candidate.food.id,
+        ),
+      ).toEqual([2]);
+    },
+  );
+  it("keeps other pending criteria when sensitivity confirms calories", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    render(<DecisionWorkspace {...props()} />);
+    await prepare("열량은 비슷하고 가금육을 선호해요");
+    compare();
+    fireEvent.click(screen.getByText("열량 기준을 바꾸며 더 비교하기"));
+    fireEvent.click(
+      screen.getByRole("button", { name: /^10% 이내.*이 조건으로 다시 비교/ }),
+    );
+    save();
+    const saved = JSON.parse(localStorage.getItem("catfood.decisions.v1")!)[0];
+    expect(saved.report.request.pendingClarifications).toEqual(["poultry"]);
+    expect(saved.report.eligible).toHaveLength(0);
+  });
   it("keeps initial comparisons usable and preserves unavailable declarations in saved briefs", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
     const data = { ...props(), adequacyUnavailable: true };
