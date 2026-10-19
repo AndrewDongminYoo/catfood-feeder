@@ -19,6 +19,10 @@
 
 ## CONVENTIONS
 
+The consumer entry point is `/advisor` through `/`.
+`api/advisor/question` interprets a question under a site-wide quota and cannot write catalog data.
+Keep the first useful comparison public and preserve legacy advisor query URLs.
+
 - Keep page route strings compatible with `typedRoutes`.
 - Keep public catalog routes public; `/new` is the proxy-protected curator route.
 - Enforce API authorization inside each route handler.
