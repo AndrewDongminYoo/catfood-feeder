@@ -13,6 +13,7 @@ The product must do the comparison work before asking the owner to validate dema
   Explicitly stop disease-specific, prescription, kitten, and pregnancy requests rather than infer suitability.
   Apply the same clinical stop to English and Korean urinary, renal, intestinal, hepatic, and cardiac diet terminology, including rules-only fallback.
   Evaluate candidate brand and product names with the same clinical and life-stage gate, including Babycat wording.
+  English liver/heart disease, care, diet, and support wording and thyroid conditions trigger the same stop; ordinary liver/heart ingredient names alone do not.
 - Accept a natural-language question, current food, optional manual baseline when the food is missing, ingredient exclusions, and a maximum calorie-density change.
 - Translate the question into visible, editable conditions before evaluation.
   Preserve explicit calorie-density tolerance numbers from 0 to 100%.

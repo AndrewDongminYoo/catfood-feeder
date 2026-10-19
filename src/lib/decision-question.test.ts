@@ -13,6 +13,12 @@ describe("decision question", () => {
     "intestinal diet",
     "hepatic diet",
     "cardiac diet",
+    "liver disease diet",
+    "heart disease diet",
+    "thyroid diet",
+    "Liver Care",
+    "heart-support",
+    "hyperthyroidism",
     "유리너리 사료",
     "인테스티널 사료",
     "레날 사료",
@@ -131,6 +137,11 @@ describe("decision question", () => {
       parseDecisionQuestion("열량 차이는 2.5% 이내로요").maxKcalDeltaPct,
     ).toBe(2.5);
   });
+  it.each(["Chicken Liver Recipe", "Chicken Heart & Liver"])(
+    "does not treat an ordinary organ ingredient as clinical: %s",
+    (question) =>
+      expect(parseDecisionQuestion(question).outsideScope).toBe(false),
+  );
   it("asks for calorie and poultry-label confirmation for the owner's actual question", () => {
     const result = parseDecisionQuestion(
       "지금 먹이는 사료와 비슷하면서 열량이 너무 높지 않은 건강한 사료를 찾고 있어요. 생선보다는 가금육을 더 좋아해요.",

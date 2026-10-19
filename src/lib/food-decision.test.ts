@@ -567,6 +567,10 @@ describe("food decision", () => {
     "Intestinal",
     "Hepatic",
     "Cardiac",
+    "Liver Care",
+    "Heart Disease Diet",
+    "Thyroid Diet",
+    "heart-support",
     "신장 관리",
   ])(
     "excludes clinical or life-stage product wording in the full identity: %s",
@@ -603,6 +607,16 @@ describe("food decision", () => {
       result.sensitivity.find((s) => s.maxKcalDeltaPct === 5)?.eligibleCount,
     ).toBe(1);
   });
+  it.each(["Chicken Liver Recipe", "Chicken Heart & Liver"])(
+    "retains ordinary organ ingredients in candidate identity: %s",
+    (name) => {
+      const input = catalog();
+      input.foods[1]!.product_name = name;
+      expect(
+        buildFoodDecision(input, request).eligible.map((c) => c.food.id),
+      ).toContain(2);
+    },
+  );
   it.each([{ otherPending: [] }, { otherPending: ["poultry"] }] as const)(
     "counts sensitivity candidates after confirming only calories (%j)",
     ({ otherPending }) => {
@@ -669,6 +683,12 @@ describe("food decision", () => {
     "intestinal diet",
     "hepatic diet",
     "cardiac diet",
+    "liver disease diet",
+    "heart disease diet",
+    "thyroid diet",
+    "Liver Care",
+    "heart-support",
+    "hyperthyroidism",
     "유리너리 사료",
     "인테스티널 사료",
     "레날 사료",
