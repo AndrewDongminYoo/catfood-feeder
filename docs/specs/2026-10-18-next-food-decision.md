@@ -65,6 +65,7 @@ Use the existing Korean register for new product copy and do not expose implemen
 4. Unsupported clinical questions stop the decision flow even when other conditions are valid.
 5. Saved briefs survive reload and catalog changes; corrupt storage and denied storage do not crash the page.
 6. Question interpretation failure leaves an actionable form and preserves the question.
+   Mixed questions keep unverified kibble size, shape, and texture requests unresolved even when an exclusion or calorie condition is recognized.
 7. Full Vitest, TypeScript, ESLint, production build, and rendered desktop/mobile checks pass.
 
 ## Authority and limits

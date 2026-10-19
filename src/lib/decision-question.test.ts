@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { buildFoodDecision, DEFAULT_DECISION_REQUEST } from "./food-decision";
+import { SAMPLE_FOODS } from "./fixtures";
 import {
   parseDecisionQuestion,
   validateQuestionProposal,
@@ -27,6 +29,19 @@ describe("decision question", () => {
       parseDecisionQuestion("작은 알갱이로 추천해 주세요").unhandled.length,
     ).toBeGreaterThan(0);
   });
+  it.each([
+    "닭고기 없는 작은 알갱이 사료를 추천해 주세요",
+    "열량 차이 10% 이내이고 작은 알갱이 사료를 추천해 주세요",
+    "열량은 비슷하고 가금육을 좋아하지만 작은 입자를 원해요",
+    "no chicken and small kibble please",
+  ])(
+    "preserves unsupported physical attributes alongside supported conditions: %s",
+    (question) => {
+      expect(parseDecisionQuestion(question).unhandled.join(" ")).toContain(
+        "알갱이",
+      );
+    },
+  );
   it("retains the exact requested calorie tolerance rather than defaulting to ten", () => {
     expect(
       parseDecisionQuestion("열량 차이는 8% 이내로 해주세요").maxKcalDeltaPct,
@@ -133,4 +148,54 @@ describe("decision question", () => {
       )?.exclusions,
     ).toEqual(["chicken"]);
   });
+});
+
+it("keeps a mixed physical-attribute request unresolved until the owner explicitly omits it", () => {
+  const question = "열량 차이 10% 이내이고 작은 알갱이 사료를 추천해 주세요";
+  const interpretation = parseDecisionQuestion(question);
+  const food = {
+    ...SAMPLE_FOODS[0]!,
+    kcal_per_kg: 4000,
+    nutrient_sources: { kcal_per_kg: "manufacturer" as const },
+  };
+  const catalog = {
+    foods: [food],
+    ingredientEvidenceByFoodId: {},
+    evidenceByFoodId: new Map([
+      [
+        food.id,
+        [
+          {
+            nutrient_key: "kcal_per_kg" as const,
+            value: 4000,
+            excerpt: "4000 kcal/kg",
+            captured_at: "2026-08-08",
+            source: {
+              url: "https://manufacturer.test/recipe",
+              capture_method: "fetch",
+            },
+          },
+        ],
+      ],
+    ]),
+  };
+  const request = {
+    ...DEFAULT_DECISION_REQUEST,
+    question,
+    manualCurrentName: "Current",
+    manualKcal: 4000,
+    adultNonPrescription: true,
+    maxKcalDeltaPct: interpretation.maxKcalDeltaPct,
+    unresolvedRequirements: interpretation.unhandled,
+  };
+  const report = buildFoodDecision(catalog, request);
+  expect(report.eligible).toHaveLength(0);
+  expect(report.unresolved).toHaveLength(1);
+  expect(report.unresolved[0]!.questions.join(" ")).toContain("알갱이");
+  const omitted = buildFoodDecision(catalog, {
+    ...request,
+    unresolvedRequirements: [],
+    ignoredRequirements: interpretation.unhandled,
+  });
+  expect(omitted.eligible).toHaveLength(1);
 });

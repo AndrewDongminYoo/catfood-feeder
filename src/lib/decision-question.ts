@@ -91,6 +91,10 @@ export function parseDecisionQuestion(
     unhandled.push(
       "보증성분의 최소·최대 표기로 실제 영양 함량의 우열이나 적합성을 판정하지 못합니다. 원문 수치와 경계 표기는 후보에서 확인할 수 있습니다.",
     );
+  if (/알갱이|입자|키블|식감|\b(?:kibbles?|pellets?|texture)\b/i.test(question))
+    unhandled.push(
+      "알갱이의 크기·모양·식감은 확보한 자료로 확인하지 못합니다. 구매 전 제품 포장이나 제조사 안내에서 확인해 주세요.",
+    );
   if (/건강|안전|health|safest/i.test(question))
     unhandled.push(
       "건강 적합성과 종합적인 안전성은 이 비교로 판정하지 못합니다. 아래 열량·원재료 표기 차이만 확인할 수 있습니다.",
