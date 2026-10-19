@@ -86,6 +86,10 @@ describe("ingredient exclusion", () => {
     ["oatmeal", "grain"],
     ["oatflour", "grain"],
     ["wheatbran", "grain"],
+    ["통밀", "grain"],
+    ["통밀가루", "grain"],
+    ["밀기울", "grain"],
+    ["밀배아", "grain"],
   ] as const)("rejects the compact derivative %s", (name, exclusion) => {
     expect(
       assessIngredientExclusion([{ name, position: 1 }], exclusion, true)
@@ -111,6 +115,8 @@ describe("ingredient exclusion", () => {
     ["cornflower", "grain"],
     ["ryegrass", "grain"],
     ["fishmint", "fish"],
+    ["밀크씨슬", "grain"],
+    ["밀웜", "grain"],
   ] as const)("retains word boundaries for %s", (name, exclusion) => {
     expect(
       assessIngredientExclusion([{ name, position: 1 }], exclusion, true)

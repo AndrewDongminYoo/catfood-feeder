@@ -192,7 +192,7 @@ const MATCHERS: Record<IngredientExclusion, RegExp> = {
   lamb: /\b(?:lamb|mutton)(?:meal|fat|oil)?\b|양고기|양육/i,
   fish: /\b(?:fish|salmon|tuna|trout|cod|herring|sardine|anchovy|mackerel|hake|pollock|whitefish|menhaden|flounder|halibut|sole|carp|tilapia|sea\s*bass)(?:meal|oil)?\b|생선|어류|어분|어유|연어|참치|송어|대구|청어|정어리|멸치|고등어|명태|가자미|광어|넙치|잉어|농어/i,
   grain:
-    /\b(?:grains?|cereals?|rice|wheat|barley|oats?|corn|maize|rye|millet|sorghum|spelt)(?:meal|flour|bran)?\b|곡물|곡류|쌀|현미|백미|밀가루|보리|귀리|옥수수|호밀|수수|기장|^밀(?:$|\s|분|단백|글루텐|전분)/i,
+    /\b(?:grains?|cereals?|rice|wheat|barley|oats?|corn|maize|rye|millet|sorghum|spelt)(?:meal|flour|bran)?\b|곡물|곡류|쌀|현미|백미|통밀|밀기울|밀배아|밀가루|보리|귀리|옥수수|호밀|수수|기장|^밀(?:$|\s|분|단백|글루텐|전분)/i,
 };
 const GENERIC_ANIMAL =
   /\b(?:animal|meat|digest)(?:meal|fat|oil|digest)?\b|\bnatural\s+flavou?rs?\b|육류|동물성|천연향미|가수분해\s*단백/i;
