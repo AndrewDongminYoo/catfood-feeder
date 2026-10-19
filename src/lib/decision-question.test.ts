@@ -7,6 +7,37 @@ import {
 } from "./decision-question";
 
 describe("decision question", () => {
+  it.each([
+    "현재보다 열량이 낮지 않은 사료",
+    "칼로리가 낮지않은 사료",
+    "열량이 안 낮은 사료",
+    "열량이 낮은 게 아닌 사료",
+    "열량이 낮지 않아도 돼요",
+    "열량 차이 10% 이내이되 열량이 낮지 않은 사료",
+  ])("does not reverse a negated lower-calorie request: %s", (question) => {
+    const result = parseDecisionQuestion(question);
+    expect(result.notHigherKcal).toBe(false);
+    expect(result.unhandled.join(" ")).toContain("방향성 열량 조건");
+    if (result.maxKcalDeltaPct === null)
+      expect(result.clarifications).toContain("calories");
+    const proposed = validateQuestionProposal(
+      {
+        exclusions: [],
+        maxKcalDeltaPct: result.maxKcalDeltaPct,
+        citations: [question],
+        unhandled: [],
+      },
+      question,
+    );
+    expect(proposed?.notHigherKcal).toBe(false);
+    expect(proposed?.unhandled).toEqual(result.unhandled);
+  });
+  it.each(["현재보다 열량이 낮은 사료", "현재보다 열량이 높지 않은 사료"])(
+    "retains an affirmative ceiling request: %s",
+    (question) => {
+      expect(parseDecisionQuestion(question).notHigherKcal).toBe(true);
+    },
+  );
   it("does not invert a minimum calorie reduction into a maximum difference", () => {
     const result = parseDecisionQuestion("열량이 현재보다 10% 이상 낮은 사료");
     expect(result.maxKcalDeltaPct).toBeNull();
@@ -150,52 +181,59 @@ describe("decision question", () => {
   });
 });
 
-it("keeps a mixed physical-attribute request unresolved until the owner explicitly omits it", () => {
-  const question = "열량 차이 10% 이내이고 작은 알갱이 사료를 추천해 주세요";
-  const interpretation = parseDecisionQuestion(question);
-  const food = {
-    ...SAMPLE_FOODS[0]!,
-    kcal_per_kg: 4000,
-    nutrient_sources: { kcal_per_kg: "manufacturer" as const },
-  };
-  const catalog = {
-    foods: [food],
-    ingredientEvidenceByFoodId: {},
-    evidenceByFoodId: new Map([
-      [
-        food.id,
+it.each([
+  ["열량 차이 10% 이내이고 작은 알갱이 사료를 추천해 주세요", "알갱이"],
+  ["현재보다 열량이 낮지 않은 사료", "방향성 열량 조건"],
+])(
+  "keeps unsupported requirements unresolved until explicitly omitted: %s",
+  (question, expected) => {
+    const interpretation = parseDecisionQuestion(question);
+    const food = {
+      ...SAMPLE_FOODS[0]!,
+      kcal_per_kg: 4000,
+      nutrient_sources: { kcal_per_kg: "manufacturer" as const },
+    };
+    const catalog = {
+      foods: [food],
+      ingredientEvidenceByFoodId: {},
+      evidenceByFoodId: new Map([
         [
-          {
-            nutrient_key: "kcal_per_kg" as const,
-            value: 4000,
-            excerpt: "4000 kcal/kg",
-            captured_at: "2026-08-08",
-            source: {
-              url: "https://manufacturer.test/recipe",
-              capture_method: "fetch",
+          food.id,
+          [
+            {
+              nutrient_key: "kcal_per_kg" as const,
+              value: 4000,
+              excerpt: "4000 kcal/kg",
+              captured_at: "2026-08-08",
+              source: {
+                url: "https://manufacturer.test/recipe",
+                capture_method: "fetch",
+              },
             },
-          },
+          ],
         ],
-      ],
-    ]),
-  };
-  const request = {
-    ...DEFAULT_DECISION_REQUEST,
-    question,
-    manualCurrentName: "Current",
-    manualKcal: 4000,
-    adultNonPrescription: true,
-    maxKcalDeltaPct: interpretation.maxKcalDeltaPct,
-    unresolvedRequirements: interpretation.unhandled,
-  };
-  const report = buildFoodDecision(catalog, request);
-  expect(report.eligible).toHaveLength(0);
-  expect(report.unresolved).toHaveLength(1);
-  expect(report.unresolved[0]!.questions.join(" ")).toContain("알갱이");
-  const omitted = buildFoodDecision(catalog, {
-    ...request,
-    unresolvedRequirements: [],
-    ignoredRequirements: interpretation.unhandled,
-  });
-  expect(omitted.eligible).toHaveLength(1);
-});
+      ]),
+    };
+    const request = {
+      ...DEFAULT_DECISION_REQUEST,
+      question,
+      manualCurrentName: "Current",
+      manualKcal: 4000,
+      adultNonPrescription: true,
+      maxKcalDeltaPct:
+        interpretation.maxKcalDeltaPct ??
+        DEFAULT_DECISION_REQUEST.maxKcalDeltaPct,
+      unresolvedRequirements: interpretation.unhandled,
+    };
+    const report = buildFoodDecision(catalog, request);
+    expect(report.eligible).toHaveLength(0);
+    expect(report.unresolved).toHaveLength(1);
+    expect(report.unresolved[0]!.questions.join(" ")).toContain(expected);
+    const omitted = buildFoodDecision(catalog, {
+      ...request,
+      unresolvedRequirements: [],
+      ignoredRequirements: interpretation.unhandled,
+    });
+    expect(omitted.eligible).toHaveLength(1);
+  },
+);

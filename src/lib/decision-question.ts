@@ -67,7 +67,12 @@ export function parseDecisionQuestion(
       ? Number(delta)
       : null;
   const clarifications: QuestionInterpretation["clarifications"] = [];
+  const negatedLowerKcal =
+    /(?:열량|칼로리)[^.!?。]{0,20}(?:낮지\s*(?:않|말)|안\s*낮|낮은\s*(?:것|게|건)?\s*(?:아니|아닌))/.test(
+      question,
+    );
   const notHigherKcal =
+    !negatedLowerKcal &&
     /(?:열량|칼로리)[^.!?。]{0,20}(?:높지|높은.*않|넘지|이하|낮)/.test(
       question,
     );
@@ -79,7 +84,7 @@ export function parseDecisionQuestion(
   )
     clarifications.push("poultry");
   const unhandled: string[] = [];
-  if (unsupportedCalorieRelation)
+  if (unsupportedCalorieRelation || negatedLowerKcal)
     unhandled.push(
       "요청한 최소 감소·증가 등 방향성 열량 조건은 자동으로 적용하지 못했습니다. 차이의 최대 허용 폭과 현재 이하 조건으로 바꾸려면 직접 확인해 주세요.",
     );
