@@ -185,18 +185,18 @@ export const decisionSnapshotSchema = z.object({
 export type DecisionSnapshot = z.infer<typeof decisionSnapshotSchema>;
 
 const MATCHERS: Record<IngredientExclusion, RegExp> = {
-  chicken: /\bchicken\b|닭|계육|계지방/i,
-  turkey: /\bturkey\b|칠면조/i,
-  duck: /\bduck\b|오리/i,
-  beef: /\bbeef\b|\bbovine\b|소고기|쇠고기|우육|우지/i,
-  lamb: /\blamb\b|\bmutton\b|양고기|양육/i,
+  chicken: /\bchicken(?:meal|fat|oil)?\b|닭|계육|계지방/i,
+  turkey: /\bturkey(?:meal|fat|oil)?\b|칠면조/i,
+  duck: /\bduck(?:meal|fat|oil)?\b|오리/i,
+  beef: /\b(?:beef|bovine)(?:meal|fat|oil)?\b|소고기|쇠고기|우육|우지/i,
+  lamb: /\b(?:lamb|mutton)(?:meal|fat|oil)?\b|양고기|양육/i,
   fish: /\b(?:fish|salmon|tuna|trout|cod|herring|sardine|anchovy|mackerel|hake|pollock|whitefish|menhaden|flounder|halibut|sole|carp|tilapia|sea\s*bass)(?:meal|oil)?\b|생선|어류|어분|어유|연어|참치|송어|대구|청어|정어리|멸치|고등어|명태|가자미|광어|넙치|잉어|농어/i,
   grain:
     /\b(?:grains?|cereals?|rice|wheat|barley|oats?|corn|maize|rye|millet|sorghum|spelt)(?:meal|flour|bran)?\b|곡물|곡류|쌀|현미|백미|밀가루|보리|귀리|옥수수|호밀|수수|기장|^밀(?:$|\s|분|단백|글루텐|전분)/i,
 };
 const GENERIC_ANIMAL =
-  /\b(?:animal|meat|digest)\b|\bnatural\s+flavou?rs?\b|육류|동물성|천연향미|가수분해\s*단백/i;
-const GENERIC_POULTRY = /\bpoultry\b|\bfowl\b|가금/i;
+  /\b(?:animal|meat|digest)(?:meal|fat|oil|digest)?\b|\bnatural\s+flavou?rs?\b|육류|동물성|천연향미|가수분해\s*단백/i;
+const GENERIC_POULTRY = /\b(?:poultry|fowl)(?:meal|fat|oil)?\b|가금/i;
 const UNSPECIFIED_DERIVATIVE =
   /^(?:(?:hydroly[sz]ed|dried|dehydrated|natural)\s+)*(?:protein|fat|oil|flavou?r|flavou?ring|stock|broth)s?$|^가수분해\s*단백질?$|^단백질$|^지방$/i;
 
@@ -242,8 +242,12 @@ function assessPreference(
       (/^(?:(?:fresh|raw|whole|rendered|dried|dehydrated)\s+)*(?:[\p{L}-]+\s+){0,2}(?:fats?|oils?|tallow|lard|broth|stock|flavou?rs?)$|^(?:신선한\s*|생\s*)?(?:닭|칠면조|오리|소|돼지|연어|생선|동물성|가금류)?\s*(?:지방|우지|돈지|계지|어유|육수|향미)$/iu.test(
         mainName,
       ) ||
-        (MATCHERS.fish.test(mainName) &&
-          /^(?:(?:fresh|raw|whole|rendered|dried|dehydrated)\s+)*[a-z]+oil$/i.test(
+        ((Object.entries(MATCHERS).some(
+          ([family, matcher]) => family !== "grain" && matcher.test(mainName),
+        ) ||
+          GENERIC_ANIMAL.test(mainName) ||
+          GENERIC_POULTRY.test(mainName)) &&
+          /^(?:(?:fresh|raw|whole|rendered|dried|dehydrated)\s+)*[a-z]+(?:fat|oil)$/i.test(
             mainName,
           )))
     )

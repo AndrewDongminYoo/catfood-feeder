@@ -66,6 +66,19 @@ function catalog() {
 
 describe("ingredient exclusion", () => {
   it.each([
+    ["chickenmeal", "chicken"],
+    ["chickenfat", "chicken"],
+    ["chickenoil", "chicken"],
+    ["turkeymeal", "turkey"],
+    ["turkeyfat", "turkey"],
+    ["duckmeal", "duck"],
+    ["duckfat", "duck"],
+    ["beefmeal", "beef"],
+    ["beeffat", "beef"],
+    ["bovinemeal", "beef"],
+    ["lambmeal", "lamb"],
+    ["lambfat", "lamb"],
+    ["muttonmeal", "lamb"],
     ["fishmeal", "fish"],
     ["WHITEFISHMEAL", "fish"],
     ["fishoil", "fish"],
@@ -180,9 +193,19 @@ describe("ingredient exclusion", () => {
 });
 
 describe("food decision", () => {
-  it.each(["fishoil", "salmonoil", "Fish oil", "Salmon oil"])(
+  it.each([
+    ["fishoil", "fish"],
+    ["salmonoil", "fish"],
+    ["Fish oil", "fish"],
+    ["Salmon oil", "fish"],
+    ["chickenfat", "chicken"],
+    ["turkeyfat", "turkey"],
+    ["duckfat", "duck"],
+    ["beeffat", "beef"],
+    ["lambfat", "lamb"],
+  ] as const)(
     "excludes %s but skips it when assessing the first protein preference",
-    (name) => {
+    (name, exclusion) => {
       const input = catalog();
       input.foods[1]!.ingredients = [
         { name, position: 1 },
@@ -190,7 +213,7 @@ describe("food decision", () => {
       ];
       input.ingredientEvidenceByFoodId[2]!.excerpt = `${name}, Chicken meal`;
       expect(
-        assessIngredientExclusion(input.foods[1]!.ingredients, "fish", true)
+        assessIngredientExclusion(input.foods[1]!.ingredients, exclusion, true)
           .status,
       ).toBe("failed");
       for (const preferred of ["fish", "chicken"] as const) {
@@ -207,6 +230,15 @@ describe("food decision", () => {
         );
         expect(preference.detail).toContain("2번째 “Chicken meal”");
       }
+    },
+  );
+  it.each(["poultrymeal", "poultryfat", "animalmeal", "animalfat", "meatmeal"])(
+    "leaves the species of compact broad derivative %s unknown",
+    (name) => {
+      expect(
+        assessIngredientExclusion([{ name, position: 1 }], "chicken", true)
+          .status,
+      ).toBe("unknown");
     },
   );
   it.each([

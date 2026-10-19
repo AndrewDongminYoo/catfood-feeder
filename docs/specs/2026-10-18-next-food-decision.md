@@ -24,7 +24,7 @@ The product must do the comparison work before asking the owner to validate dema
   An unavailable model must leave a fully usable structured form and explain the fallback.
 - Separate conditions met, conditions failed, and conditions that cannot be determined.
   Missing or broad ingredient names never establish absence of an excluded ingredient.
-  Recognize compact fish and grain derivatives such as `fishmeal`, `cornmeal`, and `oatmeal` without matching unrelated longer words.
+  Recognize compact animal and grain derivatives such as `chickenmeal`, `chickenfat`, `fishmeal`, `cornmeal`, and `oatmeal` without matching unrelated longer words.
   Label absence never establishes allergy safety.
 - Compare calorie density only with matching evidence, or an explicitly identified owner-entered baseline.
   Minimum and maximum guaranteed-analysis figures are not exact quantities.
