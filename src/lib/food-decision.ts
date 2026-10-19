@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { adequacyProofSchema, type AdequacyProof } from "./adequacy-evidence";
 import type { FoodWithBrand, Ingredient, NutrientEvidence } from "./catalog";
 import { findMatchingNutrientEvidence } from "./nutrient-evidence";
 import { classifyNutrientBound } from "./advisor";
@@ -147,6 +148,7 @@ const candidateSchema = z.object({
   ingredientEvidence: ingredientEvidenceSchema.nullable(),
   notes: z.array(z.string()),
   labelFacts: z.array(labelFactSchema).default([]),
+  adequacy: z.array(adequacyProofSchema).default([]),
 });
 export type DecisionCandidate = z.infer<typeof candidateSchema>;
 const reportSchema = z.object({
@@ -164,6 +166,7 @@ const reportSchema = z.object({
     origin: z.enum(["catalog", "owner", "unknown"]),
     evidence: evidenceSchema.nullable(),
     labelFacts: z.array(labelFactSchema).default([]),
+    adequacy: z.array(adequacyProofSchema).default([]),
   }),
   eligible: z.array(candidateSchema),
   unresolved: z.array(candidateSchema),
@@ -372,6 +375,7 @@ function hasCompleteIngredientProof(
 }
 
 export interface DecisionCatalog {
+  adequacyByFoodId?: Readonly<Record<number, readonly AdequacyProof[]>>;
   foods: readonly FoodWithBrand[];
   evidenceByFoodId: ReadonlyMap<number, readonly NutrientEvidence[]>;
   ingredientEvidenceByFoodId: Readonly<Record<number, IngredientProof>>;
@@ -420,6 +424,9 @@ export function buildFoodDecision(
         name: `${current.brands?.name ?? ""} ${current.product_name}`.trim(),
         kcal: currentEvidence ? current.kcal_per_kg : null,
         origin: "catalog",
+        adequacy: structuredClone([
+          ...(catalog.adequacyByFoodId?.[current.id] ?? []),
+        ]),
         evidence: currentEvidence,
         labelFacts: labelFacts(
           current,
@@ -432,6 +439,7 @@ export function buildFoodDecision(
         origin: request.manualCurrentName ? "owner" : "unknown",
         evidence: null,
         labelFacts: [],
+        adequacy: [],
       };
   const report: DecisionReport = {
     createdAt,
@@ -638,6 +646,9 @@ export function buildFoodDecision(
           : null,
         notes,
         labelFacts: labelFacts(food, evidence),
+        adequacy: structuredClone([
+          ...(catalog.adequacyByFoodId?.[food.id] ?? []),
+        ]),
       };
     });
   candidates.sort(
@@ -691,6 +702,10 @@ export function exportDecisionBrief(snapshot: DecisionSnapshot): string {
           `현재 열량 근거: ${report.baseline.evidence.excerpt} (${report.baseline.evidence.captured_at}) ${report.baseline.evidence.source.url}`,
         ]
       : []),
+    ...report.baseline.adequacy.map(
+      (a) =>
+        `현재 사료 제조사 선언: ${a.statement} (${a.capturedAt}) ${a.url} — 판매 지역·현재 포장 미확인`,
+    ),
     `선택한 후보: ${selected ? `${selected.food.brand} ${selected.food.product_name}` : "아직 선택하지 않음"}`,
     `선택 또는 보류 이유: ${snapshot.reason || "미기록"}`,
     ...report.baseline.labelFacts.map(
@@ -723,6 +738,10 @@ export function exportDecisionBrief(snapshot: DecisionSnapshot): string {
                 `- 원재료 근거: ${c.ingredientEvidence.excerpt} (${c.ingredientEvidence.capturedAt}) ${c.ingredientEvidence.url}`,
               ]
             : []),
+          ...c.adequacy.map(
+            (a) =>
+              `- 제조사 선언: ${a.standard} / ${a.lifeStage} / ${a.method} — ${a.statement} (${a.capturedAt}) ${a.url} — 판매 지역·현재 포장 미확인`,
+          ),
           ...c.notes.map((n) => `- ${n}`),
         ].join("\n"),
       ),

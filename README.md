@@ -76,6 +76,26 @@ No account is required for the first comparison.
 Decision records are saved only in this browser, up to 12 records, and can be exported as Markdown.
 There is no automatic investigation, purchase, background monitoring, or account synchronization in this slice.
 
+## Manufacturer adequacy declarations
+
+Collect explicit AAFCO and FEDIAF declarations from retained current manufacturer captures for published foods:
+
+```bash
+node scripts/collect-adequacy.mjs
+node scripts/collect-adequacy.mjs --out /tmp/adequacy-review.json --food-ids 30,141
+```
+
+This command reads the database and optionally writes a new local review file; it never updates catalog rows or replaces captures.
+Drafts retain the literal statement, source, original capture date, explicit life stage and substantiation method.
+Multiple declarations in one capture go to an identity-review queue.
+Reviewed single-product claims can be applied through the curator broker with `node scripts/apply-adequacy.mjs reviewed.json --apply`; without `--apply`, the command only validates the manifest.
+The independent `food_adequacy_declarations` table preserves source ownership, original capture date, source hash, quoted product name, and applying origin.
+Public reads require a published food and a current fetched manufacturer source.
+Candidate cards and product details show the manufacturer claim, life stage, method, quote, and capture date; saved decisions preserve the original claim.
+Sales market, current-package equivalence, and standard edition remain unverified.
+These claims do not establish certification or numerical compliance and do not change candidate eligibility.
+See [the collected declarations](docs/notes/2026-10-19-manufacturer-adequacy-review.json) and [the reviewed application manifest](docs/notes/2026-10-19-manufacturer-adequacy-apply.json).
+
 ## License
 
 Copyright (c) 2026 Dongmin Yu.

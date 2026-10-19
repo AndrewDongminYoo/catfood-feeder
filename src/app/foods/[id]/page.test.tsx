@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { renderToStaticMarkup } from "react-dom/server";
+import { SAMPLE_FOODS } from "@/lib/fixtures";
 import FoodDetailPage from "./page";
 
 afterEach(cleanup);
@@ -18,4 +20,18 @@ describe("FoodDetailPage", () => {
         .getAttribute("href"),
     ).toBe("/foods?compare=0");
   });
+});
+
+vi.mock("@/lib/adequacy-repository", () => ({
+  getAdequacyProofs: async () => {
+    throw new Error("connection failed");
+  },
+}));
+it("keeps the product dossier readable and marks declaration retrieval failure", async () => {
+  const html = renderToStaticMarkup(
+    await FoodDetailPage({ params: Promise.resolve({ id: "0" }) }),
+  );
+  expect(html).toContain(SAMPLE_FOODS[0]!.product_name);
+  expect(html).toContain("지금은 선언 자료를 불러오지 못했어요");
+  expect(html).not.toContain("확보한 자료에서 선언을 확인하지 못했어요");
 });

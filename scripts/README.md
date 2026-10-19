@@ -90,6 +90,42 @@ Run a small dry-run and inspect the printed ingredient names before approving an
 
 ## Review-first maintenance scripts
 
+### Manufacturer adequacy declarations
+
+Read retained current manufacturer captures for published products and extract explicit AAFCO/FEDIAF declarations into local review drafts:
+
+```bash
+node scripts/collect-adequacy.mjs
+node scripts/collect-adequacy.mjs --out /tmp/adequacy-review.json --food-ids 30,141
+```
+
+The default prints counts only.
+`--out` creates a new file and refuses to overwrite an existing one.
+The script uses the existing external secrets loader and service client for a read-only query, with deterministic pagination through `selectAll`.
+It does not update the database, spend model quota, perform web research, or replace existing captures.
+The generated file preserves source IDs, URLs, capture hashes, original capture dates, and literal declarations.
+Life stage and substantiation method remain unspecified when the declaration does not state them.
+The collector does not infer a standard from generic complete-food wording, a standard edition from the collection date, or a sales market from a URL locale.
+Multiple distinct declarations in a capture are quarantined before filtering species, preventing a whole multi-product page from being assigned to one food.
+Missing declarations stay unresolved rather than being labeled noncompliant.
+Product identity requires review before application; sales market and current-package equivalence remain explicitly unknown in the initial tranche.
+
+Apply a bounded reviewed manifest through the local curator broker:
+
+```bash
+node scripts/apply-adequacy.mjs docs/notes/2026-10-19-manufacturer-adequacy-apply.json
+node scripts/apply-adequacy.mjs docs/notes/2026-10-19-manufacturer-adequacy-apply.json --apply
+```
+
+The default validates the manifest without making requests or database writes.
+`--apply` requires `ADMIN_WRITE_SECRET` from the external secrets file and an HTTP loopback broker (`CATFOOD_BASE_URL`, default `http://127.0.0.1:3000`).
+Redirects are refused, and a refusal or conflict stops the batch.
+The API validates the declaration against the current single-product capture; the RPC rechecks ownership, capture hash, and literal evidence under a lock.
+Repeated identical input skips; existing differing evidence is never overwritten.
+Apply the ordered database migration with the linked Supabase CLI and regenerate database types with that CLI before building the new broker.
+
+### Stranded sources
+
 `release-stranded.mjs` previews current sources on unpublished foods that have no current nutrient or ingredient evidence.
 An apply run requires the exact source IDs copied from that preview. A database RPC locks each food and rechecks the full source set before writing.
 

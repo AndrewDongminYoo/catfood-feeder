@@ -1,4 +1,5 @@
 "use client";
+import type { AdequacyProof } from "@/lib/adequacy-evidence";
 
 import { useMemo, useState, useSyncExternalStore, type FormEvent } from "react";
 import type { FoodWithBrand, NutrientEvidence } from "@/lib/catalog";
@@ -69,6 +70,7 @@ function parseSaved(value: string): DecisionSnapshot[] {
 }
 
 export interface DecisionWorkspaceProps {
+  adequacyByFoodId?: Readonly<Record<number, readonly AdequacyProof[]>>;
   available: boolean;
   sample: boolean;
   foods: readonly FoodWithBrand[];
@@ -105,8 +107,14 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
       foods: data.foods,
       evidenceByFoodId: new Map(data.evidence),
       ingredientEvidenceByFoodId: data.ingredientEvidenceByFoodId,
+      adequacyByFoodId: data.adequacyByFoodId,
     }),
-    [data.foods, data.evidence, data.ingredientEvidenceByFoodId],
+    [
+      data.foods,
+      data.evidence,
+      data.ingredientEvidenceByFoodId,
+      data.adequacyByFoodId,
+    ],
   );
   const filteredFoods = data.foods.filter((f) =>
     `${f.brands?.name ?? ""} ${f.product_name}`
@@ -253,6 +261,7 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
         foods: latest.foods,
         evidenceByFoodId: new Map(latest.evidence),
         ingredientEvidenceByFoodId: latest.ingredientEvidenceByFoodId,
+        adequacyByFoodId: latest.adequacyByFoodId,
       });
       setMessage(
         "현재 카탈로그로 다시 비교했습니다. 이전에 저장한 기록은 그대로 남아 있습니다.",

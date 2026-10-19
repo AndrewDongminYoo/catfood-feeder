@@ -1,3 +1,4 @@
+import { getAdequacyProofs } from "./adequacy-repository";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase";
 import { getAdvisorCatalog, isSupabaseConfigured } from "./catalog";
@@ -52,8 +53,10 @@ export async function getDecisionCatalog(options: { fresh?: boolean } = {}) {
       foods: [],
       evidence: [],
       ingredientEvidenceByFoodId: {},
+      adequacyByFoodId: {},
       sample: false,
     };
+  let adequacyByFoodId = {};
   let ingredientEvidenceByFoodId: Record<number, IngredientProof> = {};
   if (isSupabaseConfigured() && catalog.foods.length) {
     try {
@@ -68,7 +71,21 @@ export async function getDecisionCatalog(options: { fresh?: boolean } = {}) {
       );
     }
   }
+  try {
+    adequacyByFoodId = await getAdequacyProofs(catalog.foods.map((f) => f.id));
+  } catch {
+    console.error("Failed to load public adequacy evidence");
+    return {
+      available: false as const,
+      foods: [],
+      evidence: [],
+      ingredientEvidenceByFoodId: {},
+      adequacyByFoodId: {},
+      sample: false,
+    };
+  }
   return {
+    adequacyByFoodId,
     available: true as const,
     foods: catalog.foods,
     evidence: [...catalog.evidenceByFoodId.entries()],

@@ -59,6 +59,21 @@ New poultry preferences only change order; preserve the original hard `poultryFi
 There is no consumer-triggered background web investigation, automatic monitoring, verified seller availability, or payment integration in this slice.
 Legacy `/advisor?current=...` links retain their earlier deterministic behavior.
 
+### Manufacturer adequacy declarations
+
+`scripts/collect-adequacy.mjs` reads retained current manufacturer captures for published foods and writes an optional local JSON review file with exclusive creation.
+`src/lib/food-adequacy.ts` recognizes explicit standard declarations, not nutrient footnotes or generic complete-food marketing.
+`src/lib/adequacy-collection.ts` preserves capture provenance and quarantines multiple declarations before species filtering.
+Collection results remain drafts until product identity is reviewed.
+`scripts/apply-adequacy.mjs` defaults to a dry run; `--apply` sends a bounded reviewed manifest only to a local curator broker.
+`POST /api/foods/[id]/sources/adequacy` validates a single literal declaration against the current same-food manufacturer capture before calling the service-only `apply_food_adequacy_declaration` RPC.
+The RPC locks food then source, rechecks the hash and source ownership, and records the original capture date and applying origin without changing nutrients or publication/verification stamps.
+`food_adequacy_declarations` is append-only through this RPC; repeated identical claims skip and conflicting claims are refused without overwriting.
+Public reads use the anonymous client with RLS on published foods and current fetched manufacturer sources.
+Read-time parsing supplies standard, life stage, and substantiation method; unknown market, package equivalence, and edition remain unknown.
+A failed decision recheck retains the previous report; a declaration-only outage leaves the product dossier readable with an explicit unavailable state.
+There is no numerical compliance verdict, model call, or fresh source capture in this workflow.
+
 ### Source-tagged nutrient model
 
 A single label never fills a whole row, and which half is missing depends on the origin regime. AAFCO labels (North American brands — ACANA) state kcal and the P/F/C energy split but omit ash (회분); EU labels (LEONARDO) state crude ash but usually omit both kcal and the energy split. The Korean importer label fills whichever gap is left, but few importers publish it as text — most put 등록성분량 in a 상세페이지 image, so it typically arrives as a curator transcription (`captureMethod: "manual"` in the source ledger, with the 상세페이지 URL as the reference). So **every nutrient value carries a source tag** — `manufacturer | kr_label | estimated | derived` — stored per-field in `foods.nutrient_sources` (JSONB). Measured and estimated values must never be silently mixed. This invariant drives the schema, the extraction prompt, and the UI.

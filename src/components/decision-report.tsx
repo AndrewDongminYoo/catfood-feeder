@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AdequacyEvidence } from "./adequacy-evidence";
 import type { Route } from "next";
 import { useState } from "react";
 import type {
@@ -97,6 +98,7 @@ function Candidate({
         서로 다른 최소·최대 보증치를 빼서 실제 함량 차이나 품질 순위를 계산하지
         않습니다.
       </p>
+      <AdequacyEvidence proofs={candidate.adequacy} />
       <ul className="decision-conditions">
         {candidate.conditions.map((condition) => (
           <li key={condition.key} data-state={condition.status}>

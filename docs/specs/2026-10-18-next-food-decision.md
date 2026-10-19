@@ -49,7 +49,8 @@ Keep legacy advisor query URLs and exported domain APIs compatible.
 Use the existing Anthropic integration for optional question interpretation only; never let its output establish catalog facts.
 Rate-limit public model work through the existing durable quota with a global daily ceiling and fail to the structured form when unavailable.
 Persist personal decision snapshots in browser storage with a validated versioned schema, storage failure handling, and export.
-No database migration, dependency addition, or weakening of RLS is required.
+The original question-to-decision slice requires no database migration, dependency addition, or weakening of RLS.
+The manufacturer-declaration follow-up adds an independent evidence table and service-only apply function; it does not relax existing nutrient or source access rules.
 
 ## Design contract
 
@@ -76,7 +77,9 @@ Use the existing Korean register for new product copy and do not expose implemen
 ## Authority and limits
 
 The operator authorized foundational document changes and continued implementation in the main workspace.
-No PR, remote push, production schema write, account changes, or purchase is needed to satisfy this delivery.
+The initial local delivery did not require a PR, remote push, production schema write, account change, or purchase.
+The operator later authorized applying reviewed manufacturer declarations to the linked database and publishing the completed work as a PR.
+Merge, account changes, and purchases remain outside this authorization.
 Historical data counts remain dated observations rather than live coverage claims.
 The Google document supplied in this session informs the separation of proposal, evidence, and decision.
 The initial Oracle retrieval was blocked by an identity gate.

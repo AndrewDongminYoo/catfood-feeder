@@ -1,4 +1,6 @@
 import Link from "next/link";
+import type { AdequacyProof } from "@/lib/adequacy-evidence";
+import { getAdequacyProofs } from "@/lib/adequacy-repository";
 import type { Route } from "next";
 import { notFound } from "next/navigation";
 import { FoodDossier } from "@/components/food-dossier";
@@ -12,9 +14,15 @@ export default async function FoodDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [food, evidence] = await Promise.all([
+  const [food, evidence, adequacy] = await Promise.all([
     getFood(Number(id)),
     getFoodEvidence(Number(id)),
+    getAdequacyProofs([Number(id)])
+      .then((proofs) => ({ proofs, unavailable: false }))
+      .catch(() => ({
+        proofs: {} as Record<number, AdequacyProof[]>,
+        unavailable: true,
+      })),
   ]);
   if (!food) notFound();
 
@@ -32,7 +40,12 @@ export default async function FoodDetailPage({
           </Link>
         </p>
       </header>
-      <FoodDossier evidence={evidence} food={food} />
+      <FoodDossier
+        adequacy={adequacy.proofs[Number(id)]}
+        adequacyUnavailable={adequacy.unavailable}
+        evidence={evidence}
+        food={food}
+      />
     </main>
   );
 }

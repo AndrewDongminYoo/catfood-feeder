@@ -46,6 +46,7 @@ export type Database = {
           manufacturer: string | null;
           name: string;
         };
+        ComputedFields: never;
         Insert: {
           country?: string | null;
           created_at?: string;
@@ -78,6 +79,7 @@ export type Database = {
           name: string;
           owner_id: string;
         };
+        ComputedFields: never;
         Insert: {
           birth_date?: string | null;
           created_at?: string;
@@ -100,6 +102,7 @@ export type Database = {
           subject: string;
           window_started_at: string;
         };
+        ComputedFields: never;
         Insert: {
           request_count?: number;
           subject: string;
@@ -122,6 +125,7 @@ export type Database = {
           note: string | null;
           started_on: string;
         };
+        ComputedFields: never;
         Insert: {
           cat_id: number;
           created_at?: string;
@@ -157,6 +161,58 @@ export type Database = {
           },
         ];
       };
+      food_adequacy_declarations: {
+        Row: {
+          applied_by_origin: string;
+          captured_at: string;
+          created_at: string;
+          food_id: number;
+          id: number;
+          source_content_hash: string;
+          source_id: number;
+          source_product_name: string;
+          statement: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          applied_by_origin: string;
+          captured_at: string;
+          created_at?: string;
+          food_id: number;
+          id?: never;
+          source_content_hash: string;
+          source_id: number;
+          source_product_name: string;
+          statement: string;
+        };
+        Update: {
+          applied_by_origin?: string;
+          captured_at?: string;
+          created_at?: string;
+          food_id?: number;
+          id?: never;
+          source_content_hash?: string;
+          source_id?: number;
+          source_product_name?: string;
+          statement?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "food_adequacy_declarations_food_id_fkey";
+            columns: ["food_id"];
+            isOneToOne: false;
+            referencedRelation: "foods";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "food_adequacy_declarations_source_id_fkey";
+            columns: ["source_id"];
+            isOneToOne: false;
+            referencedRelation: "food_sources";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       food_ingredient_evidence: {
         Row: {
           applied_by_origin: string;
@@ -168,6 +224,7 @@ export type Database = {
           is_current: boolean;
           source_id: number;
         };
+        ComputedFields: never;
         Insert: {
           applied_by_origin: string;
           captured_at: string;
@@ -217,6 +274,7 @@ export type Database = {
           source_id: number;
           value: number;
         };
+        ComputedFields: never;
         Insert: {
           captured_at: string;
           created_at?: string;
@@ -256,43 +314,78 @@ export type Database = {
           },
         ];
       };
+      food_publication_research_runs: {
+        Row: {
+          food_id: number;
+          published_at: string;
+          research_run_id: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          food_id: number;
+          published_at: string;
+          research_run_id: number;
+        };
+        Update: {
+          food_id?: number;
+          published_at?: string;
+          research_run_id?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "food_publication_research_runs_food_id_fkey";
+            columns: ["food_id"];
+            isOneToOne: false;
+            referencedRelation: "foods";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "food_publication_research_runs_research_run_id_fkey";
+            columns: ["research_run_id"];
+            isOneToOne: false;
+            referencedRelation: "food_research_runs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       food_research_runs: {
         Row: {
           agent_model: string;
           agent_name: string;
-          captures: Json;
+          captures: NonNullable<Json>;
           created_at: string;
-          evidence_results: Json;
+          evidence_results: NonNullable<Json>;
           food_id: number;
           id: number;
           prompt_version: string;
-          proposal: Json;
+          proposal: NonNullable<Json>;
           schema_version: string;
           status: string;
         };
+        ComputedFields: never;
         Insert: {
           agent_model: string;
           agent_name: string;
-          captures: Json;
+          captures: NonNullable<Json>;
           created_at?: string;
-          evidence_results: Json;
+          evidence_results: NonNullable<Json>;
           food_id: number;
           id?: never;
           prompt_version: string;
-          proposal: Json;
+          proposal: NonNullable<Json>;
           schema_version: string;
           status: string;
         };
         Update: {
           agent_model?: string;
           agent_name?: string;
-          captures?: Json;
+          captures?: NonNullable<Json>;
           created_at?: string;
-          evidence_results?: Json;
+          evidence_results?: NonNullable<Json>;
           food_id?: number;
           id?: never;
           prompt_version?: string;
-          proposal?: Json;
+          proposal?: NonNullable<Json>;
           schema_version?: string;
           status?: string;
         };
@@ -324,6 +417,7 @@ export type Database = {
           observed_at: string | null;
           url: string;
         };
+        ComputedFields: never;
         Insert: {
           attempted_at?: string;
           capture_method: string;
@@ -391,27 +485,28 @@ export type Database = {
           has_probiotics: boolean;
           has_yucca: boolean;
           id: number;
-          ingredients: Json;
+          ingredients: NonNullable<Json>;
           kcal_per_kg: number | null;
           meal_free: boolean;
           moisture_pct: number | null;
-          nutrient_sources: Json;
+          nutrient_sources: NonNullable<Json>;
           phosphorus_pct: number | null;
           product_name: string;
           protein_pct: number | null;
           published_at: string | null;
           published_by: string | null;
           source: string | null;
-          source_conflicts: Json;
+          source_conflicts: NonNullable<Json>;
           updated_at: string;
           verification_method:
             Database["public"]["Enums"]["food_verification_method"] | null;
           weight_kg: number | null;
         };
+        ComputedFields: never;
         Insert: {
           ash_pct?: number | null;
           brand_id: number;
-          ca_p_ratio?: number | null;
+          ca_p_ratio?: never;
           calcium_pct?: number | null;
           carb_is_estimated?: boolean;
           carb_pct?: number | null;
@@ -430,18 +525,18 @@ export type Database = {
           has_probiotics?: boolean;
           has_yucca?: boolean;
           id?: never;
-          ingredients?: Json;
+          ingredients?: NonNullable<Json>;
           kcal_per_kg?: number | null;
           meal_free?: boolean;
           moisture_pct?: number | null;
-          nutrient_sources?: Json;
+          nutrient_sources?: NonNullable<Json>;
           phosphorus_pct?: number | null;
           product_name: string;
           protein_pct?: number | null;
           published_at?: string | null;
           published_by?: string | null;
           source?: string | null;
-          source_conflicts?: Json;
+          source_conflicts?: NonNullable<Json>;
           updated_at?: string;
           verification_method?:
             Database["public"]["Enums"]["food_verification_method"] | null;
@@ -450,7 +545,7 @@ export type Database = {
         Update: {
           ash_pct?: number | null;
           brand_id?: number;
-          ca_p_ratio?: number | null;
+          ca_p_ratio?: never;
           calcium_pct?: number | null;
           carb_is_estimated?: boolean;
           carb_pct?: number | null;
@@ -469,18 +564,18 @@ export type Database = {
           has_probiotics?: boolean;
           has_yucca?: boolean;
           id?: never;
-          ingredients?: Json;
+          ingredients?: NonNullable<Json>;
           kcal_per_kg?: number | null;
           meal_free?: boolean;
           moisture_pct?: number | null;
-          nutrient_sources?: Json;
+          nutrient_sources?: NonNullable<Json>;
           phosphorus_pct?: number | null;
           product_name?: string;
           protein_pct?: number | null;
           published_at?: string | null;
           published_by?: string | null;
           source?: string | null;
-          source_conflicts?: Json;
+          source_conflicts?: NonNullable<Json>;
           updated_at?: string;
           verification_method?:
             Database["public"]["Enums"]["food_verification_method"] | null;
@@ -506,6 +601,7 @@ export type Database = {
           retailer: string;
           url: string | null;
         };
+        ComputedFields: never;
         Insert: {
           captured_at?: string;
           food_id: number;
@@ -550,6 +646,7 @@ export type Database = {
           source: string;
           source_url: string;
         };
+        ComputedFields: never;
         Insert: {
           affected_lots?: string | null;
           brand_id?: number | null;
@@ -602,6 +699,17 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      apply_food_adequacy_declaration: {
+        Args: {
+          p_applied_by_origin: string;
+          p_expected_content_hash: string;
+          p_food_id: number;
+          p_source_id: number;
+          p_source_product_name: string;
+          p_statement: string;
+        };
+        Returns: Json;
+      };
       apply_food_evidence_draft: {
         Args: {
           p_evidence: Json;
@@ -626,6 +734,12 @@ export type Database = {
         Returns: number;
       };
       excerpt_token_numeric: { Args: { token: string }; Returns: number };
+      food_publication_research_run_ids: {
+        Args: { p_food_id: number };
+        Returns: {
+          research_run_id: number;
+        }[];
+      };
       publish_food_draft: {
         Args: {
           p_actor_id: string;
@@ -634,6 +748,12 @@ export type Database = {
           p_food_id: number;
         };
         Returns: Json;
+      };
+      release_stranded_food_sources: {
+        Args: { p_source_ids: number[] };
+        Returns: {
+          source_id: number;
+        }[];
       };
       replace_current_food_source: {
         Args: {

@@ -2062,3 +2062,26 @@ pre {
     padding: 20px 16px;
   }
 }
+
+.adequacy-evidence {
+  padding: 16px 0;
+  border-block: 1px solid var(--line);
+  margin-bottom: 16px;
+  font-size: 13px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.adequacy-evidence h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+.adequacy-evidence p {
+  margin: 8px 0;
+}
+.adequacy-evidence summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+.adequacy-evidence .proof-quote {
+  margin: 12px 0;
+}

@@ -71,6 +71,11 @@ Do not stop at a plan, checklist, or request that the operator interview users w
 This release does not claim fresh background research, stock or price verification, automatic source-change monitoring, or cloud-synced decision records.
 An owner can explicitly recheck a saved decision using the current catalog and retain the old snapshot.
 The recheck reads the server through `/api/advisor/catalog` with no response cache and bypasses the advisor catalog cache.
+Explicit manufacturer adequacy declarations are collected from retained current captures and applied only after product-name review.
+They are independent source-linked evidence, displayed with the original capture date, life stage, method, and quoted source.
+They do not inherit the nutrient verification stamp or alter eligibility.
+Sales market, current package equivalence, and standard edition remain unverified; a manufacturer claim does not establish app certification or complete numerical compliance.
+Retired or private sources disappear from current public reads; saved decisions retain their historical copy.
 
 ## Historical decisions
 
