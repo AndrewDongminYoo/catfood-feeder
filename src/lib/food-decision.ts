@@ -153,6 +153,7 @@ const candidateSchema = z.object({
 export type DecisionCandidate = z.infer<typeof candidateSchema>;
 const reportSchema = z.object({
   createdAt: z.string(),
+  adequacyUnavailable: z.boolean().default(false),
   request: decisionRequestSchema,
   status: z.enum([
     "ready",
@@ -383,6 +384,7 @@ function hasCompleteIngredientProof(
 }
 
 export interface DecisionCatalog {
+  adequacyUnavailable?: boolean;
   adequacyByFoodId?: Readonly<Record<number, readonly AdequacyProof[]>>;
   foods: readonly FoodWithBrand[];
   evidenceByFoodId: ReadonlyMap<number, readonly NutrientEvidence[]>;
@@ -451,6 +453,7 @@ export function buildFoodDecision(
       };
   const report: DecisionReport = {
     createdAt,
+    adequacyUnavailable: catalog.adequacyUnavailable ?? false,
     request,
     baseline,
     status: "ready",
@@ -700,6 +703,11 @@ export function exportDecisionBrief(snapshot: DecisionSnapshot): string {
   return [
     "# 다음 사료 검토 기록",
     `검토 시각: ${report.createdAt}`,
+    ...(report.adequacyUnavailable
+      ? [
+          "제조사 선언 자료: 이 검토에서는 불러오지 못했습니다. 선언이 없거나 영양기준에 미달한다는 뜻은 아닙니다.",
+        ]
+      : []),
     `질문: ${report.request.question || "입력한 조건으로 비교"}`,
     `바꾸려는 이유: ${report.request.changeReason || "별도 기록 없음"}`,
     `선호 원료: ${report.request.preferredProteins.map((key) => PREFERENCE_LABELS[key]).join(", ") || "없음"} (제외 조건이 아닌 우선순위)`,

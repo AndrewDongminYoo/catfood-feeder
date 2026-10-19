@@ -70,6 +70,7 @@ function parseSaved(value: string): DecisionSnapshot[] {
 }
 
 export interface DecisionWorkspaceProps {
+  adequacyUnavailable?: boolean;
   adequacyByFoodId?: Readonly<Record<number, readonly AdequacyProof[]>>;
   available: boolean;
   sample: boolean;
@@ -108,12 +109,14 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
       evidenceByFoodId: new Map(data.evidence),
       ingredientEvidenceByFoodId: data.ingredientEvidenceByFoodId,
       adequacyByFoodId: data.adequacyByFoodId,
+      adequacyUnavailable: data.adequacyUnavailable,
     }),
     [
       data.foods,
       data.evidence,
       data.ingredientEvidenceByFoodId,
       data.adequacyByFoodId,
+      data.adequacyUnavailable,
     ],
   );
   const filteredFoods = data.foods.filter((f) =>
@@ -251,6 +254,7 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
       const latest: DecisionWorkspaceProps = await response.json();
       if (
         !latest.available ||
+        latest.adequacyUnavailable === true ||
         !Array.isArray(latest.foods) ||
         !Array.isArray(latest.evidence) ||
         !latest.ingredientEvidenceByFoodId
@@ -262,6 +266,7 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
         evidenceByFoodId: new Map(latest.evidence),
         ingredientEvidenceByFoodId: latest.ingredientEvidenceByFoodId,
         adequacyByFoodId: latest.adequacyByFoodId,
+        adequacyUnavailable: latest.adequacyUnavailable,
       });
       setMessage(
         "현재 카탈로그로 다시 비교했습니다. 이전에 저장한 기록은 그대로 남아 있습니다.",

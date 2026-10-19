@@ -39,6 +39,8 @@ The product must do the comparison work before asking the owner to validate dema
   Restoring a saved brief must preserve the historical result.
   Rechecking against the current catalog is an explicit action and must not overwrite the saved version.
   This action must fetch fresh public rows and evidence from the server, bypass the advisor catalog cache, and retain the earlier report if retrieval fails.
+  An initial manufacturer-declaration retrieval failure must leave the base comparison usable and persist an explicit unavailable status in the report, saved rendering, and export.
+  A failed explicit refresh still preserves the earlier report and captured declarations.
 - Provide a portable downloadable brief and an explicitly labeled retailer search.
   Search is not stock, price, region, or formulation verification.
 - No required account or payment to obtain the first useful result.

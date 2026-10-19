@@ -117,10 +117,12 @@ function LabelComparison({
 function Candidate({
   candidate,
   baseline,
+  adequacyUnavailable,
   onSelect,
 }: {
   candidate: DecisionCandidate;
   baseline: Report["baseline"];
+  adequacyUnavailable: boolean;
   onSelect: (id: number) => void;
 }) {
   const { food } = candidate;
@@ -174,7 +176,10 @@ function Candidate({
         막대와 높낮이는 포장에 적힌 숫자를 비교해요. 최소·최대 보증치이므로 실제
         함량 차이나 품질의 우열을 뜻하지 않아요.
       </p>
-      <AdequacyEvidence proofs={candidate.adequacy} />
+      <AdequacyEvidence
+        proofs={candidate.adequacy}
+        unavailable={adequacyUnavailable}
+      />
       <ul className="decision-conditions">
         {candidate.conditions.map((condition) => (
           <li key={condition.key} data-state={condition.status}>
@@ -278,12 +283,14 @@ function CandidateGroup({
   description,
   candidates,
   baseline,
+  adequacyUnavailable,
   onSelect,
 }: {
   title: string;
   description: string;
   candidates: readonly DecisionCandidate[];
   baseline: Report["baseline"];
+  adequacyUnavailable: boolean;
   onSelect: (id: number) => void;
 }) {
   const [showAll, setShowAll] = useState(false);
@@ -306,6 +313,7 @@ function CandidateGroup({
                 key={c.food.id}
                 candidate={c}
                 baseline={baseline}
+                adequacyUnavailable={adequacyUnavailable}
                 onSelect={onSelect}
               />
             ))}
@@ -434,6 +442,7 @@ export function DecisionReport({
       </section>
       <CandidateGroup
         baseline={report.baseline}
+        adequacyUnavailable={report.adequacyUnavailable}
         title="먼저 비교할 후보"
         description="선호한 원료의 표기가 확인된 후보를 먼저, 그 안에서는 현재와 열량 차이가 작은 순서로 보여드립니다. 선호와 달라도 필수 조건을 통과하면 후보로 남깁니다. 건강이나 품질 순위가 아닙니다."
         candidates={report.eligible}
@@ -473,6 +482,7 @@ export function DecisionReport({
           </summary>
           <CandidateGroup
             baseline={report.baseline}
+            adequacyUnavailable={report.adequacyUnavailable}
             title="확인하면 선택지가 될 수 있는 후보"
             description="조건을 완화하지 않았습니다. 아래 질문에 답할 자료가 생기면 다시 비교할 수 있습니다."
             candidates={report.unresolved}

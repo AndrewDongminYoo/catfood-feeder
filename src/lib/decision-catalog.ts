@@ -57,6 +57,7 @@ export async function getDecisionCatalog(options: { fresh?: boolean } = {}) {
       sample: false,
     };
   let adequacyByFoodId = {};
+  let adequacyUnavailable = false;
   let ingredientEvidenceByFoodId: Record<number, IngredientProof> = {};
   if (isSupabaseConfigured() && catalog.foods.length) {
     try {
@@ -75,17 +76,20 @@ export async function getDecisionCatalog(options: { fresh?: boolean } = {}) {
     adequacyByFoodId = await getAdequacyProofs(catalog.foods.map((f) => f.id));
   } catch {
     console.error("Failed to load public adequacy evidence");
-    return {
-      available: false as const,
-      foods: [],
-      evidence: [],
-      ingredientEvidenceByFoodId: {},
-      adequacyByFoodId: {},
-      sample: false,
-    };
+    adequacyUnavailable = true;
+    if (options.fresh)
+      return {
+        available: false as const,
+        foods: [],
+        evidence: [],
+        ingredientEvidenceByFoodId: {},
+        adequacyByFoodId: {},
+        sample: false,
+      };
   }
   return {
     adequacyByFoodId,
+    adequacyUnavailable,
     available: true as const,
     foods: catalog.foods,
     evidence: [...catalog.evidenceByFoodId.entries()],

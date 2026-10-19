@@ -9,6 +9,11 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SAMPLE_FOODS } from "@/lib/fixtures";
 import type { NutrientEvidence } from "@/lib/catalog";
+import {
+  decisionSnapshotSchema,
+  exportDecisionBrief,
+} from "@/lib/food-decision";
+import { projectAdequacy } from "@/lib/adequacy-evidence";
 import { DecisionWorkspace } from "./decision-workspace";
 
 const kcal = (value: number): NutrientEvidence => ({
@@ -77,6 +82,103 @@ const originalQuestion =
   "지금 먹이는 사료와 비슷하면서 열량이 너무 높지 않은 건강한 사료를 찾고 있어요. 생선보다는 가금육을 더 좋아해요.";
 
 describe("decision workspace", () => {
+  it("keeps initial comparisons usable and preserves unavailable declarations in saved briefs", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    const data = { ...props(), adequacyUnavailable: true };
+    const view = render(<DecisionWorkspace {...data} />);
+    await prepare();
+    compare();
+    expect(screen.getByText("+5.0%")).toBeTruthy();
+    expect(
+      screen.getByText(/지금은 선언 자료를 불러오지 못했어요/),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(/확보한 자료에서 선언을 확인하지 못했어요/),
+    ).toBeNull();
+    save();
+    const saved = JSON.parse(localStorage.getItem("catfood.decisions.v1")!)[0];
+    expect(saved.report.adequacyUnavailable).toBe(true);
+    expect(exportDecisionBrief(decisionSnapshotSchema.parse(saved))).toContain(
+      "이 검토에서는 불러오지 못했습니다",
+    );
+    const legacy = structuredClone(saved);
+    delete legacy.report.adequacyUnavailable;
+    expect(
+      decisionSnapshotSchema.parse(legacy).report.adequacyUnavailable,
+    ).toBe(false);
+    view.unmount();
+    render(<DecisionWorkspace {...props()} />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /저장한 검토 불러오기/ }),
+    );
+    expect(
+      screen.getByText(/지금은 선언 자료를 불러오지 못했어요/),
+    ).toBeTruthy();
+    expect(screen.getByText("+5.0%")).toBeTruthy();
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ...props(), adequacyUnavailable: false }),
+    } as Response);
+    fireEvent.click(
+      screen.getByRole("button", { name: "현재 자료로 다시 비교하기" }),
+    );
+    await screen.findByText(
+      "현재 카탈로그로 다시 비교했습니다. 이전에 저장한 기록은 그대로 남아 있습니다.",
+    );
+    expect(
+      screen.queryByText(/지금은 선언 자료를 불러오지 못했어요/),
+    ).toBeNull();
+    expect(
+      screen.getByText(/확보한 자료에서 선언을 확인하지 못했어요/),
+    ).toBeTruthy();
+    save();
+    const refreshed = JSON.parse(localStorage.getItem("catfood.decisions.v1")!);
+    expect(refreshed[0].report.adequacyUnavailable).toBe(false);
+    expect(refreshed[1].report.adequacyUnavailable).toBe(true);
+  });
+  it.each([false, true])(
+    "preserves captured declarations when a fresh response is incomplete (HTTP ok: %s)",
+    async (ok) => {
+      const proof = projectAdequacy({
+        statement:
+          "Example Cat Food is formulated to meet the nutritional levels established by the AAFCO Cat Food Nutrient Profiles for all life stages.",
+        source_product_name: "Example Cat Food",
+        captured_at: "2026-08-08T00:00:00Z",
+        applied_by_origin: "automation",
+        food_sources: { url: "https://example.test/cat" },
+      })!;
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+      render(
+        <DecisionWorkspace {...props()} adequacyByFoodId={{ 2: [proof] }} />,
+      );
+      await prepare();
+      compare();
+      save();
+      const before = JSON.parse(
+        localStorage.getItem("catfood.decisions.v1")!,
+      )[0];
+      vi.mocked(fetch).mockResolvedValueOnce({
+        ok,
+        json: async () => ({
+          ...props(),
+          adequacyUnavailable: true,
+          adequacyByFoodId: {},
+        }),
+      } as Response);
+      fireEvent.click(
+        screen.getByRole("button", { name: "현재 자료로 다시 비교하기" }),
+      );
+      await screen.findByText(
+        /표시 중인 검토와 자료 시점은 그대로 유지했습니다/,
+      );
+      expect(screen.getByText(proof.statement)).toBeTruthy();
+      expect(screen.getByText("+5.0%")).toBeTruthy();
+      save();
+      expect(
+        JSON.parse(localStorage.getItem("catfood.decisions.v1")!)[0].report,
+      ).toEqual(before.report);
+    },
+  );
   it.each(["refresh", "sensitivity"])(
     "keeps confirmed and omitted criteria through %s",
     async (action) => {
