@@ -99,6 +99,18 @@ describe("decision question", () => {
     expect(result.maxKcalDeltaPct).toBeNull();
     expect(result.unhandled.join(" ")).toContain("열량");
   });
+  it.each([
+    "최소한 열량 차이는 8% 나는 사료",
+    "최소한 8% 이내로 열량 차이가 나는 사료",
+  ])(
+    "keeps a minimum prefix outside the matched calorie wording unresolved: %s",
+    (question) => {
+      const result = parseDecisionQuestion(question);
+      expect(result.maxKcalDeltaPct).toBeNull();
+      expect(result.clarifications).toContain("calories");
+      expect(result.unhandled.join(" ")).toContain("방향성 열량 조건");
+    },
+  );
   it("keeps unsupported nutrient ranking even beside a recognized exclusion", () => {
     expect(
       parseDecisionQuestion("닭고기 없는 고단백 사료").unhandled.join(" "),
@@ -137,6 +149,60 @@ describe("decision question", () => {
       parseDecisionQuestion("열량 차이는 2.5% 이내로요").maxKcalDeltaPct,
     ).toBe(2.5);
   });
+  it.each([0, 2.5, 8, 100])(
+    "preserves an explicit %s-percent bound before the calorie term",
+    (delta) => {
+      const question = `현재 사료와 ${delta}% 이내로 열량 차이가 나는 사료`;
+      const result = parseDecisionQuestion(question);
+      expect(result.maxKcalDeltaPct).toBe(delta);
+      expect(result.clarifications).not.toContain("calories");
+      expect(
+        validateQuestionProposal(
+          {
+            exclusions: [],
+            maxKcalDeltaPct: delta,
+            citations: [question],
+            unhandled: [],
+          },
+          question,
+        )?.maxKcalDeltaPct,
+      ).toBe(delta);
+    },
+  );
+  it("keeps an out-of-range percentage before the calorie term unresolved", () => {
+    const result = parseDecisionQuestion(
+      "101% 이내로 열량 차이를 제한해 주세요",
+    );
+    expect(result.maxKcalDeltaPct).toBeNull();
+    expect(result.clarifications).toContain("calories");
+    expect(result.unhandled.join(" ")).toContain("0~100%");
+  });
+  it.each([
+    "단백질은 30% 이상이고 현재 사료와 8% 이내로 열량 차이가 나는 사료",
+    "현재 사료와 8% 이내로 열량 차이가 나는 사료, 단백질은 30% 이상",
+    "단백질은 8% 이상이고 열량 차이는 8% 이내로 해주세요",
+    "단백질은 최소로, 열량 차이는 8% 나는 사료",
+  ])(
+    "does not veto a calorie bound because of another nutrient's direction: %s",
+    (question) => {
+      const result = parseDecisionQuestion(question);
+      expect(result.maxKcalDeltaPct).toBe(8);
+      expect(result.clarifications).not.toContain("calories");
+      expect(result.unhandled.join(" ")).toContain("보증성분");
+    },
+  );
+  it.each([
+    "단백질 8% 이하. 열량은 비슷한 사료",
+    "8% 이내의 지방을 원해요. 열량은 비슷하게요",
+    "열량은 비슷하고 단백질은 8% 이하인 사료",
+    "열량은 비슷하게요. 지방은 8% 이내로요",
+    "8% 이상 낮은 열량의 사료",
+  ])(
+    "does not reuse an unrelated or directional percentage: %s",
+    (question) => {
+      expect(parseDecisionQuestion(question).maxKcalDeltaPct).toBeNull();
+    },
+  );
   it.each(["Chicken Liver Recipe", "Chicken Heart & Liver"])(
     "does not treat an ordinary organ ingredient as clinical: %s",
     (question) =>

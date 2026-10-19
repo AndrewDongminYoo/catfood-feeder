@@ -54,13 +54,29 @@ export function parseDecisionQuestion(
       remaining = remaining.replace(new RegExp(exclude.source, "gi"), " ");
     }
   }
-  const delta = question.match(
-    /(?:열량|칼로리|kcal)[^!?。]{0,24}?\b(\d+(?:\.\d+)?)\s*%/i,
-  )?.[1];
+  const deltaMatch =
+    question.match(
+      /(?:열량|칼로리|kcal)(?:(?!단백질|지방|수분|회분|섬유|탄수|protein|fat|moisture|ash|fiber|carb)[^.!?。%]){0,24}?\b(\d+(?:\.\d+)?)\s*%/i,
+    ) ??
+    question.match(
+      /\b(\d+(?:\.\d+)?)\s*%\s*(?:이내|이하)(?:로|의)?\s*(?:열량|칼로리|kcal)/i,
+    );
+  const delta = deltaMatch?.[1];
+  const calorieCondition = deltaMatch
+    ? (question.slice(0, deltaMatch.index).match(/최소(?:한)?\s*$/)?.[0] ??
+        "") +
+      deltaMatch[0] +
+      question
+        .slice((deltaMatch.index ?? 0) + deltaMatch[0].length)
+        .split(
+          /[.!?。]|단백질|지방|수분|회분|섬유|탄수|protein|fat|moisture|ash|fiber|carb/i,
+        )[0]!
+        .slice(0, 12)
+    : "";
   const unsupportedCalorieRelation =
     delta !== undefined &&
     /\d+(?:\.\d+)?\s*%[^.!?。]{0,12}(?:이상|낮|줄|적|높|감소|증가)|(?:최소|줄|낮|감소)[^.!?。]{0,12}\d+(?:\.\d+)?\s*%/.test(
-      question,
+      calorieCondition,
     );
   const numericDelta =
     delta !== undefined && Number(delta) <= 100 && !unsupportedCalorieRelation

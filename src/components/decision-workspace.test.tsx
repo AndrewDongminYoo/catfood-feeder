@@ -82,6 +82,30 @@ const originalQuestion =
   "지금 먹이는 사료와 비슷하면서 열량이 너무 높지 않은 건강한 사료를 찾고 있어요. 생선보다는 가금육을 더 좋아해요.";
 
 describe("decision workspace", () => {
+  it("uses and saves a percentage before the calorie term instead of the ten-percent default", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    const data = props();
+    data.foods[1]!.kcal_per_kg = 4360;
+    data.evidence[1] = [2, [kcal(4360)]];
+    render(<DecisionWorkspace {...data} />);
+    await prepare("현재 사료와 8% 이내로 열량 차이가 나는 사료");
+    expect(
+      (
+        screen.getByLabelText(
+          "현재 사료와 허용할 열량 차이",
+        ) as HTMLSelectElement
+      ).value,
+    ).toBe("8");
+    compare();
+    save();
+    const saved = JSON.parse(localStorage.getItem("catfood.decisions.v1")!)[0];
+    expect(saved.report.request.maxKcalDeltaPct).toBe(8);
+    expect(saved.report.request.pendingClarifications).toEqual([]);
+    expect(saved.report.eligible).toHaveLength(0);
+    expect(
+      saved.report.excluded.map((c: { food: { id: number } }) => c.food.id),
+    ).toEqual([2]);
+  });
   it("preserves unavailable ingredient evidence in initial, saved, and exported briefs", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
     const data = { ...props(), ingredientEvidenceUnavailable: true };
