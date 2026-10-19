@@ -10,6 +10,9 @@ describe("decision question", () => {
   it.each([
     ["no chicken or fish", ["chicken", "fish"]],
     ["no chicken/fish", ["chicken", "fish"]],
+    ["no chicken nor fish", ["chicken", "fish"]],
+    ["닭고기 또는 생선을 제외해 주세요", ["chicken", "fish"]],
+    ["닭고기 혹은 생선을 제외해 주세요", ["chicken", "fish"]],
     ["no chicken & fish", ["chicken", "fish"]],
     ["닭고기랑 생선을 빼주세요", ["chicken", "fish"]],
     ["닭이랑 생선을 빼주세요", ["chicken", "fish"]],
@@ -50,6 +53,14 @@ describe("decision question", () => {
       "제외",
     );
   });
+  it.each(["no chicken ~ fish", "닭고기 내지는 생선을 빼주세요"])(
+    "does not silently drop an adjacent ingredient with unknown list grammar: %s",
+    (question) => {
+      expect(parseDecisionQuestion(question).unhandled.join(" ")).toContain(
+        "제외",
+      );
+    },
+  );
   it.each([
     "닭고기와 소고기는 빼지 않아도 돼요",
     "닭고기와 생선은 제외하지 마세요",
@@ -416,6 +427,7 @@ describe("decision question", () => {
 it.each([
   ["열량 차이 10% 이내이고 작은 알갱이 사료를 추천해 주세요", "알갱이"],
   ["현재보다 열량이 낮지 않은 사료", "방향성 열량 조건"],
+  ["no chicken ~ fish, 열량 차이는 8% 이내", "제외"],
 ])(
   "keeps unsupported requirements unresolved until explicitly omitted: %s",
   (question, expected) => {

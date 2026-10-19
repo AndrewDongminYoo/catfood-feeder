@@ -43,7 +43,7 @@ export function parseDecisionQuestion(
   const knownName = Object.values(NAMES).join("|");
   // Unknown list members stay visible instead of disappearing beside known ones.
   const item = `(?!(?:no|without|and|or)\\b)(?:(?:${knownName})(?:고기)?|[a-z]+|[가-힣]+)(?![a-z])`;
-  const separator = String.raw`\s*(?:,\s*(?:(?:and|or|및|그리고)\s+)?|[/&]\s*|\b(?:and|or)\b\s*|(?:이랑|랑|하고|와|과|및|그리고)\s*)`;
+  const separator = String.raw`\s*(?:,\s*(?:(?:and|or|nor|및|그리고|또는|혹은)\s+)?|[/&]\s*|\b(?:and|or|nor)\b\s*|(?:이랑|랑|하고|와|과|및|그리고|또는|혹은)\s*)`;
   const list = `${item}(?:${separator}${item})*`;
   const negativeAction = String.raw`빼지|제외하지|피하지|안\s*빼|괜찮|상관없`;
   const korean = new RegExp(
@@ -71,7 +71,7 @@ export function parseDecisionQuestion(
       if (key) (negated ? permitted : exclusions).add(key);
       else if (!negated) incompleteExclusions = true;
     }
-    remaining = remaining.replace(match[0], " ");
+    remaining = remaining.replace(match[0], "\0");
   };
   for (const match of question.matchAll(korean))
     record(
@@ -94,6 +94,15 @@ export function parseDecisionQuestion(
   for (const key of permitted) {
     if (exclusions.delete(key)) incompleteExclusions = true;
   }
+  const residualName = `(?<![a-z])(?:${knownName})(?:고기)?(?![a-z])`;
+  const unknownJoin = String.raw`\s*(?:[a-z가-힣]+|[^\p{L}\p{N}\s.!?。;\0])\s*`;
+  if (
+    new RegExp(
+      `${residualName}${unknownJoin}\0|\0${unknownJoin}${residualName}`,
+      "iu",
+    ).test(remaining)
+  )
+    incompleteExclusions = true;
   const deltaMatch =
     question.match(
       /(?:열량|칼로리|kcal)(?:\s*(?:차이|밀도|는|은|이|가|를|을|의|도|현재|사료|보다|와|대비|최대|최소한|최소|약|만)){0,12}\s*\b(\d+(?:\.\d+)?)\s*%/i,
