@@ -44,8 +44,8 @@ export async function loadDecisionIngredientProofs(
   return result;
 }
 
-export async function getDecisionCatalog() {
-  const catalog = await getAdvisorCatalog();
+export async function getDecisionCatalog(options: { fresh?: boolean } = {}) {
+  const catalog = await getAdvisorCatalog(options);
   if (!catalog.available)
     return {
       available: false as const,

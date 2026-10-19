@@ -13,6 +13,9 @@ The product must do the comparison work before asking the owner to validate dema
   Explicitly stop disease-specific, prescription, kitten, and pregnancy requests rather than infer suitability.
 - Accept a natural-language question, current food, optional manual baseline when the food is missing, ingredient exclusions, and a maximum calorie-density change.
 - Translate the question into visible, editable conditions before evaluation.
+  Preserve explicit calorie-density tolerance numbers from 0 to 100%.
+  Ask the owner to confirm the meaning of qualitative calorie preferences and poultry-first ingredient order.
+  Ingredient order does not predict taste or establish the proportion of meat.
   AI proposes conditions and identifies unsupported requests; deterministic code evaluates catalog evidence.
   An unavailable model must leave a fully usable structured form and explain the fallback.
 - Separate conditions met, conditions failed, and conditions that cannot be determined.
@@ -28,6 +31,7 @@ The product must do the comparison work before asking the owner to validate dema
 - Save the exact brief, conditions, source excerpts, and selection reason on this browser.
   Restoring a saved brief must preserve the historical result.
   Rechecking against the current catalog is an explicit action and must not overwrite the saved version.
+  This action must fetch fresh public rows and evidence from the server, bypass the advisor catalog cache, and retain the earlier report if retrieval fails.
 - Provide a portable downloadable brief and an explicitly labeled retailer search.
   Search is not stock, price, region, or formulation verification.
 - No required account or payment to obtain the first useful result.

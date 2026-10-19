@@ -339,16 +339,17 @@ const loadCachedPublicFoods = unstable_cache(
   { revalidate: 3600, tags: ["public-foods"] },
 );
 
+const loadAdvisorCatalogRows = async () => {
+  const supabase = createPublicClient();
+  const foods = await loadPublicFoods(supabase);
+  const evidenceRows = await loadPublicFoodEvidence(
+    supabase,
+    foods.map((food) => food.id),
+  );
+  return { foods, evidenceRows };
+};
 const loadCachedAdvisorCatalogRows = unstable_cache(
-  async () => {
-    const supabase = createPublicClient();
-    const foods = await loadPublicFoods(supabase);
-    const evidenceRows = await loadPublicFoodEvidence(
-      supabase,
-      foods.map((food) => food.id),
-    );
-    return { foods, evidenceRows };
-  },
+  loadAdvisorCatalogRows,
   ["public-advisor-catalog"],
   { revalidate: 3600, tags: ["public-foods"] },
 );
@@ -370,7 +371,9 @@ export async function getFoods(): Promise<FoodWithBrand[]> {
   }
 }
 
-export async function getAdvisorCatalog(): Promise<AdvisorCatalogLoadResult> {
+export async function getAdvisorCatalog(
+  options: { fresh?: boolean } = {},
+): Promise<AdvisorCatalogLoadResult> {
   if (!isSupabaseConfigured()) {
     const [sampleFood] = SAMPLE_ADVISOR_FOODS;
     return {
@@ -383,7 +386,9 @@ export async function getAdvisorCatalog(): Promise<AdvisorCatalogLoadResult> {
   }
 
   try {
-    const { foods, evidenceRows } = await loadCachedAdvisorCatalogRows();
+    const { foods, evidenceRows } = await (options.fresh
+      ? loadAdvisorCatalogRows()
+      : loadCachedAdvisorCatalogRows());
     return {
       available: true,
       foods,

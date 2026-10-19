@@ -65,6 +65,17 @@ function catalog() {
 }
 
 describe("ingredient exclusion", () => {
+  it.each([
+    ["밀", "grain", "failed"],
+    ["flounder", "fish", "failed"],
+    ["hydrolyzed liver", "chicken", "unknown"],
+    ["blood meal", "chicken", "unknown"],
+  ] as const)("classifies %s conservatively", (name, exclusion, expected) => {
+    expect(
+      assessIngredientExclusion([{ name, position: 1 }], exclusion, true)
+        .status,
+    ).toBe(expected);
+  });
   it.each(["cereals", "곡물", "곡류", "unidentified grain protein"])(
     "rejects the declared grain family %s",
     (name) => {
@@ -130,6 +141,79 @@ describe("ingredient exclusion", () => {
 });
 
 describe("food decision", () => {
+  it("keeps poultry label order unknown when an earlier animal organ has no named species", () => {
+    const input = catalog();
+    input.foods[1]!.ingredients = [
+      { name: "hydrolyzed liver", position: 1 },
+      { name: "Chicken", position: 2 },
+      { name: "Salmon", position: 3 },
+    ];
+    input.ingredientEvidenceByFoodId[2]!.excerpt =
+      "hydrolyzed liver, Chicken, Salmon";
+    const report = buildFoodDecision(input, {
+      ...request,
+      exclusions: [],
+      poultryFirst: true,
+    });
+    expect(report.unresolved.map((c) => c.food.id)).toContain(2);
+  });
+  it("does not call an empty set of conditions a successful comparison", () => {
+    expect(
+      buildFoodDecision(catalog(), {
+        ...request,
+        exclusions: [],
+        maxKcalDeltaPct: null,
+      }).status,
+    ).toBe("conditions_missing");
+  });
+  it("keeps unconfirmed qualitative conditions unresolved", () => {
+    const result = buildFoodDecision(catalog(), {
+      ...request,
+      pendingClarifications: ["calories"],
+    });
+    expect(result.eligible).toHaveLength(0);
+    expect(
+      result.unresolved[0]?.conditions.some(
+        (c) => c.key === "clarify-calories",
+      ),
+    ).toBe(true);
+  });
+  it("uses the exact eight-percent limit and a separately confirmed calorie ceiling", () => {
+    const input = catalog();
+    input.foods[1]!.kcal_per_kg = 4360;
+    input.evidenceByFoodId.set(2, [evidence(4360)]);
+    expect(
+      buildFoodDecision(input, { ...request, maxKcalDeltaPct: 8 }).eligible,
+    ).toHaveLength(0);
+    expect(
+      buildFoodDecision(catalog(), { ...request, notHigherKcal: true })
+        .eligible,
+    ).toHaveLength(0);
+  });
+  it("compares confirmed poultry-first label order without predicting taste", () => {
+    const input = catalog();
+    input.foods[1]!.ingredients = [
+      { name: "Chicken", position: 1 },
+      { name: "Salmon", position: 2 },
+    ];
+    input.ingredientEvidenceByFoodId[2]!.excerpt = "Chicken, Salmon";
+    input.foods[3]!.ingredients = [
+      { name: "animal meal", position: 1 },
+      { name: "peas", position: 2 },
+    ];
+    input.ingredientEvidenceByFoodId[4]!.excerpt = "animal meal, peas";
+    const result = buildFoodDecision(input, {
+      ...request,
+      exclusions: [],
+      poultryFirst: true,
+    });
+    expect(result.eligible.map((c) => c.food.id)).toEqual([2]);
+    expect(
+      result.eligible[0]?.conditions.find((c) => c.key === "poultry-first")
+        ?.detail,
+    ).toContain("Chicken");
+    expect(result.excluded.map((c) => c.food.id)).toContain(3);
+  });
   it("preserves each side's literal nutrient bounds and supporting quote in the brief", () => {
     const input = catalog();
     input.foods[1]!.protein_pct = 32;
@@ -157,6 +241,8 @@ describe("food decision", () => {
     });
   });
   it.each([
+    "8주령 고양이에게 먹일 사료",
+    "CKD 고양이 사료 추천",
     "새끼 고양이에게 먹일 사료",
     "생후 3개월 고양이 사료",
     "심장병 고양이에게 먹일 사료",
@@ -191,6 +277,20 @@ describe("food decision", () => {
     expect(text).toContain("Recipe 3");
     expect(text).toContain("열량 차이 5% 이내");
     expect(text).toContain("조건 불충족");
+  });
+  it("exports the calorie evidence for both sides of the comparison", () => {
+    const input = catalog();
+    input.evidenceByFoodId.get(1)![0]!.source.url =
+      "https://manufacturer.test/baseline";
+    const text = exportDecisionBrief({
+      version: 1,
+      report: buildFoodDecision(input, request),
+      selectedFoodId: null,
+      reason: "",
+    });
+    expect(text).toContain("https://manufacturer.test/baseline");
+    expect(text).toContain("4000 kcal/kg");
+    expect(text).toContain("2026-10-01T00:00:00Z");
   });
   it("does not offer kitten or explicitly therapeutic products to an adult non-prescription request", () => {
     const input = catalog();

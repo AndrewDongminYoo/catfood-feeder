@@ -3,6 +3,10 @@
 Date: 2026-10-18.
 Scope: The consumer question-to-decision flow approved in this session.
 
+This receipt records the checks performed on 2026-10-18, not a current release approval.
+The 2026-10-19 adversarial review found untested interpretation, ingredient, clinical, restore, refresh, and export defects after this receipt was written.
+See the [review repair record](2026-10-19-adversarial-decision-repair.md) for the corrected acceptance evidence.
+
 ## Delivered behavior
 
 The application starts at `/advisor` with a question, current-food selection or manual calorie baseline, ingredient-label exclusions, and an editable calorie-density tolerance.

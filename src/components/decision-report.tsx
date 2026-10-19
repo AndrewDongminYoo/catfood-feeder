@@ -89,7 +89,7 @@ function Candidate({
         <section className="decision-questions">
           <h4>선택 전에 풀어야 할 질문</h4>
           <ul>
-            {candidate.questions.map((q) => (
+            {[...new Set(candidate.questions)].map((q) => (
               <li key={q}>{q}</li>
             ))}
           </ul>
@@ -228,11 +228,13 @@ export function DecisionReport({
   historical,
   onSelect,
   onToleranceChange,
+  comparisonDisabled = false,
 }: {
   report: Report;
   historical: boolean;
   onSelect: (id: number) => void;
-  onToleranceChange: (delta: 5 | 10 | 15) => void;
+  onToleranceChange: (delta: number) => void;
+  comparisonDisabled?: boolean;
 }) {
   if (report.status === "outside_scope")
     return (
@@ -255,6 +257,16 @@ export function DecisionReport({
         <p>
           목록에서 고르거나 ‘목록에 없는 사료’를 선택해 포장에 적힌 이름을
           입력해 주세요.
+        </p>
+      </section>
+    );
+  if (report.status === "conditions_missing")
+    return (
+      <section className="card" role="status">
+        <h2>비교 기준을 먼저 정해주세요</h2>
+        <p>
+          열량 차이나 원재료 표기 조건을 하나 이상 정해주세요. 조건이 없는
+          목록을 질문에 맞는 후보라고 표시하지 않습니다.
         </p>
       </section>
     );
@@ -328,7 +340,7 @@ export function DecisionReport({
               type="button"
               key={s.maxKcalDeltaPct}
               className="ghost"
-              disabled={historical}
+              disabled={historical || comparisonDisabled}
               onClick={() =>
                 onToleranceChange(s.maxKcalDeltaPct as 5 | 10 | 15)
               }

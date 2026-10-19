@@ -48,6 +48,8 @@ Do not relax RLS to provide this projection.
 
 Saved briefs live in browser storage and preserve original evidence and results.
 Rechecking is explicit and does not overwrite an older saved snapshot.
+`/api/advisor/catalog` bypasses the advisor cache for that explicit fresh read and sends a no-store response.
+Qualitative calorie and poultry-order requests remain pending until the owner confirms the corresponding comparison rules.
 There is no consumer-triggered background web investigation, automatic monitoring, verified seller availability, or payment integration in this slice.
 Legacy `/advisor?current=...` links retain their earlier deterministic behavior.
 

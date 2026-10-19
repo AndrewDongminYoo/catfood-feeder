@@ -29,15 +29,16 @@ export const decisionRequestSchema = z.object({
   manualCurrentName: z.string().trim().max(160),
   manualKcal: z.number().finite().min(500).max(10000).nullable(),
   exclusions: z.array(exclusionSchema).max(7),
-  maxKcalDeltaPct: z.union([
-    z.literal(5),
-    z.literal(10),
-    z.literal(15),
-    z.null(),
-  ]),
+  maxKcalDeltaPct: z.number().finite().min(0).max(100).nullable(),
+  notHigherKcal: z.boolean().default(false),
+  poultryFirst: z.boolean().default(false),
+  pendingClarifications: z
+    .array(z.enum(["calories", "poultry"]))
+    .max(2)
+    .default([]),
   adultNonPrescription: z.boolean(),
-  unresolvedRequirements: z.array(z.string().max(500)).max(12).default([]),
-  ignoredRequirements: z.array(z.string().max(500)).max(12).default([]),
+  unresolvedRequirements: z.array(z.string().max(500)).max(24).default([]),
+  ignoredRequirements: z.array(z.string().max(500)).max(24).default([]),
   scopeConcern: z.boolean().default(false),
 });
 export type DecisionRequest = z.input<typeof decisionRequestSchema>;
@@ -120,7 +121,12 @@ export type DecisionCandidate = z.infer<typeof candidateSchema>;
 const reportSchema = z.object({
   createdAt: z.string(),
   request: decisionRequestSchema,
-  status: z.enum(["ready", "outside_scope", "baseline_missing"]),
+  status: z.enum([
+    "ready",
+    "outside_scope",
+    "baseline_missing",
+    "conditions_missing",
+  ]),
   baseline: z.object({
     name: z.string(),
     kcal: z.number().finite().nullable(),
@@ -150,15 +156,28 @@ const MATCHERS: Record<IngredientExclusion, RegExp> = {
   duck: /\bduck\b|오리/i,
   beef: /\bbeef\b|\bbovine\b|소고기|쇠고기|우육|우지/i,
   lamb: /\blamb\b|\bmutton\b|양고기|양육/i,
-  fish: /\b(?:fish|salmon|tuna|trout|cod|herring|sardine|anchovy|mackerel|hake|pollock|whitefish|menhaden)\b|생선|어류|어분|어유|연어|참치|송어|대구|청어|정어리|멸치|고등어|명태/i,
+  fish: /\b(?:fish|salmon|tuna|trout|cod|herring|sardine|anchovy|mackerel|hake|pollock|whitefish|menhaden|flounder|halibut|sole|carp|tilapia|sea\s*bass)\b|생선|어류|어분|어유|연어|참치|송어|대구|청어|정어리|멸치|고등어|명태|가자미|광어|넙치|잉어|농어/i,
   grain:
-    /\b(?:grains?|cereals?|rice|wheat|barley|oats?|corn|maize|rye|millet|sorghum|spelt)\b|곡물|곡류|쌀|현미|백미|밀가루|보리|귀리|옥수수|호밀|수수|기장/i,
+    /\b(?:grains?|cereals?|rice|wheat|barley|oats?|corn|maize|rye|millet|sorghum|spelt)\b|곡물|곡류|쌀|현미|백미|밀가루|보리|귀리|옥수수|호밀|수수|기장|^밀(?:$|\s|분|단백|글루텐|전분)/i,
 };
 const GENERIC_ANIMAL =
   /\b(?:animal|meat|digest)\b|\bnatural\s+flavou?rs?\b|육류|동물성|천연향미|가수분해\s*단백/i;
 const GENERIC_POULTRY = /\bpoultry\b|\bfowl\b|가금/i;
 const UNSPECIFIED_DERIVATIVE =
   /^(?:(?:hydroly[sz]ed|dried|dehydrated|natural)\s+)*(?:protein|fat|oil|flavou?r|flavou?ring|stock|broth)s?$|^가수분해\s*단백질?$|^단백질$|^지방$/i;
+
+function isUnspecifiedAnimal(name: string): boolean {
+  return (
+    GENERIC_ANIMAL.test(name) ||
+    UNSPECIFIED_DERIVATIVE.test(name.trim()) ||
+    (/\b(?:liver|blood|heart|organ|offal|kidney|bone|plasma)\b|내장|혈분|골분|혈장|^간$/i.test(
+      name,
+    ) &&
+      !Object.entries(MATCHERS).some(
+        ([family, matcher]) => family !== "grain" && matcher.test(name),
+      ))
+  );
+}
 
 export function assessIngredientExclusion(
   ingredients: readonly Ingredient[],
@@ -177,8 +196,7 @@ export function assessIngredientExclusion(
   const broad = ingredients.filter(
     (i) =>
       exclusion !== "grain" &&
-      (GENERIC_ANIMAL.test(i.name) ||
-        UNSPECIFIED_DERIVATIVE.test(i.name.trim()) ||
+      (isUnspecifiedAnimal(i.name) ||
         (["chicken", "turkey", "duck"].includes(exclusion) &&
           GENERIC_POULTRY.test(i.name))),
   );
@@ -201,7 +219,7 @@ export function assessIngredientExclusion(
 }
 
 export function isClinicalDecisionQuestion(question: string): boolean {
-  return /처방|신장|신부전|당뇨|췌장|요로|결석|질환|질병|심장병|심근|갑상선|간질환|장염|HCM|알레르기\s*(?:치료|진단)|키튼|자묘|새끼\s*고양이|아기\s*고양이|성장기|생후\s*(?:[0-9]|1[01])\s*개월|\b(?:[0-9]|1[01])\s*개월\s*(?:령|된|짜리|고양이|이에요|입니다)|임신|수유|kitten|prescription|renal|kidney|diabet|pregnan|lactat/i.test(
+  return /처방|신장|신부전|당뇨|췌장|요로|결석|질환|질병|심장병|심근|갑상선|간질환|장염|HCM|CKD|IBD|알레르기\s*(?:치료|진단)|키튼|자묘|새끼\s*고양이|아기\s*고양이|성장기|\d+\s*주령|\d+\s*(?:weeks?\s*old|주\s*(?:된|짜리))|생후\s*(?:[0-9]|1[01])\s*개월|\b(?:[0-9]|1[01])\s*개월\s*(?:령|된|짜리|고양이|이에요|입니다)|임신|수유|kitten|prescription|renal|kidney|diabet|pregnan|lactat/i.test(
     question,
   );
 }
@@ -309,6 +327,15 @@ export function buildFoodDecision(
     return { ...report, status: "outside_scope" };
   if (!current && !request.manualCurrentName)
     return { ...report, status: "baseline_missing" };
+  if (
+    !request.exclusions.length &&
+    request.maxKcalDeltaPct === null &&
+    !request.notHigherKcal &&
+    !request.poultryFirst &&
+    !request.unresolvedRequirements.length &&
+    !request.pendingClarifications.length
+  )
+    return { ...report, status: "conditions_missing" };
   const candidates = catalog.foods
     .filter(
       (f) =>
@@ -349,6 +376,44 @@ export function buildFoodDecision(
           ingredientEvidence !== null,
         ),
       );
+      for (const key of request.pendingClarifications)
+        conditions.push({
+          key: `clarify-${key}`,
+          label:
+            key === "calories"
+              ? "열량 기준 확인"
+              : "가금육 선호의 비교 기준 확인",
+          status: "unknown",
+          detail:
+            "질문 아래의 확인 항목에서 이번 비교 기준을 먼저 확정해 주세요.",
+        });
+      if (request.poultryFirst) {
+        const poultry = food.ingredients.find(
+          (i) =>
+            MATCHERS.chicken.test(i.name) ||
+            MATCHERS.turkey.test(i.name) ||
+            MATCHERS.duck.test(i.name) ||
+            GENERIC_POULTRY.test(i.name),
+        );
+        const fish = food.ingredients.find((i) => MATCHERS.fish.test(i.name));
+        const ambiguous = food.ingredients.some((i) =>
+          isUnspecifiedAnimal(i.name),
+        );
+        conditions.push({
+          key: "poultry-first",
+          label: "가금육이 생선보다 먼저 표기",
+          status:
+            !ingredientEvidence || ambiguous
+              ? "unknown"
+              : poultry && (!fish || poultry.position < fish.position)
+                ? "met"
+                : "failed",
+          detail:
+            !ingredientEvidence || ambiguous
+              ? "전체 원재료 근거나 동물성 원료의 종류를 확인해야 합니다."
+              : `가금육: ${poultry ? `${poultry.position}번째 ${poultry.name}` : "표기 없음"} · 생선: ${fish ? `${fish.position}번째 ${fish.name}` : "표기 없음"}. 기호성과 함량 비율을 예측하지 않습니다.`,
+        });
+      }
       for (const [
         index,
         requirement,
@@ -374,14 +439,31 @@ export function buildFoodDecision(
               ? "현재 사료와 후보의 열량을 같은 kcal/kg 기준으로 확인해야 합니다."
               : `현재 대비 ${kcalDeltaPct > 0 ? "+" : ""}${kcalDeltaPct.toFixed(1)}%`,
         });
+      if (request.notHigherKcal)
+        conditions.push({
+          key: "kcal-ceiling",
+          label: "현재 사료보다 높지 않은 열량",
+          status:
+            kcalDeltaPct === null
+              ? "unknown"
+              : kcalDeltaPct <= 0
+                ? "met"
+                : "failed",
+          detail:
+            kcalDeltaPct === null
+              ? "두 사료의 열량 근거를 확인해야 합니다."
+              : `현재 대비 ${kcalDeltaPct > 0 ? "+" : ""}${kcalDeltaPct.toFixed(1)}%`,
+        });
       const questions = conditions
         .filter((c) => c.status === "unknown")
         .map((c) =>
-          c.key.startsWith("unsupported-")
+          c.key.startsWith("unsupported-") || c.key.startsWith("clarify-")
             ? c.detail
-            : c.key === "kcal"
-              ? `포장 또는 제조사 자료에서 ${baseline.kcal === null ? "현재 사료와 " : ""}이 제품의 열량(kcal/kg) 표기를 확인할 수 있나요?`
-              : `제조사 또는 수입사에 ${EXCLUSION_LABELS[c.key as IngredientExclusion]} 유래 원료 여부와 전체 원재료 목록을 확인해 주세요. (${c.detail})`,
+            : c.key === "poultry-first"
+              ? "전체 원재료에서 가금육과 생선의 표기 순서 및 종 미상 동물성 원료를 확인해 주세요."
+              : c.key === "kcal" || c.key === "kcal-ceiling"
+                ? `포장 또는 제조사 자료에서 ${baseline.kcal === null ? "현재 사료와 " : ""}이 제품의 열량(kcal/kg) 표기를 확인할 수 있나요?`
+                : `제조사 또는 수입사에 ${EXCLUSION_LABELS[c.key as IngredientExclusion]} 유래 원료 여부와 전체 원재료 목록을 확인해 주세요. (${c.detail})`,
         );
       if (!kcalProof && request.maxKcalDeltaPct === null)
         questions.push(
@@ -465,6 +547,11 @@ export function exportDecisionBrief(snapshot: DecisionSnapshot): string {
     `질문: ${report.request.question || "입력한 조건으로 비교"}`,
     `현재 사료: ${report.baseline.name}`,
     `현재 열량: ${report.baseline.kcal ?? "미확인"} kcal/kg (${report.baseline.origin === "owner" ? "직접 입력" : "카탈로그 근거"})`,
+    ...(report.baseline.evidence
+      ? [
+          `현재 열량 근거: ${report.baseline.evidence.excerpt} (${report.baseline.evidence.captured_at}) ${report.baseline.evidence.source.url}`,
+        ]
+      : []),
     `선택한 후보: ${selected ? `${selected.food.brand} ${selected.food.product_name}` : "아직 선택하지 않음"}`,
     `선택 또는 보류 이유: ${snapshot.reason || "미기록"}`,
     ...report.baseline.labelFacts.map(
@@ -473,6 +560,8 @@ export function exportDecisionBrief(snapshot: DecisionSnapshot): string {
     ),
     `요청한 원재료 제외: ${report.request.exclusions.map((x) => EXCLUSION_LABELS[x]).join(", ") || "없음"}`,
     `허용 열량 차이: ${report.request.maxKcalDeltaPct === null ? "제한 없음" : `${report.request.maxKcalDeltaPct}% 이내`}`,
+    `현재 열량 이하 조건: ${report.request.notHigherKcal ? "적용" : "미적용"}`,
+    `가금육이 생선보다 먼저 표기된 조건: ${report.request.poultryFirst ? "적용 (기호성 예측 아님)" : "미적용"}`,
     ...report.request.ignoredRequirements.map(
       (r) => `사용자가 이번 비교 범위에서 제외한 요구: ${r}`,
     ),

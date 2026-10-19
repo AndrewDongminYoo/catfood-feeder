@@ -5,6 +5,47 @@ import {
 } from "./decision-question";
 
 describe("decision question", () => {
+  it("does not invert a minimum calorie reduction into a maximum difference", () => {
+    const result = parseDecisionQuestion("열량이 현재보다 10% 이상 낮은 사료");
+    expect(result.maxKcalDeltaPct).toBeNull();
+    expect(result.unhandled.join(" ")).toContain("열량");
+  });
+  it("keeps unsupported nutrient ranking even beside a recognized exclusion", () => {
+    expect(
+      parseDecisionQuestion("닭고기 없는 고단백 사료").unhandled.join(" "),
+    ).toContain("보증성분");
+  });
+  it("preserves an unsupported exclusion beside a recognized exclusion", () => {
+    expect(
+      parseDecisionQuestion(
+        "닭고기 없는 사료로, 돼지고기도 제외해 주세요",
+      ).unhandled.join(" "),
+    ).toContain("제외");
+  });
+  it("keeps an unrecognized free-text preference unresolved", () => {
+    expect(
+      parseDecisionQuestion("작은 알갱이로 추천해 주세요").unhandled.length,
+    ).toBeGreaterThan(0);
+  });
+  it("retains the exact requested calorie tolerance rather than defaulting to ten", () => {
+    expect(
+      parseDecisionQuestion("열량 차이는 8% 이내로 해주세요").maxKcalDeltaPct,
+    ).toBe(8);
+    expect(
+      parseDecisionQuestion("열량 차이는 2.5% 이내로요").maxKcalDeltaPct,
+    ).toBe(2.5);
+  });
+  it("asks for calorie and poultry-label confirmation for the owner's actual question", () => {
+    const result = parseDecisionQuestion(
+      "지금 먹이는 사료와 비슷하면서 열량이 너무 높지 않은 건강한 사료를 찾고 있어요. 생선보다는 가금육을 더 좋아해요.",
+    );
+    expect(result).toMatchObject({
+      clarifications: ["calories", "poultry"],
+      notHigherKcal: true,
+    });
+    expect(result.unhandled.join(" ")).toContain("건강");
+    expect(result.exclusions).toEqual([]);
+  });
   it("extracts explicit exclusions and a supported calorie tolerance", () => {
     expect(
       parseDecisionQuestion(

@@ -33,6 +33,8 @@ Nutrient interval simulation requires evidence-backed bounds and is not implemen
 
 1. Describe the current food and the reason for changing it.
 2. Confirm or edit ingredient exclusions and the permitted calorie-density change.
+   Clarify qualitative calorie wording and whether poultry preference should mean poultry appearing before fish in the declared ingredient order.
+   Preserve an explicit numerical limit exactly.
 3. Read candidates in three distinct sets: conditions met, unresolved, and conditions failed.
 4. Inspect source excerpts, original ingredient wording and order, capture dates, tradeoffs, and the next concrete question.
 5. Select or defer a candidate and save the exact brief with a reason.
@@ -83,4 +85,5 @@ The public experience must expose its own missing evidence rather than advertise
 The local AI interpreter uses the existing Anthropic integration with a durable site-wide daily budget; structured conditions remain usable if it is unavailable.
 It interprets questions and does not perform a fresh consumer-initiated web investigation.
 Saved briefs live in this browser and can be exported; they are not account-synced or monitored in the background.
+Explicit rechecks read fresh server catalog data and preserve a historical brief if that read fails.
 Retailer search is not verified availability, an affiliate integration, or a price comparison.

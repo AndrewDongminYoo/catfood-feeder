@@ -7,16 +7,14 @@ import {
   EXCLUSION_LABELS,
   buildFoodDecision,
   decisionSnapshotSchema,
+  decisionRequestSchema,
   exportDecisionBrief,
   type DecisionRequest,
   type DecisionSnapshot,
   type IngredientProof,
   type IngredientExclusion,
 } from "@/lib/food-decision";
-import {
-  parseDecisionQuestion,
-  type QuestionInterpretation,
-} from "@/lib/decision-question";
+import { parseDecisionQuestion } from "@/lib/decision-question";
 import { DecisionReport } from "./decision-report";
 
 const STORAGE_KEY = "catfood.decisions.v1";
@@ -63,8 +61,10 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
   );
   const [search, setSearch] = useState("");
   const [manual, setManual] = useState(false);
-  const [interpretation, setInterpretation] =
-    useState<QuestionInterpretation | null>(null);
+  const [refreshed, setRefreshed] = useState<DecisionWorkspaceProps | null>(
+    null,
+  );
+  const data = refreshed ?? props;
   const [interpretedQuestion, setInterpretedQuestion] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -78,19 +78,25 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
   const saved = useMemo(() => parseSaved(storage), [storage]);
   const catalog = useMemo(
     () => ({
-      foods: props.foods,
-      evidenceByFoodId: new Map(props.evidence),
-      ingredientEvidenceByFoodId: props.ingredientEvidenceByFoodId,
+      foods: data.foods,
+      evidenceByFoodId: new Map(data.evidence),
+      ingredientEvidenceByFoodId: data.ingredientEvidenceByFoodId,
     }),
-    [props.foods, props.evidence, props.ingredientEvidenceByFoodId],
+    [data.foods, data.evidence, data.ingredientEvidenceByFoodId],
   );
-  const filteredFoods = props.foods.filter((f) =>
+  const filteredFoods = data.foods.filter((f) =>
     `${f.brands?.name ?? ""} ${f.product_name}`
       .toLowerCase()
       .includes(search.trim().toLowerCase()),
   );
   const needsInterpretation =
     request.question.trim() !== "" && interpretedQuestion !== request.question;
+  const parsedRequest = decisionRequestSchema.safeParse(request);
+  const conditionsChanged =
+    snapshot !== null &&
+    (!parsedRequest.success ||
+      JSON.stringify(parsedRequest.data) !==
+        JSON.stringify(snapshot.report.request));
 
   function update<K extends keyof DecisionRequest>(
     key: K,
@@ -105,7 +111,7 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
     setMessage("질문에 담긴 조건을 읽고 있습니다.");
     let result = parseDecisionQuestion(question);
     let notice =
-      "질문에서 읽은 조건을 표시했습니다. 빠진 조건은 아래에서 직접 선택해 주세요.";
+      "AI로 질문 전체를 해석하지 못해 기본 조건만 읽었습니다. 확인할 요구와 기준을 아래에서 확인해 주세요.";
     try {
       const response = await fetch("/api/advisor/question", {
         method: "POST",
@@ -127,7 +133,6 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
     } catch {
       /* 질문과 직접 입력 경로는 그대로 유지한다. */
     }
-    setInterpretation(result);
     setInterpretedQuestion(question);
     setRequest((r) => ({
       ...r,
@@ -136,14 +141,17 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
       unresolvedRequirements: result.unhandled,
       ignoredRequirements: [],
       scopeConcern: result.outsideScope,
+      pendingClarifications: result.clarifications,
+      notHigherKcal: result.notHigherKcal,
+      poultryFirst: result.clarifications.includes("poultry"),
     }));
     setMessage(notice);
     setBusy(false);
   }
-  function evaluate(input: DecisionRequest) {
+  function evaluate(input: DecisionRequest, currentCatalog = catalog) {
     setSnapshot({
       version: 1,
-      report: buildFoodDecision(catalog, input),
+      report: buildFoodDecision(currentCatalog, input),
       selectedFoodId: null,
       reason: "",
     });
@@ -151,6 +159,41 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
     setMessage(
       "입력한 조건으로 비교했습니다. 충족한 조건과 확인할 질문을 함께 읽어주세요.",
     );
+  }
+  async function recheck() {
+    if (!snapshot || busy) return;
+    setBusy(true);
+    setMessage("현재 카탈로그 자료를 다시 읽고 있습니다.");
+    try {
+      const response = await fetch("/api/advisor/catalog", {
+        cache: "no-store",
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (!response.ok) throw new Error("catalog unavailable");
+      const latest: DecisionWorkspaceProps = await response.json();
+      if (
+        !latest.available ||
+        !Array.isArray(latest.foods) ||
+        !Array.isArray(latest.evidence) ||
+        !latest.ingredientEvidenceByFoodId
+      )
+        throw new Error("invalid catalog");
+      setRefreshed(latest);
+      evaluate(request, {
+        foods: latest.foods,
+        evidenceByFoodId: new Map(latest.evidence),
+        ingredientEvidenceByFoodId: latest.ingredientEvidenceByFoodId,
+      });
+      setMessage(
+        "현재 카탈로그로 다시 비교했습니다. 이전에 저장한 기록은 그대로 남아 있습니다.",
+      );
+    } catch {
+      setMessage(
+        "현재 자료를 읽지 못했습니다. 표시 중인 검토와 자료 시점은 그대로 유지했습니다. 다시 시도해 주세요.",
+      );
+    } finally {
+      setBusy(false);
+    }
   }
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -225,13 +268,13 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
           <a href="#decision-saved">저장한 검토 {saved.length}개 보기 ↓</a>
         </aside>
       </header>
-      {!props.available && (
+      {!data.available && (
         <div className="err" role="alert">
           사료 자료를 불러오지 못했습니다. 페이지를 새로고침해 다시 시도해
           주세요. 저장한 검토는 아래에서 볼 수 있습니다.
         </div>
       )}
-      {props.sample && (
+      {data.sample && (
         <div className="notice">
           샘플 자료를 보고 있습니다. 실제 구매 후보를 비교하려면 운영 카탈로그
           연결이 필요합니다.
@@ -263,14 +306,21 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
               있습니다.
             </span>
           </div>
-          {interpretation?.unhandled.length ? (
+          {(request.unresolvedRequirements?.length ?? 0) +
+            (request.ignoredRequirements?.length ?? 0) >
+          0 ? (
             <div className="warn">
               <strong>이 요구는 아직 확인하지 못했습니다</strong>
               <p>
                 아래 요구는 결과에서도 확인 필요로 남깁니다. 이번 비교에서
                 빼려면 직접 선택해 주세요.
               </p>
-              {interpretation.unhandled.map((text) => (
+              {[
+                ...new Set([
+                  ...(request.unresolvedRequirements ?? []),
+                  ...(request.ignoredRequirements ?? []),
+                ]),
+              ].map((text) => (
                 <label className="check" key={text}>
                   <input
                     type="checkbox"
@@ -322,7 +372,7 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
             <select
               id="decision-food"
               value={manual ? "manual" : (request.currentFoodId ?? "")}
-              disabled={!props.available}
+              disabled={!data.available}
               onChange={(e) => {
                 setManual(e.target.value === "manual");
                 update(
@@ -342,7 +392,7 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
               ))}
               {request.currentFoodId !== null &&
                 !filteredFoods.some((f) => f.id === request.currentFoodId) &&
-                props.foods
+                data.foods
                   .filter((f) => f.id === request.currentFoodId)
                   .map((f) => (
                     <option key={f.id} value={f.id}>
@@ -424,17 +474,87 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
               onChange={(e) =>
                 update(
                   "maxKcalDeltaPct",
-                  e.target.value === "none"
-                    ? null
-                    : (Number(e.target.value) as 5 | 10 | 15),
+                  e.target.value === "none" ? null : Number(e.target.value),
                 )
               }
             >
+              {request.maxKcalDeltaPct !== null &&
+                ![5, 10, 15].includes(request.maxKcalDeltaPct) && (
+                  <option value={request.maxKcalDeltaPct}>
+                    {request.maxKcalDeltaPct}% 이내 · 질문에서 지정
+                  </option>
+                )}
               <option value="5">5% 이내</option>
               <option value="10">10% 이내</option>
               <option value="15">15% 이내</option>
               <option value="none">열량으로 제한하지 않기</option>
             </select>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={request.notHigherKcal ?? false}
+                onChange={(e) => update("notHigherKcal", e.target.checked)}
+              />
+              현재 사료보다 열량이 높지 않은 후보
+            </label>
+            {request.pendingClarifications?.includes("calories") && (
+              <div className="warn">
+                <strong>‘비슷하게’와 ‘높지 않게’의 기준을 정해주세요</strong>
+                <p>
+                  위 허용 차이와 ‘현재 이하’ 설정은 이번 비교를 위한 선택입니다.
+                  건강에 적합한 기준으로 자동 판단하지 않습니다.
+                </p>
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() =>
+                    update(
+                      "pendingClarifications",
+                      request.pendingClarifications?.filter(
+                        (x) => x !== "calories",
+                      ),
+                    )
+                  }
+                >
+                  이 열량 기준으로 비교하기
+                </button>
+              </div>
+            )}
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={request.poultryFirst ?? false}
+                onChange={(e) => update("poultryFirst", e.target.checked)}
+              />
+              가금육이 생선보다 먼저 표기된 후보
+            </label>
+            <p className="decision-caption">
+              닭·칠면조·오리·가금육 표기와 생선의 순서를 비교합니다. 실제 함량
+              비율이나 잘 먹을지를 예측하지 않습니다.
+            </p>
+            {request.pendingClarifications?.includes("poultry") && (
+              <div className="warn">
+                <strong>가금육 선호를 이렇게 비교해도 될까요?</strong>
+                <p>
+                  위 원재료 순서 조건을 확인해 주세요. 이 조건을 쓰지 않으려면
+                  체크를 해제한 뒤 확인해 주세요.
+                </p>
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() =>
+                    update(
+                      "pendingClarifications",
+                      request.pendingClarifications?.filter(
+                        (x) => x !== "poultry",
+                      ),
+                    )
+                  }
+                >
+                  이 원재료 순서 기준으로 비교하기
+                </button>
+              </div>
+            )}
             <p className="decision-caption">
               열량 밀도 차이를 비교하는 개인 조건입니다. 급여량이나 건강에
               적합한 차이를 정하는 기준은 아닙니다.
@@ -456,7 +576,7 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
           <button
             className="primary"
             type="submit"
-            disabled={!props.available || busy || needsInterpretation}
+            disabled={!data.available || busy || needsInterpretation}
           >
             조건 확인하고 후보 비교하기
           </button>
@@ -472,9 +592,18 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
       </p>
       {snapshot && (
         <>
+          {conditionsChanged && (
+            <div className="warn" role="status">
+              조건이 바뀌었습니다. 아래 결과와 저장 내용은 이전 조건입니다. 후보
+              비교나 현재 자료 재조회를 눌러 변경한 조건을 적용해 주세요.
+            </div>
+          )}
           <DecisionReport
             report={snapshot.report}
             historical={historical}
+            comparisonDisabled={
+              busy || needsInterpretation || !parsedRequest.success
+            }
             onSelect={(id) => {
               setSnapshot((s) => (s ? { ...s, selectedFoodId: id } : s));
               setMessage(
@@ -484,7 +613,7 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
             }}
             onToleranceChange={(value) => {
               const next = {
-                ...snapshot.report.request,
+                ...request,
                 maxKcalDeltaPct: value,
               };
               setRequest(next);
@@ -543,12 +672,10 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
                 <button
                   type="button"
                   className="ghost"
-                  onClick={() => {
-                    evaluate(snapshot.report.request);
-                    setMessage(
-                      "현재 카탈로그로 다시 비교했습니다. 이전에 저장한 기록은 그대로 남아 있습니다.",
-                    );
-                  }}
+                  onClick={recheck}
+                  disabled={
+                    busy || needsInterpretation || !parsedRequest.success
+                  }
                 >
                   현재 자료로 다시 비교하기
                 </button>

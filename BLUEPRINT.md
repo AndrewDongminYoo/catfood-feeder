@@ -13,6 +13,8 @@ The [implementation spec](docs/specs/2026-10-18-next-food-decision.md) defines t
 - `/` enters `/advisor`, the question-to-decision workspace.
 - The question interpreter proposes explicit, editable conditions.
 - The decision engine evaluates calorie-density tolerance and declared-ingredient exclusions against evidence.
+- Qualitative calorie preferences and poultry-first ingredient order require owner confirmation before counting as fulfilled conditions.
+- Explicit numeric calorie tolerances are preserved rather than rounded to a preset.
 - Results distinguish conditions met, unresolved, and conditions failed.
 - Candidate briefs expose original sources, remaining questions, and the effect of changing a preference.
 - Versioned local snapshots preserve the decision, sources, and selection reason.
@@ -64,6 +66,7 @@ Do not stop at a plan, checklist, or request that the operator interview users w
 
 This release does not claim fresh background research, stock or price verification, automatic source-change monitoring, or cloud-synced decision records.
 An owner can explicitly recheck a saved decision using the current catalog and retain the old snapshot.
+The recheck reads the server through `/api/advisor/catalog` with no response cache and bypasses the advisor catalog cache.
 
 ## Historical decisions
 
