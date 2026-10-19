@@ -9,6 +9,11 @@ import {
 describe("decision question", () => {
   it.each([
     ["no chicken or fish", ["chicken", "fish"]],
+    ["no chicken/fish", ["chicken", "fish"]],
+    ["no chicken & fish", ["chicken", "fish"]],
+    ["닭고기랑 생선을 빼주세요", ["chicken", "fish"]],
+    ["닭이랑 생선을 빼주세요", ["chicken", "fish"]],
+    ["닭고기하고 생선을 빼주세요", ["chicken", "fish"]],
     ["no chicken allowed", ["chicken"]],
     ["no chicken or fish allowed", ["chicken", "fish"]],
     ["without chicken, beef and fish", ["chicken", "beef", "fish"]],
@@ -38,6 +43,8 @@ describe("decision question", () => {
     "without rabbit and fish",
     "닭고기와 돼지고기를 빼주세요",
     "돼지고기와 소고기를 빼주세요",
+    "no chicken/pork",
+    "닭고기랑 돼지고기를 빼주세요",
   ])("retains unsupported list members: %s", (question) => {
     expect(parseDecisionQuestion(question).unhandled.join(" ")).toContain(
       "제외",
@@ -46,6 +53,8 @@ describe("decision question", () => {
   it.each([
     "닭고기와 소고기는 빼지 않아도 돼요",
     "닭고기와 생선은 제외하지 마세요",
+    "닭고기랑 생선은 빼지 마세요",
+    "not without chicken/fish",
     "not without chicken or fish",
     "no chicken or fish except fish",
     "no chicken, fish is fine",

@@ -43,7 +43,7 @@ export function parseDecisionQuestion(
   const knownName = Object.values(NAMES).join("|");
   // Unknown list members stay visible instead of disappearing beside known ones.
   const item = `(?!(?:no|without|and|or)\\b)(?:(?:${knownName})(?:고기)?|[a-z]+|[가-힣]+)(?![a-z])`;
-  const separator = String.raw`\s*(?:,\s*(?:(?:and|or|및|그리고)\s+)?|\b(?:and|or)\b\s*|(?:와|과|및|그리고)\s*)`;
+  const separator = String.raw`\s*(?:,\s*(?:(?:and|or|및|그리고)\s+)?|[/&]\s*|\b(?:and|or)\b\s*|(?:이랑|랑|하고|와|과|및|그리고)\s*)`;
   const list = `${item}(?:${separator}${item})*`;
   const negativeAction = String.raw`빼지|제외하지|피하지|안\s*빼|괜찮|상관없`;
   const korean = new RegExp(

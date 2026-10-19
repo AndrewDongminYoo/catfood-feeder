@@ -565,6 +565,8 @@ describe("decision workspace", () => {
   });
   it.each([
     ["no chicken or fish", "생선", "fish"],
+    ["no chicken/fish", "생선", "fish"],
+    ["닭고기랑 생선을 빼주세요", "생선", "fish"],
     ["닭고기와 소고기를 빼주세요", "소고기", "beef"],
   ])(
     "saves and enforces both offline exclusions: %s",
