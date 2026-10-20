@@ -33,7 +33,7 @@ const NAMES: Record<IngredientExclusion, string> = {
 };
 
 function grainFreeIntent(before: string, after: string) {
-  const questionMark = after.match(/^[^.!。;]*\?/);
+  const questionMark = after.match(/^[^.!?。;]*\?/);
   if (questionMark) {
     const reply = after
       .slice(questionMark[0].length)
@@ -41,7 +41,7 @@ function grainFreeIntent(before: string, after: string) {
       .trim()
       .replace(/^actually[, ]+/i, "");
     if (
-      /^(?:no|아니요|아니)(?:$|,\s*(?:but|and)\b)|^(?:no[, ]+(?:thanks|thank you)|never\s*mind)\b|^(?:no[, ]+)?not\s+(?:necessary|required|needed)\b|^(?:i\s+)?(?:don't|do not)\s+(?:need|want)\b|^(?:아니요[, ]*)?(?:꼭\s*)?필요(?:(?:는|가|도)?\s*없|하지는?\s*않)/i.test(
+      /^no(?:$|,\s*(?:but|and)\b)|^(?:아니요|아니)(?=$|[,\s])|^(?:no[, ]+(?:thanks|thank you)|never\s*mind)\b|^(?:no[, ]+)?not\s+(?:necessary|required|needed)\b|^(?:i\s+)?(?:don't|do not)\s+(?:need|want)\b|^(?:아니요[, ]*)?(?:꼭\s*)?필요(?:(?:는|가|도)?\s*없|하지는?\s*않)/i.test(
         reply,
       )
     )
@@ -53,7 +53,7 @@ function grainFreeIntent(before: string, after: string) {
     .split(/[.!?。;]/)
     .at(-1)!
     .trim()
-    .replace(new RegExp(`^${otherExclusion}\\s+and\\s+`, "i"), "")
+    .replace(new RegExp(`^${otherExclusion}(?:\\s*,\\s*|\\s+)and\\s+`, "i"), "")
     .replace(
       new RegExp(
         `^${namedIngredient}(?:고기)?(?:[은는을를이가도]\\s*|\\s)*(?:빼고|제외하고|피하고)\\s*`,
@@ -64,7 +64,10 @@ function grainFreeIntent(before: string, after: string) {
   const suffix = after
     .split(/[.!?。;]/)[0]!
     .trim()
-    .replace(new RegExp(`\\s+and\\s+${otherExclusion}$`, "i"), "");
+    .replace(
+      new RegExp(`(?:\\s*,\\s*|\\s+)and\\s+${otherExclusion}$`, "i"),
+      "",
+    );
   const englishFood = String.raw`(?:\s+(?:cat\s+)?(?:food|diet))?`;
   const koreanFood = String.raw`(?:\s*(?:인\s*)?사료)?`;
   const koreanRequest = String.raw`찾아주세요|추천해주세요|원해요|바꾸고\s*싶어요`;

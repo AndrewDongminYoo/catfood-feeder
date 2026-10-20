@@ -82,7 +82,10 @@ describe("decision question", () => {
   });
   it.each([
     "I want grain-free food and no chicken",
+    "I want grain-free food, and no chicken",
+    "I want grain-free food,and no chicken",
     "no chicken and I want grain-free food",
+    "no chicken, and I want grain-free food",
     "Please find grain-free food? Also no chicken.",
     "닭고기를 빼고 그레인프리 사료를 찾아주세요",
     "닭고기는 제외하고 그레인프리 사료를 추천해주세요",
@@ -165,12 +168,20 @@ describe("decision question", () => {
     "Please find grain-free food? No thanks, but no chicken.",
     "Please find grain-free food? No thanks but no chicken.",
     "Please find grain-free food? Never mind, no chicken.",
+    "그레인프리 사료를 찾아주세요? 아니요, 닭고기도 빼주세요.",
   ])(
     "preserves another exclusion after a conversational retraction: %s",
     (question) => {
       expect(parseDecisionQuestion(question).exclusions).toEqual(["chicken"]);
     },
   );
+  it("does not attach a later question's reply to the grain-free request", () => {
+    expect(
+      parseDecisionQuestion(
+        "Please find grain-free food? Is chicken okay? No thanks.",
+      ).exclusions,
+    ).toEqual(["grain"]);
+  });
   it.each([
     ["no chicken or fish", ["chicken", "fish"]],
     ["no chicken/fish", ["chicken", "fish"]],
