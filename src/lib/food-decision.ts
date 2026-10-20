@@ -194,7 +194,7 @@ const MATCHERS: Record<IngredientExclusion, RegExp> = {
   lamb: /\b(?:lamb|mutton)(?:meal|fat|oil)?\b|양고기|양육/i,
   fish: /\b(?:fish|salmon|tuna|trout|cod|herring|sardine|anchovy|mackerel|hake|pollock|whitefish|menhaden|flounder|halibut|sole|carp|tilapia|sea\s*bass)(?:meal|oil)?\b|생선|어류|어분|어유|연어|참치|송어|대구|청어|정어리|멸치|고등어|명태|가자미|광어|넙치|잉어|농어/i,
   grain:
-    /\b(?:grains?|cereals?|rice|wheat|barley|oats?|corn|maize|rye|millet|sorghum|spelt)(?:meal|flour|bran)?\b|곡물|곡류|쌀|현미|백미|통밀|밀기울|밀배아|밀가루|보리|귀리|옥수수|호밀|수수|기장|^밀(?:$|\s|분|단백|글루텐|전분)/i,
+    /\b(?:grains?|cereals?|rice|wheat|barley|oats?|corn|maize|rye|millet|sorghum|spelt)(?:meal|flour|bran|starch)?\b|곡물|곡류|쌀|현미|백미|통밀|밀기울|밀배아|밀가루|보리|귀리|옥수수|호밀|수수|기장|^밀(?:$|\s|분|단백|글루텐|전분)/i,
 };
 const GENERIC_ANIMAL =
   /\b(?:animal|meat|digest)(?:meal|fat|oil|digest)?\b|\bnatural\s+flavou?rs?\b|육류|동물성|천연향미|가수분해\s*단백/i;
@@ -212,6 +212,23 @@ function isUnspecifiedAnimal(name: string): boolean {
       !Object.entries(MATCHERS).some(
         ([family, matcher]) => family !== "grain" && matcher.test(name),
       ))
+  );
+}
+
+// 전분·가루는 원료명이 없으면 곡물 유래인지 알 수 없습니다.
+const STARCH_OR_FLOUR = /(?:starch(?:es)?|flours?)\b|전분|녹말|가루/i;
+const NAMED_NON_GRAIN_ORIGIN =
+  /\b(?:(?:sweet\s+)?potato(?:es)?|tapioca|cassava|manioc|peas?|chickpeas?|lentils?|beans?|fava|faba|soy(?:a|bean)?s?|pumpkin|squash|arrowroot|sago|konjac|coconut|banana|carrots?|beet(?:root)?s?|apples?|kelp|seaweed|flax(?:seed)?|linseed|sunflower|chicory|alfalfa)\b|감자|고구마|타피오카|카사바|완두|콩|대두|렌틸|호박|칡|곤약|코코넛|바나나|당근|비트|사과|다시마|해조|아마씨|해바라기|치커리|알팔파/i;
+
+function hasUnknownGrainOrigin(name: string): boolean {
+  return (
+    STARCH_OR_FLOUR.test(name) &&
+    !NAMED_NON_GRAIN_ORIGIN.test(name) &&
+    !GENERIC_POULTRY.test(name) &&
+    !isUnspecifiedAnimal(name) &&
+    !Object.entries(MATCHERS).some(
+      ([family, matcher]) => family !== "grain" && matcher.test(name),
+    )
   );
 }
 
@@ -330,12 +347,12 @@ export function assessIngredientExclusion(
       status: "failed",
       detail: `표기된 원재료: ${matches.map((i) => i.name).join(", ")}`,
     };
-  const broad = ingredients.filter(
-    (i) =>
-      exclusion !== "grain" &&
-      (isUnspecifiedAnimal(i.name) ||
+  const broad = ingredients.filter((i) =>
+    exclusion === "grain"
+      ? hasUnknownGrainOrigin(i.name)
+      : isUnspecifiedAnimal(i.name) ||
         (["chicken", "turkey", "duck"].includes(exclusion) &&
-          GENERIC_POULTRY.test(i.name))),
+          GENERIC_POULTRY.test(i.name)),
   );
   if (!hasProof || ingredients.length === 0 || broad.length)
     return {
@@ -343,7 +360,7 @@ export function assessIngredientExclusion(
       label,
       status: "unknown",
       detail: broad.length
-        ? `종을 확인할 수 없는 표기: ${broad.map((i) => i.name).join(", ")}`
+        ? `${exclusion === "grain" ? "곡물 유래인지 확인할 수 없는 전분·가루 표기" : "종을 확인할 수 없는 표기"}: ${broad.map((i) => i.name).join(", ")}`
         : "현재 원재료 목록과 일치하는 전체 출처를 확인하지 못했습니다.",
     };
   return {
