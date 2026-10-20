@@ -25,6 +25,11 @@ Unrecognized contexts remain visible for owner confirmation.
 
 ## Review boundaries
 
+The operator approved a bounded parser restructuring after repeated wording regressions.
+Keep surface normalization, clause-level request and retraction decisions, and final condition aggregation separate inside the existing parser.
+Preserve source offsets when masking recognized withdrawal text from the generic ingredient matcher.
+Verify named-condition withdrawals, comma-only companion clauses, spaced Korean requests, handled withdrawal state, and unrelated unknown clauses before another hosted review.
+
 No visual design changes are planned.
 The offline rendered interaction tests verify behavior, not visual approval.
 Issue #53 owns replacement of stale inferred conditions after a question changes.

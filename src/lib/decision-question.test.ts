@@ -68,6 +68,8 @@ describe("decision question", () => {
     "Please find grain-free food?",
     "그레인프리",
     "그레인프리 사료를 찾아주세요",
+    "그레인프리 사료를 찾아 주세요",
+    "그레인프리 사료를 추천해 주세요",
     "그레인프리 사료는 찾아주세요",
     "그레인프리는 찾아주세요",
     "그레인프리 사료를 찾아주세요?",
@@ -94,6 +96,8 @@ describe("decision question", () => {
   it.each([
     "I want grain-free food and no chicken",
     "I want grain-free food, and no chicken",
+    "I want grain-free food, no chicken",
+    "no chicken, I want grain-free food",
     "I want grain-free food,and no chicken",
     "no chicken and I want grain-free food",
     "no chicken, and I want grain-free food",
@@ -193,6 +197,73 @@ describe("decision question", () => {
         "Please find grain-free food? Is chicken okay? No thanks.",
       ).exclusions,
     ).toEqual(["grain"]);
+  });
+  it.each([
+    "Please find grain-free food? No thanks.",
+    "Please find grain-free food? I do not need grain-free anymore.",
+    "Please find grain-free food? No thanks. ",
+    "Please find grain-free food? I do not need it ",
+    "Please find grain-free food? I do not need it .",
+    "Please find grain-free food? Sorry, I do not need grain-free anymore.",
+    "Please find grain-free food? I do not need grain-free food anymore.",
+    "그레인프리 사료를 찾아주세요? 아니요, 필요 없어요.",
+    "I want grain-free food. No thanks.",
+    "그레인프리 사료를 찾아주세요. 그레인프리일 필요 없어요.",
+  ])(
+    "handles a withdrawn grain condition without asking again: %s",
+    (question) => {
+      expect(parseDecisionQuestion(question)).toMatchObject({
+        exclusions: [],
+        unhandled: [],
+      });
+      expect(
+        validateQuestionProposal(
+          {
+            exclusions: ["grain"],
+            maxKcalDeltaPct: null,
+            citations: [question.match(/grain[-\s]?free|그레인\s*프리/i)![0]],
+            unhandled: [],
+          },
+          question,
+        ),
+      ).toBeNull();
+    },
+  );
+  it("does not erase another unknown clause when a grain request is withdrawn", () => {
+    expect(
+      parseDecisionQuestion(
+        "Please find grain-free food? No thanks. Something special.",
+      ).unhandled.length,
+    ).toBeGreaterThan(0);
+    expect(
+      parseDecisionQuestion(
+        "Please find grain-free food? No thanks. Something special. No chicken.",
+      ),
+    ).toMatchObject({
+      exclusions: ["chicken"],
+      unhandled: [expect.any(String)],
+    });
+  });
+  it("preserves a fractional calorie limit after a withdrawal", () => {
+    expect(
+      parseDecisionQuestion(
+        "Please find grain-free food? No thanks. 열량 차이는 8.5% 이내",
+      ),
+    ).toMatchObject({
+      exclusions: [],
+      maxKcalDeltaPct: 8.5,
+      unhandled: [],
+    });
+  });
+  it("handles a named withdrawal followed by another exclusion", () => {
+    expect(
+      parseDecisionQuestion(
+        "Please find grain-free food? Sorry, I do not need grain-free anymore, no chicken.",
+      ),
+    ).toMatchObject({
+      exclusions: ["chicken"],
+      unhandled: [],
+    });
   });
   it.each(["Sorry, I do not need chicken", "Well, I do not need chicken"])(
     "does not retract grain-free because another ingredient is unnecessary: %s",
