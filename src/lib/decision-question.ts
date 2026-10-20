@@ -39,9 +39,9 @@ function grainFreeIntent(before: string, after: string) {
       .slice(questionMark[0].length)
       .split(/[.!?。;]/)[0]!
       .trim()
-      .replace(/^actually[, ]+/i, "");
+      .replace(/^(?:(?:actually|sorry|well)[,\s]+)+/i, "");
     if (
-      /^no(?:$|,\s*(?:but|and)\b)|^(?:아니요|아니)(?=$|[,\s])|^(?:no[, ]+(?:thanks|thank you)|never\s*mind)\b|^(?:no[, ]+)?not\s+(?:necessary|required|needed)\b|^(?:i\s+)?(?:don't|do not)\s+(?:need|want)\b|^(?:아니요[, ]*)?(?:꼭\s*)?필요(?:(?:는|가|도)?\s*없|하지는?\s*않)/i.test(
+      /^no(?:$|,\s*(?:but|and)\b)|^(?:아니요|아니)(?=$|[,\s])|^(?:no[, ]+(?:thanks|thank you)|never\s*mind)\b|^(?:no[, ]+)?not\s+(?:necessary|required|needed)\b|^(?:i\s+)?(?:don't|do not)\s+(?:need|want)(?:\s+(?:it|that|this)(?:\s+anymore)?)?(?=$|,)|^(?:아니요[, ]*)?(?:꼭\s*)?필요(?:(?:는|가|도)?\s*없|하지는?\s*않)/i.test(
         reply,
       )
     )
@@ -60,7 +60,8 @@ function grainFreeIntent(before: string, after: string) {
         "i",
       ),
       "",
-    );
+    )
+    .replace(/^please,\s*/i, "please ");
   const suffix = after
     .split(/[.!?。;]/)[0]!
     .trim()
@@ -72,7 +73,7 @@ function grainFreeIntent(before: string, after: string) {
   const koreanFood = String.raw`(?:\s*(?:인\s*)?사료)?`;
   const koreanRequest = String.raw`찾아주세요|추천해주세요|원해요|바꾸고\s*싶어요`;
   const explicitKoreanRequest = new RegExp(
-    `^${koreanFood}(?:를|로)?\\s*(?:${koreanRequest})$`,
+    `^${koreanFood}(?:를|로|는)?\\s*(?:${koreanRequest})$`,
   ).test(suffix);
   const optional =
     (prefix === "" &&
@@ -90,7 +91,7 @@ function grainFreeIntent(before: string, after: string) {
     (/^(?:(?:(?:i\s+)?(?:want|need)|i'd\s+like|i\s+am\s+looking\s+for|(?:please\s+)?(?:find|show me))(?:\s+a)?|please)?$/i.test(
       prefix,
     ) &&
-      new RegExp(`^${englishFood}(?:\\s+please)?\\s*$`, "i").test(
+      new RegExp(`^${englishFood}(?:(?:\\s*,\\s*|\\s+)please)?\\s*$`, "i").test(
         ` ${suffix}`,
       )) ||
     (prefix === "" && explicitKoreanRequest) ||

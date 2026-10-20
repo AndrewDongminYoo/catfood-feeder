@@ -20,6 +20,11 @@ describe("decision question", () => {
     "Please find grain-free food? No, not necessary.",
     "Please find grain-free food? No thanks.",
     "Please find grain-free food? Never mind.",
+    "Please find grain-free food? Sorry, never mind.",
+    "Please find grain-free food? Well, no thanks.",
+    "Please find grain-free food? Well, actually, no thanks.",
+    "Please find grain-free food? Sorry, I do not need it.",
+    "Please find grain-free food? Well, I don't want that anymore.",
     "그레인프리 사료를 찾아주세요? 아니요, 필요 없어요.",
     "그레인프리? 필요 없어요.",
     "그레인프리일 필요 없어요",
@@ -51,14 +56,20 @@ describe("decision question", () => {
   it.each([
     "grain-free",
     "grain-free food please",
+    "grain-free food, please",
+    "grain-free,please",
     "I want grain-free food",
     "I need a grain-free diet",
     "I'd like grain-free food",
     "I am looking for grain-free food",
     "Please find grain-free food",
+    "Please find grain-free food, please",
+    "Please, find grain-free food",
     "Please find grain-free food?",
     "그레인프리",
     "그레인프리 사료를 찾아주세요",
+    "그레인프리 사료는 찾아주세요",
+    "그레인프리는 찾아주세요",
     "그레인프리 사료를 찾아주세요?",
     "그레인프리 사료를 추천해주세요",
     "그레인 프리로 바꾸고 싶어요",
@@ -86,6 +97,7 @@ describe("decision question", () => {
     "I want grain-free food,and no chicken",
     "no chicken and I want grain-free food",
     "no chicken, and I want grain-free food",
+    "no chicken and Please, find grain-free food",
     "Please find grain-free food? Also no chicken.",
     "닭고기를 빼고 그레인프리 사료를 찾아주세요",
     "닭고기는 제외하고 그레인프리 사료를 추천해주세요",
@@ -182,6 +194,16 @@ describe("decision question", () => {
       ).exclusions,
     ).toEqual(["grain"]);
   });
+  it.each(["Sorry, I do not need chicken", "Well, I do not need chicken"])(
+    "does not retract grain-free because another ingredient is unnecessary: %s",
+    (reply) => {
+      expect(
+        parseDecisionQuestion(
+          `Please find grain-free food? ${reply}. 열량 차이는 8% 이내`,
+        ),
+      ).toMatchObject({ exclusions: ["grain"], maxKcalDeltaPct: 8 });
+    },
+  );
   it.each([
     ["no chicken or fish", ["chicken", "fish"]],
     ["no chicken/fish", ["chicken", "fish"]],
