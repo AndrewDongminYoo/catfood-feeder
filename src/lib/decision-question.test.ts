@@ -209,6 +209,8 @@ describe("decision question", () => {
     "그레인프리 사료를 찾아주세요? 아니요, 필요 없어요.",
     "I want grain-free food. No thanks.",
     "그레인프리 사료를 찾아주세요. 그레인프리일 필요 없어요.",
+    "그레인프리 사료를 찾아주세요? 그레인프리 사료는 필요 없어요.",
+    "그레인프리 사료를 찾아주세요? 그레인프리는 필요 없어요.",
   ])(
     "handles a withdrawn grain condition without asking again: %s",
     (question) => {
@@ -264,6 +266,14 @@ describe("decision question", () => {
       exclusions: ["chicken"],
       unhandled: [],
     });
+  });
+  it("does not duplicate an unsupported condition after a withdrawal", () => {
+    const result = parseDecisionQuestion(
+      "Please find grain-free food? No thanks. Cheap food.",
+    );
+    expect(result.exclusions).toEqual([]);
+    expect(result.unhandled).toHaveLength(1);
+    expect(result.unhandled[0]).toContain("판매 가격");
   });
   it.each(["Sorry, I do not need chicken", "Well, I do not need chicken"])(
     "does not retract grain-free because another ingredient is unnecessary: %s",

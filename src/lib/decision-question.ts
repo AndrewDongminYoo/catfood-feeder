@@ -102,7 +102,7 @@ function grainFreeClauseIntent(
       ).test(` ${suffix}`)) ||
     (prefix === "" &&
       new RegExp(
-        `^${koreanFood}(?:일\\s*필요(?:는|가|도)?\\s*없어요|(?:는|를)?\\s*원하지\\s*않아요)$`,
+        `^${koreanFood}(?:(?:일|는)?\\s*필요(?:는|가|도)?\\s*없어요|(?:는|를)?\\s*원하지\\s*않아요)$`,
       ).test(suffix));
   if (retracted) return "retracted";
   const optional =
@@ -222,7 +222,7 @@ export function parseDecisionQuestion(
   // Keep "프리" and "필요 없어요" out of the generic exclusion grammar.
   ingredientQuestion = ingredientQuestion
     .replace(
-      /그레인\s*프리(?:\s*(?:인\s*)?사료)?일\s*필요(?:는|가|도)?\s*없어요/gi,
+      /그레인\s*프리(?:\s*(?:인\s*)?사료)?(?:일|는)?\s*필요(?:는|가|도)?\s*없어요/gi,
       (match) => "\0".repeat(match.length),
     )
     .replace(grainFree, (match) => "\0".repeat(match.length));
@@ -416,7 +416,7 @@ export function parseDecisionQuestion(
   return {
     exclusions: keys.filter((key) => exclusions.has(key)),
     maxKcalDeltaPct: numericDelta,
-    unhandled,
+    unhandled: [...new Set(unhandled)],
     outsideScope: isClinicalDecisionQuestion(question),
     clarifications,
     notHigherKcal,
