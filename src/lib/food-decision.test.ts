@@ -154,6 +154,10 @@ describe("ingredient exclusion", () => {
     "변성전분",
     "녹말",
     "가루",
+    "starch (chicken flavour)",
+    "starch (pea protein)",
+    "pea starch and modified starch",
+    "potato starch (modified starch)",
   ])("keeps the grain origin of %s unknown with complete proof", (name) => {
     const result = assessIngredientExclusion(
       [
@@ -190,6 +194,11 @@ describe("ingredient exclusion", () => {
     "fish flour",
     "감자전분",
     "타피오카 전분",
+    "modified starch (tapioca)",
+    "전분(감자)",
+    "토마토가루",
+    "효모가루",
+    "닭고기가루",
   ])("accepts the named non-grain starch or flour %s", (name) => {
     expect(
       assessIngredientExclusion([{ name, position: 1 }], "grain", true).status,
@@ -210,6 +219,13 @@ describe("ingredient exclusion", () => {
     expect(missing.detail).not.toContain("potato starch");
     expect(ambiguous.status).toBe("unknown");
     expect(ambiguous.detail).not.toBe(missing.detail);
+    const unverified = assessIngredientExclusion(
+      [{ name: "starch", position: 1 }],
+      "grain",
+      false,
+    );
+    expect(unverified.status).toBe("unknown");
+    expect(unverified.detail).toBe(missing.detail);
   });
   it("leaves unsourced hydrolyzed protein unknown", () => {
     expect(

@@ -215,21 +215,46 @@ function isUnspecifiedAnimal(name: string): boolean {
   );
 }
 
-// 전분·가루는 원료명이 없으면 곡물 유래인지 알 수 없습니다.
-const STARCH_OR_FLOUR = /(?:starch(?:es)?|flours?)\b|전분|녹말|가루/i;
-const NAMED_NON_GRAIN_ORIGIN =
-  /\b(?:(?:sweet\s+)?potato(?:es)?|tapioca|cassava|manioc|peas?|chickpeas?|lentils?|beans?|fava|faba|soy(?:a|bean)?s?|pumpkin|squash|arrowroot|sago|konjac|coconut|banana|carrots?|beet(?:root)?s?|apples?|kelp|seaweed|flax(?:seed)?|linseed|sunflower|chicory|alfalfa)\b|감자|고구마|타피오카|카사바|완두|콩|대두|렌틸|호박|칡|곤약|코코넛|바나나|당근|비트|사과|다시마|해조|아마씨|해바라기|치커리|알팔파/i;
+// 전분·가루는 바로 앞이나 바로 뒤 괄호에 원료명이 없으면 곡물 유래인지 알 수 없습니다.
+const STARCH_OR_FLOUR = /(?:starch(?:es)?|flours?)\b|전분|녹말|가루/giu;
+const NON_GRAIN_ORIGIN =
+  "\\b(?:potato(?:es)?|tapioca|cassava|manioc|peas?|chickpeas?|lentils?|beans?|fava|faba|soy(?:a|bean)?s?|pumpkin|squash|arrowroot|sago|konjac|coconut|banana|carrots?|beet(?:root)?s?|apples?|tomato(?:es)?|yeast|kelp|seaweed|flax(?:seed)?|linseed|sunflower|chicory|alfalfa)\\b|감자|고구마|타피오카|카사바|완두|콩|대두|렌틸|호박|칡|곤약|코코넛|바나나|당근|비트|사과|토마토|효모|다시마|해조|아마씨|해바라기|치커리|알팔파";
+const ORIGIN_BEFORE_TOKEN = new RegExp(`(?:${NON_GRAIN_ORIGIN})$`, "iu");
+const ORIGIN_ONLY = new RegExp(`^(?:sweet\\s+)?(?:${NON_GRAIN_ORIGIN})$`, "iu");
 
-function hasUnknownGrainOrigin(name: string): boolean {
+function isAnimalOriginWord(word: string): boolean {
   return (
-    STARCH_OR_FLOUR.test(name) &&
-    !NAMED_NON_GRAIN_ORIGIN.test(name) &&
-    !GENERIC_POULTRY.test(name) &&
-    !isUnspecifiedAnimal(name) &&
-    !Object.entries(MATCHERS).some(
-      ([family, matcher]) => family !== "grain" && matcher.test(name),
+    GENERIC_ANIMAL.test(word) ||
+    GENERIC_POULTRY.test(word) ||
+    Object.entries(MATCHERS).some(
+      ([family, matcher]) => family !== "grain" && matcher.test(word),
     )
   );
+}
+
+function hasUnknownGrainOrigin(name: string): boolean {
+  for (const match of name.matchAll(STARCH_OR_FLOUR)) {
+    const segment = name
+      .slice(0, match.index)
+      .split(/[（()）,;/&、]|\band\b|및/i)
+      .pop()!
+      .trim();
+    const word = segment.split(/[\s-]+/).pop() ?? "";
+    if (word && (ORIGIN_BEFORE_TOKEN.test(word) || isAnimalOriginWord(word)))
+      continue;
+    const enclosed = /^\s*[（(]([^)）]*)[)）]/.exec(
+      name.slice(match.index + match[0].length),
+    )?.[1];
+    if (
+      enclosed &&
+      enclosed
+        .split(/[,/、]|\band\b|및/i)
+        .every((part) => ORIGIN_ONLY.test(part.trim()))
+    )
+      continue;
+    return true;
+  }
+  return false;
 }
 
 function assessPreference(
@@ -349,7 +374,7 @@ export function assessIngredientExclusion(
     };
   const broad = ingredients.filter((i) =>
     exclusion === "grain"
-      ? hasUnknownGrainOrigin(i.name)
+      ? hasProof && hasUnknownGrainOrigin(i.name)
       : isUnspecifiedAnimal(i.name) ||
         (["chicken", "turkey", "duck"].includes(exclusion) &&
           GENERIC_POULTRY.test(i.name)),
