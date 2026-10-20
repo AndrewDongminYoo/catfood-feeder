@@ -143,6 +143,90 @@ describe("ingredient exclusion", () => {
       ).toBe("failed");
     },
   );
+  it.each([
+    "starch",
+    "flour",
+    "Modified Starch",
+    "food starch",
+    "vegetable starch",
+    "buckwheat flour",
+    "전분",
+    "변성전분",
+    "녹말",
+    "가루",
+    "starch (chicken flavour)",
+    "starch (pea protein)",
+    "pea starch and modified starch",
+    "potato starch (modified starch)",
+  ])("keeps the grain origin of %s unknown with complete proof", (name) => {
+    const result = assessIngredientExclusion(
+      [
+        { name: "Salmon", position: 1 },
+        { name, position: 2 },
+      ],
+      "grain",
+      true,
+    );
+    expect(result.status).toBe("unknown");
+    expect(result.detail).toContain(name);
+  });
+  it.each([
+    "wheat starch",
+    "corn flour",
+    "cornstarch",
+    "rice flour",
+    "옥수수전분",
+    "밀전분",
+    "쌀가루",
+  ])("rejects the grain-derived starch or flour %s", (name) => {
+    expect(
+      assessIngredientExclusion([{ name, position: 1 }], "grain", true).status,
+    ).toBe("failed");
+  });
+  it.each([
+    "potato starch",
+    "pea starch",
+    "tapioca starch",
+    "pea flour",
+    "chickpea flour",
+    "sweet potato flour",
+    "flaxseed flour",
+    "fish flour",
+    "감자전분",
+    "타피오카 전분",
+    "modified starch (tapioca)",
+    "전분(감자)",
+    "토마토가루",
+    "효모가루",
+    "닭고기가루",
+  ])("accepts the named non-grain starch or flour %s", (name) => {
+    expect(
+      assessIngredientExclusion([{ name, position: 1 }], "grain", true).status,
+    ).toBe("met");
+  });
+  it("separates a missing ingredient source from an unknown starch origin", () => {
+    const missing = assessIngredientExclusion(
+      [{ name: "potato starch", position: 1 }],
+      "grain",
+      false,
+    );
+    const ambiguous = assessIngredientExclusion(
+      [{ name: "starch", position: 1 }],
+      "grain",
+      true,
+    );
+    expect(missing.status).toBe("unknown");
+    expect(missing.detail).not.toContain("potato starch");
+    expect(ambiguous.status).toBe("unknown");
+    expect(ambiguous.detail).not.toBe(missing.detail);
+    const unverified = assessIngredientExclusion(
+      [{ name: "starch", position: 1 }],
+      "grain",
+      false,
+    );
+    expect(unverified.status).toBe("unknown");
+    expect(unverified.detail).toBe(missing.detail);
+  });
   it("leaves unsourced hydrolyzed protein unknown", () => {
     expect(
       assessIngredientExclusion(
@@ -707,6 +791,53 @@ describe("food decision", () => {
       expect(result.unresolved).toHaveLength(0);
     },
   );
+  it("keeps a candidate with an unknown starch origin unresolved through save and export", () => {
+    const input = catalog();
+    input.foods[1]!.ingredients = [
+      { name: "Salmon", position: 1 },
+      { name: "starch", position: 2 },
+    ];
+    input.ingredientEvidenceByFoodId[2]!.excerpt = "Salmon, starch";
+    input.foods[3]!.ingredients = [
+      { name: "Salmon", position: 1 },
+      { name: "potato starch", position: 2 },
+    ];
+    input.ingredientEvidenceByFoodId[4]!.excerpt = "Salmon, potato starch";
+    const result = buildFoodDecision(input, {
+      ...request,
+      exclusions: ["grain"],
+    });
+    expect(result.eligible.map((c) => c.food.id)).toEqual([4]);
+    const ambiguous = result.unresolved.find((c) => c.food.id === 2);
+    expect(ambiguous?.ingredientEvidence?.excerpt).toBe("Salmon, starch");
+    expect(ambiguous?.kcalDeltaPct).toBeCloseTo(5);
+    expect(ambiguous?.conditions.find((c) => c.key === "grain")?.status).toBe(
+      "unknown",
+    );
+    const saved = decisionSnapshotSchema.parse(
+      JSON.parse(
+        JSON.stringify({
+          version: 1,
+          report: result,
+          selectedFoodId: 2,
+          reason: "전분 유래를 확인하려고 보류",
+        }),
+      ),
+    );
+    expect(saved.report.eligible.some((c) => c.food.id === 2)).toBe(false);
+    expect(
+      saved.report.unresolved
+        .find((c) => c.food.id === 2)
+        ?.conditions.find((c) => c.key === "grain")?.status,
+    ).toBe("unknown");
+    const brief = exportDecisionBrief(saved);
+    const start = brief.indexOf(`## ${ambiguous!.food.brand} Recipe 2`);
+    expect(start).toBeGreaterThanOrEqual(0);
+    const end = brief.indexOf("\n## ", start + 1);
+    const section = brief.slice(start, end < 0 ? undefined : end);
+    expect(section).toMatch(/곡물 표기 제외: 확인 필요 — .*starch/);
+    expect(section).not.toMatch(/곡물 표기 제외: 표기 기준 충족/);
+  });
   it("keeps saved evidence and results independent from subsequent catalog mutation", () => {
     const input = catalog();
     const result = buildFoodDecision(input, request);
