@@ -18,11 +18,13 @@ describe("decision question", () => {
     "그레인프리, 꼭 필요하지는 않아요",
     "grain-free? No, not necessary.",
     "Please find grain-free food? No, not necessary.",
+    "그레인프리 사료를 찾아주세요? 아니요, 필요 없어요.",
     "그레인프리? 필요 없어요.",
     "그레인프리일 필요 없어요",
     "그레인 프리가 아니어도 괜찮아요",
     "그레인프리는 상관없어요",
     "그레인프리 사료는 원하지 않아요",
+    "가능하면 그레인프리 사료를 찾아주세요",
     "그레인프리도 괜찮아요",
     "Is grain-free better?",
     "지금 그레인프리 사료를 먹고 있어요",
@@ -79,6 +81,10 @@ describe("decision question", () => {
   it.each([
     "I want grain-free food and no chicken",
     "no chicken and I want grain-free food",
+    "Please find grain-free food? Also no chicken.",
+    "닭고기를 빼고 그레인프리 사료를 찾아주세요",
+    "닭고기는 제외하고 그레인프리 사료를 추천해주세요",
+    "그레인프리 사료를 찾아주세요? 닭고기도 빼주세요.",
   ])(
     "preserves a grain-free request beside another exclusion: %s",
     (question) => {
@@ -101,6 +107,9 @@ describe("decision question", () => {
   it.each([
     "grain-free is okay. no chicken. 열량 차이는 8% 이내",
     "그레인프리일 필요 없어요. 닭고기는 빼주세요. 열량 차이는 8% 이내",
+    "닭고기는 빼고 가능하면 그레인프리 사료를 찾아주세요. 열량 차이는 8% 이내",
+    "Please find grain-free food? Actually, not necessary. No chicken. 열량 차이는 8% 이내",
+    "그레인프리 사료를 찾아주세요? 아니요, 꼭 필요하지는 않아요. 닭고기는 빼주세요. 열량 차이는 8% 이내",
   ])(
     "preserves other conditions beside optional grain-free wording: %s",
     (question) => {
@@ -108,6 +117,17 @@ describe("decision question", () => {
         exclusions: ["chicken"],
         maxKcalDeltaPct: 8,
       });
+      expect(
+        validateQuestionProposal(
+          {
+            exclusions: ["grain"],
+            maxKcalDeltaPct: null,
+            citations: [question.match(/grain[-\s]?free|그레인\s*프리/i)![0]],
+            unhandled: [],
+          },
+          question,
+        ),
+      ).toBeNull();
     },
   );
   it("keeps an ambiguous grain-free mention unresolved beside a supported condition", () => {
