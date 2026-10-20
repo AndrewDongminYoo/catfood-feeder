@@ -145,6 +145,32 @@ describe("decision question", () => {
     expect(result.exclusions).toEqual(["chicken"]);
     expect(result.unhandled.length).toBeGreaterThan(0);
   });
+  it("preserves an explicit request beside an ambiguous repeated mention", () => {
+    const result = parseDecisionQuestion(
+      "I want grain-free food. Is grain-free better?",
+    );
+    expect(result.exclusions).toEqual(["grain"]);
+    expect(result.unhandled.length).toBeGreaterThan(0);
+  });
+  it.each([
+    "I want grain-free food. Grain-free is not necessary.",
+    "I want grain-free food. Please find grain-free food? No thanks.",
+  ])(
+    "does not override a repeated permission or retraction: %s",
+    (question) => {
+      expect(parseDecisionQuestion(question).exclusions).toEqual([]);
+    },
+  );
+  it.each([
+    "Please find grain-free food? No thanks, but no chicken.",
+    "Please find grain-free food? No thanks but no chicken.",
+    "Please find grain-free food? Never mind, no chicken.",
+  ])(
+    "preserves another exclusion after a conversational retraction: %s",
+    (question) => {
+      expect(parseDecisionQuestion(question).exclusions).toEqual(["chicken"]);
+    },
+  );
   it.each([
     ["no chicken or fish", ["chicken", "fish"]],
     ["no chicken/fish", ["chicken", "fish"]],

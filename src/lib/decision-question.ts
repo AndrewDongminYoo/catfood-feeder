@@ -41,11 +41,11 @@ function grainFreeIntent(before: string, after: string) {
       .trim()
       .replace(/^actually[, ]+/i, "");
     if (
-      /^(?:no(?:[, ]+(?:thanks|thank you))?|never\s*mind|아니요|아니)$|^(?:no[, ]+)?not\s+(?:necessary|required|needed)\b|^(?:i\s+)?(?:don't|do not)\s+(?:need|want)\b|^(?:아니요[, ]*)?(?:꼭\s*)?필요(?:(?:는|가|도)?\s*없|하지는?\s*않)/i.test(
+      /^(?:no|아니요|아니)(?:$|,\s*(?:but|and)\b)|^(?:no[, ]+(?:thanks|thank you)|never\s*mind)\b|^(?:no[, ]+)?not\s+(?:necessary|required|needed)\b|^(?:i\s+)?(?:don't|do not)\s+(?:need|want)\b|^(?:아니요[, ]*)?(?:꼭\s*)?필요(?:(?:는|가|도)?\s*없|하지는?\s*않)/i.test(
         reply,
       )
     )
-      return "unknown";
+      return "retracted";
   }
   const namedIngredient = `(?:${Object.values(NAMES).join("|")})`;
   const otherExclusion = `(?:no|without)\\s+${namedIngredient}(?:\\s+(?:and|or)\\s+${namedIngredient})*`;
@@ -170,9 +170,19 @@ export function parseDecisionQuestion(
   for (const match of ingredientQuestion.matchAll(permission))
     record(match, match[1]!, true);
   if (grainFreeMentions.length) {
-    if (grainFreeIntents.every((intent) => intent === "requested"))
+    if (
+      grainFreeIntents.includes("requested") &&
+      !grainFreeIntents.some(
+        (intent) => intent === "optional" || intent === "retracted",
+      )
+    )
       exclusions.add("grain");
-    else if (grainFreeIntents.some((intent) => intent !== "optional"))
+    if (
+      grainFreeIntents.includes("unknown") ||
+      grainFreeIntents.includes("retracted") ||
+      (grainFreeIntents.includes("requested") &&
+        grainFreeIntents.includes("optional"))
+    )
       incompleteExclusions = true;
     remaining = remaining.replace(grainFree, " ");
   }
