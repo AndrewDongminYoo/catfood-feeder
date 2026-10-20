@@ -41,7 +41,7 @@ function grainFreeIntent(before: string, after: string) {
       .trim()
       .replace(/^actually[, ]+/i, "");
     if (
-      /^(?:no|아니요|아니)$|^(?:no[, ]+)?not\s+(?:necessary|required|needed)\b|^(?:i\s+)?(?:don't|do not)\s+(?:need|want)\b|^(?:아니요[, ]*)?(?:꼭\s*)?필요(?:(?:는|가|도)?\s*없|하지는?\s*않)/i.test(
+      /^(?:no(?:[, ]+(?:thanks|thank you))?|never\s*mind|아니요|아니)$|^(?:no[, ]+)?not\s+(?:necessary|required|needed)\b|^(?:i\s+)?(?:don't|do not)\s+(?:need|want)\b|^(?:아니요[, ]*)?(?:꼭\s*)?필요(?:(?:는|가|도)?\s*없|하지는?\s*않)/i.test(
         reply,
       )
     )

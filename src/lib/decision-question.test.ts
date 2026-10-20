@@ -18,6 +18,8 @@ describe("decision question", () => {
     "그레인프리, 꼭 필요하지는 않아요",
     "grain-free? No, not necessary.",
     "Please find grain-free food? No, not necessary.",
+    "Please find grain-free food? No thanks.",
+    "Please find grain-free food? Never mind.",
     "그레인프리 사료를 찾아주세요? 아니요, 필요 없어요.",
     "그레인프리? 필요 없어요.",
     "그레인프리일 필요 없어요",
@@ -136,6 +138,11 @@ describe("decision question", () => {
     );
     expect(result.exclusions).toEqual([]);
     expect(result.maxKcalDeltaPct).toBe(8);
+    expect(result.unhandled.length).toBeGreaterThan(0);
+  });
+  it("does not infer a grain exclusion from an ambiguous coordinated negation", () => {
+    const result = parseDecisionQuestion("no chicken or grain-free");
+    expect(result.exclusions).toEqual(["chicken"]);
     expect(result.unhandled.length).toBeGreaterThan(0);
   });
   it.each([
