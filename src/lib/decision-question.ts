@@ -33,7 +33,9 @@ const NAMES: Record<IngredientExclusion, string> = {
 };
 
 function grainFreeIntent(before: string, after: string) {
-  if (/^[^.!。;]*\?/.test(after)) return "unknown";
+  const questionMark = after.match(/^[^.!。;]*\?/);
+  if (questionMark && after.slice(questionMark[0].length).trim())
+    return "unknown";
   const namedIngredient = `(?:${Object.values(NAMES).join("|")})`;
   const otherExclusion = `(?:no|without)\\s+${namedIngredient}(?:\\s+(?:and|or)\\s+${namedIngredient})*`;
   const prefix = before
@@ -47,6 +49,7 @@ function grainFreeIntent(before: string, after: string) {
     .replace(new RegExp(`\\s+and\\s+${otherExclusion}$`, "i"), "");
   const englishFood = String.raw`(?:\s+(?:cat\s+)?(?:food|diet))?`;
   const koreanFood = String.raw`(?:\s*(?:인\s*)?사료)?`;
+  const koreanRequest = String.raw`찾아주세요|추천해주세요|원해요|바꾸고\s*싶어요`;
   const optional =
     (prefix === "" &&
       (new RegExp(
@@ -67,10 +70,16 @@ function grainFreeIntent(before: string, after: string) {
         ` ${suffix}`,
       )) ||
     (prefix === "" &&
-      new RegExp(
-        `^${koreanFood}(?:(?:를|로)?\\s*(?:찾아주세요|추천해주세요|원해요|바꾸고\\s*싶어요))?$`,
-      ).test(suffix));
-  return requested ? "requested" : "unknown";
+      new RegExp(`^${koreanFood}(?:(?:를|로)?\\s*(?:${koreanRequest}))?$`).test(
+        suffix,
+      ));
+  const explicitRequest =
+    prefix !== "" ||
+    /\bplease$/i.test(suffix) ||
+    new RegExp(`(?:${koreanRequest})$`).test(suffix);
+  return requested && (!questionMark || explicitRequest)
+    ? "requested"
+    : "unknown";
 }
 
 export function parseDecisionQuestion(
