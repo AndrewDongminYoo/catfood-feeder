@@ -82,6 +82,45 @@ const originalQuestion =
   "지금 먹이는 사료와 비슷하면서 열량이 너무 높지 않은 건강한 사료를 찾고 있어요. 생선보다는 가금육을 더 좋아해요.";
 
 describe("decision workspace", () => {
+  it.each(["grain-free is okay", "그레인프리일 필요 없어요"])(
+    "does not save or enforce an optional grain-free condition: %s",
+    async (wording) => {
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+      const data = props();
+      data.foods[1]!.ingredients = [{ name: "Wheat", position: 1 }];
+      render(
+        <DecisionWorkspace
+          {...data}
+          ingredientEvidenceByFoodId={{
+            2: {
+              excerpt: "Wheat",
+              capturedAt: "2026-10-01",
+              url: "https://example.test/ingredients",
+            },
+          }}
+        />,
+      );
+      await prepare(`${wording}. no chicken. 열량 차이는 8% 이내`);
+      expect(
+        (screen.getByLabelText("곡물 표기 제외") as HTMLInputElement).checked,
+      ).toBe(false);
+      expect(
+        (screen.getByLabelText("닭고기 표기 제외") as HTMLInputElement).checked,
+      ).toBe(true);
+      compare();
+      save();
+      const saved = decisionSnapshotSchema.parse(
+        JSON.parse(localStorage.getItem("catfood.decisions.v1")!)[0],
+      );
+      expect(saved.report.request.exclusions).toEqual(["chicken"]);
+      expect(saved.report.request.maxKcalDeltaPct).toBe(8);
+      expect(saved.report.excluded).toHaveLength(0);
+      expect(
+        saved.report.eligible.map((candidate) => candidate.food.id),
+      ).toEqual([2]);
+      expect(exportDecisionBrief(saved)).not.toContain("곡물 표기 제외");
+    },
+  );
   it("keeps an unverified ingredient percentage unresolved instead of applying it to calories", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
     render(<DecisionWorkspace {...props()} />);

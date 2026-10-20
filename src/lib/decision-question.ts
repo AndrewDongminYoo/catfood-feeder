@@ -32,6 +32,47 @@ const NAMES: Record<IngredientExclusion, string> = {
   grain: "곡물|그레인|grains?",
 };
 
+function grainFreeIntent(before: string, after: string) {
+  if (/^[^.!。;]*\?/.test(after)) return "unknown";
+  const namedIngredient = `(?:${Object.values(NAMES).join("|")})`;
+  const otherExclusion = `(?:no|without)\\s+${namedIngredient}(?:\\s+(?:and|or)\\s+${namedIngredient})*`;
+  const prefix = before
+    .split(/[.!?。;]/)
+    .at(-1)!
+    .trim()
+    .replace(new RegExp(`^${otherExclusion}\\s+and\\s+`, "i"), "");
+  const suffix = after
+    .split(/[.!?。;]/)[0]!
+    .trim()
+    .replace(new RegExp(`\\s+and\\s+${otherExclusion}$`, "i"), "");
+  const englishFood = String.raw`(?:\s+(?:cat\s+)?(?:food|diet))?`;
+  const koreanFood = String.raw`(?:\s*(?:인\s*)?사료)?`;
+  const optional =
+    (prefix === "" &&
+      (new RegExp(
+        `^${englishFood}\\s+(?:is\\s+)?(?:okay|ok|fine|allowed|optional|not\\s+(?:necessary|required|needed))\\s*$`,
+        "i",
+      ).test(` ${suffix}`) ||
+        new RegExp(
+          `^${koreanFood}(?:일\\s*필요(?:는|가|도)?\\s*없어요|(?:가\\s*)?아니어도\\s*괜찮아요|(?:는|도|여도)?\\s*(?:괜찮아요|상관없어요)|(?:는|를)?\\s*원하지\\s*않아요)$`,
+        ).test(suffix))) ||
+    (/^(?:i\s+)?(?:don't|do not)\s+(?:need|want)$|^not$/i.test(prefix) &&
+      new RegExp(`^${englishFood}\\s*$`, "i").test(` ${suffix}`));
+  if (optional) return "optional";
+  const requested =
+    (/^(?:(?:(?:i\s+)?(?:want|need)|i'd\s+like|i\s+am\s+looking\s+for|(?:please\s+)?(?:find|show me))(?:\s+a)?|please)?$/i.test(
+      prefix,
+    ) &&
+      new RegExp(`^${englishFood}(?:\\s+please)?\\s*$`, "i").test(
+        ` ${suffix}`,
+      )) ||
+    (prefix === "" &&
+      new RegExp(
+        `^${koreanFood}(?:(?:를|로)?\\s*(?:찾아주세요|추천해주세요|원해요|바꾸고\\s*싶어요))?$`,
+      ).test(suffix));
+  return requested ? "requested" : "unknown";
+}
+
 export function parseDecisionQuestion(
   question: string,
 ): QuestionInterpretation {
@@ -39,6 +80,21 @@ export function parseDecisionQuestion(
   const permitted = new Set<IngredientExclusion>();
   let remaining = question;
   let incompleteExclusions = false;
+  const grainFree = /\bgrain[-\s]?free\b|그레인\s*프리/gi;
+  const grainFreeMentions = [...question.matchAll(grainFree)];
+  const grainFreeIntents = grainFreeMentions.map((match) =>
+    grainFreeIntent(
+      question.slice(0, match.index),
+      question.slice(match.index! + match[0].length),
+    ),
+  );
+  // Keep "프리" and "필요 없어요" out of the generic exclusion grammar.
+  const ingredientQuestion = question
+    .replace(
+      /그레인\s*프리(?:\s*(?:인\s*)?사료)?일\s*필요(?:는|가|도)?\s*없어요/gi,
+      (match) => "\0".repeat(match.length),
+    )
+    .replace(grainFree, (match) => "\0".repeat(match.length));
   const keys = Object.keys(NAMES) as IngredientExclusion[];
   const knownName = Object.values(NAMES).join("|");
   // Unknown list members stay visible instead of disappearing beside known ones.
@@ -73,23 +129,26 @@ export function parseDecisionQuestion(
     }
     remaining = remaining.replace(match[0], "\0");
   };
-  for (const match of question.matchAll(korean))
+  for (const match of ingredientQuestion.matchAll(korean))
     record(
       match,
       match[1]!,
       new RegExp(`^(?:${negativeAction})`, "i").test(match[2]!),
     );
-  for (const match of question.matchAll(english))
+  for (const match of ingredientQuestion.matchAll(english))
     record(match, match[1]!, false);
   const permission = new RegExp(
     `\\b(${list})\\s+(?:(?:is|are)\\s+)?(?:fine|okay|ok|allowed)\\b`,
     "gi",
   );
-  for (const match of question.matchAll(permission))
+  for (const match of ingredientQuestion.matchAll(permission))
     record(match, match[1]!, true);
-  if (/\bgrain[-\s]?free\b|그레인\s*프리/i.test(question)) {
-    exclusions.add("grain");
-    remaining = remaining.replace(/\bgrain[-\s]?free\b|그레인\s*프리/gi, " ");
+  if (grainFreeMentions.length) {
+    if (grainFreeIntents.every((intent) => intent === "requested"))
+      exclusions.add("grain");
+    else if (grainFreeIntents.some((intent) => intent !== "optional"))
+      incompleteExclusions = true;
+    remaining = remaining.replace(grainFree, " ");
   }
   for (const key of permitted) {
     if (exclusions.delete(key)) incompleteExclusions = true;

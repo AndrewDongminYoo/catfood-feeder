@@ -26,6 +26,9 @@ The product must do the comparison work before asking the owner to validate dema
   Optional protein preferences change candidate order only; hard exclusions always take precedence.
   A shared exclusion operator applies to every listed ingredient in Korean and English questions and citations.
   Unsupported list members and ambiguous exceptions remain unresolved; negated exclusions never create hard conditions.
+  A grain-free mention creates a grain exclusion only when it expresses a request.
+  Permission, negation, and statements that grain-free food is unnecessary do not create that exclusion; ambiguous wording remains unresolved.
+  Model citations cannot turn a partial grain-free phrase into an exclusion that the full question does not support.
   Assess preferred proteins from the first declared animal ingredient with complete literal source proof, ignoring standalone fat, oil, broth, stock, and flavor entries for this preference assessment.
   Preserve the original meaning of older saved hard poultry-order requests.
   Ingredient order does not predict taste or establish the proportion of meat.

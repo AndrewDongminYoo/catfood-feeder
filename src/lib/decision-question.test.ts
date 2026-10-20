@@ -8,6 +8,114 @@ import {
 
 describe("decision question", () => {
   it.each([
+    "grain-free is okay",
+    "grain free is fine",
+    "I don't need grain-free food",
+    "not grain-free",
+    "grain-free is not necessary",
+    "grain-free, if possible",
+    "grain-free, but it is not required",
+    "그레인프리, 꼭 필요하지는 않아요",
+    "grain-free? No, not necessary.",
+    "그레인프리? 필요 없어요.",
+    "그레인프리일 필요 없어요",
+    "그레인 프리가 아니어도 괜찮아요",
+    "그레인프리는 상관없어요",
+    "그레인프리 사료는 원하지 않아요",
+    "그레인프리도 괜찮아요",
+    "Is grain-free better?",
+    "지금 그레인프리 사료를 먹고 있어요",
+  ])(
+    "does not impose a grain-free mention as a requirement: %s",
+    (question) => {
+      expect(parseDecisionQuestion(question).exclusions).toEqual([]);
+      const quote = question.match(/grain[-\s]?free|그레인\s*프리/i)![0];
+      expect(
+        validateQuestionProposal(
+          {
+            exclusions: ["grain"],
+            maxKcalDeltaPct: null,
+            citations: [quote],
+            unhandled: [],
+          },
+          question,
+        ),
+      ).toBeNull();
+    },
+  );
+  it.each([
+    "grain-free",
+    "grain-free food please",
+    "I want grain-free food",
+    "I need a grain-free diet",
+    "I'd like grain-free food",
+    "I am looking for grain-free food",
+    "Please find grain-free food",
+    "그레인프리",
+    "그레인프리 사료를 찾아주세요",
+    "그레인프리 사료를 추천해주세요",
+    "그레인 프리로 바꾸고 싶어요",
+    "닭고기를 먹고 있어요. 그레인프리로 바꾸고 싶어요",
+  ])("preserves an explicit grain-free request: %s", (question) => {
+    expect(parseDecisionQuestion(question)).toMatchObject({
+      exclusions: ["grain"],
+      unhandled: [],
+    });
+    expect(
+      validateQuestionProposal(
+        {
+          exclusions: ["grain"],
+          maxKcalDeltaPct: null,
+          citations: [question],
+          unhandled: [],
+        },
+        question,
+      )?.exclusions,
+    ).toEqual(["grain"]);
+  });
+  it.each([
+    "I want grain-free food and no chicken",
+    "no chicken and I want grain-free food",
+  ])(
+    "preserves a grain-free request beside another exclusion: %s",
+    (question) => {
+      expect(parseDecisionQuestion(question).exclusions).toEqual([
+        "chicken",
+        "grain",
+      ]);
+    },
+  );
+  it("does not erase a negation beside a parsed exclusion", () => {
+    expect(
+      parseDecisionQuestion("no chicken and not grain-free").exclusions,
+    ).toEqual(["chicken"]);
+  });
+  it("preserves a neighboring exclusion when grain-free is optional", () => {
+    expect(
+      parseDecisionQuestion("no chicken and grain-free is okay").exclusions,
+    ).toEqual(["chicken"]);
+  });
+  it.each([
+    "grain-free is okay. no chicken. 열량 차이는 8% 이내",
+    "그레인프리일 필요 없어요. 닭고기는 빼주세요. 열량 차이는 8% 이내",
+  ])(
+    "preserves other conditions beside optional grain-free wording: %s",
+    (question) => {
+      expect(parseDecisionQuestion(question)).toMatchObject({
+        exclusions: ["chicken"],
+        maxKcalDeltaPct: 8,
+      });
+    },
+  );
+  it("keeps an ambiguous grain-free mention unresolved beside a supported condition", () => {
+    const result = parseDecisionQuestion(
+      "Is grain-free better? 열량 차이는 8% 이내",
+    );
+    expect(result.exclusions).toEqual([]);
+    expect(result.maxKcalDeltaPct).toBe(8);
+    expect(result.unhandled.length).toBeGreaterThan(0);
+  });
+  it.each([
     ["no chicken or fish", ["chicken", "fish"]],
     ["no chicken/fish", ["chicken", "fish"]],
     ["no chicken nor fish", ["chicken", "fish"]],
