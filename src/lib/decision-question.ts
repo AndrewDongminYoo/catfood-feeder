@@ -80,10 +80,15 @@ function grainFreeClauseIntent(
       "",
     )
     .replace(/^please,\s*/i, "please ");
-  const suffix = normalizeGrainFreeWording(after).replace(
-    new RegExp(`${companionJoin}${otherExclusion}$`, "i"),
-    "",
-  );
+  const suffix = normalizeGrainFreeWording(after)
+    .replace(new RegExp(`${companionJoin}${otherExclusion}$`, "i"), "")
+    .replace(
+      new RegExp(
+        `\\s*,\\s*${namedIngredient}(?:고기)?[은는을를이가도]?\\s*(?:빼|제외해|피해)\\s*주세요$`,
+        "i",
+      ),
+      "",
+    );
   const englishFood = String.raw`(?:\s+(?:cat\s+)?(?:food|diet))?`;
   const koreanFood = String.raw`(?:\s*(?:인\s*)?사료)?`;
   const koreanRequest = String.raw`찾아주세요|추천해주세요|원해요|바꾸고\s*싶어요`;
