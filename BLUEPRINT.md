@@ -34,7 +34,8 @@ The [implementation spec](docs/specs/2026-10-18-next-food-decision.md) defines t
 - Guaranteed-analysis minima and maxima are bounds, not exact measured concentrations.
 - Do not score overall health, safety, or quality.
 - Do not relax the owner's conditions without an explicit action.
-- Reinterpreting question wording preserves existing ingredient exclusions, the current-calorie ceiling, legacy poultry-order conditions, and manually chosen preferences.
+- Reinterpreting question wording replaces prior inferred exclusions, calorie conditions, and preferences while preserving direct choices and legacy poultry-order conditions.
+- A missing new calorie percentage restores the last direct selection, or the initial 10% default; restored brief conditions count as owner selections without changing historical snapshots.
 - An unclassified leading ingredient cannot be skipped to claim a later preferred animal as the first animal ingredient.
 
 ## Domain calculations

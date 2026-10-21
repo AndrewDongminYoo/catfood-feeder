@@ -69,7 +69,9 @@ pnpm build
 ## Data and privacy
 
 The model proposes comparison conditions; catalog facts come from validated evidence.
-Reinterpreting an edited question adds proposed exclusions and preferences without silently removing existing selections; removal uses the explicit controls.
+Reinterpreting an edited question replaces the previous question's inferred exclusions, calorie conditions, and protein preferences while preserving direct selections.
+Without a new numeric calorie limit, the form returns to the last directly selected limit, or the initial 10% default if none was selected.
+Restored brief conditions are treated as owner selections; the saved brief itself remains unchanged.
 Ingredient exclusions require the complete current ingredient proof and preserve ambiguous wording as unknown.
 Question interpretation uses the existing server-side provider and a site-wide ceiling of 30 paid attempts per 24-hour quota window.
 No account is required for the first comparison.

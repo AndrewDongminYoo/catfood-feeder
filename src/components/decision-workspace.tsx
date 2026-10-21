@@ -98,6 +98,14 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
   const [inferredExclusions, setInferredExclusions] = useState<
     readonly IngredientExclusion[]
   >([]);
+  const [inferredPreferences, setInferredPreferences] = useState<
+    readonly ProteinPreference[]
+  >([]);
+  // 질문 제안이 덮어쓴 뒤에도 직접 고른 열량 기준으로 돌아갈 수 있게 별도로 보관합니다.
+  const [chosenCalories, setChosenCalories] = useState({
+    maxKcalDeltaPct: DEFAULT_DECISION_REQUEST.maxKcalDeltaPct,
+    notHigherKcal: false,
+  });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [snapshot, setSnapshot] = useState<DecisionSnapshot | null>(null);
@@ -151,6 +159,7 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
     notHigherKcal: boolean,
     maxKcalDeltaPct: number | null,
   ) {
+    setChosenCalories({ notHigherKcal, maxKcalDeltaPct });
     setRequest((r) => ({
       ...r,
       notHigherKcal,
@@ -164,6 +173,8 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
     key: K,
     value: DecisionRequest[K],
   ) {
+    if (key === "maxKcalDeltaPct" || key === "notHigherKcal")
+      setChosenCalories((c) => ({ ...c, [key]: value }));
     setRequest((r) => ({ ...r, [key]: value }));
   }
   function applyInterpretation(
@@ -174,23 +185,31 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
     const chosen = request.exclusions.filter(
       (key) => !inferredExclusions.includes(key),
     );
+    const chosenPreferences = (request.preferredProteins ?? []).filter(
+      (key) => !inferredPreferences.includes(key),
+    );
+    const proposedPreferences: ProteinPreference[] =
+      result.clarifications.includes("poultry") ? ["poultry"] : [];
     setInterpretedQuestion(question);
     setInferredExclusions(
       result.exclusions.filter((key) => !chosen.includes(key)),
     );
+    setInferredPreferences(
+      proposedPreferences.filter((key) => !chosenPreferences.includes(key)),
+    );
     setRequest((r) => ({
       ...r,
       exclusions: [...new Set([...chosen, ...result.exclusions])],
-      maxKcalDeltaPct: result.maxKcalDeltaPct ?? r.maxKcalDeltaPct,
+      maxKcalDeltaPct: result.maxKcalDeltaPct ?? chosenCalories.maxKcalDeltaPct,
       unresolvedRequirements: result.unhandled,
       ignoredRequirements: [],
       scopeConcern: result.outsideScope,
       pendingClarifications: result.clarifications,
-      notHigherKcal: (r.notHigherKcal ?? false) || result.notHigherKcal,
+      notHigherKcal: chosenCalories.notHigherKcal || result.notHigherKcal,
       poultryFirst: r.poultryFirst ?? false,
-      preferredProteins: result.clarifications.includes("poultry")
-        ? [...new Set([...(r.preferredProteins ?? []), "poultry" as const])]
-        : r.preferredProteins,
+      preferredProteins: [
+        ...new Set([...chosenPreferences, ...proposedPreferences]),
+      ],
     }));
   }
   async function continueQuestion(useModel: boolean) {
@@ -349,6 +368,11 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
     setInterpretedQuestion(value.report.request.question);
     // 저장 기록에는 추론 여부가 없으므로 불러온 조건은 모두 보호자가 확인한 조건으로 둡니다.
     setInferredExclusions([]);
+    setInferredPreferences([]);
+    setChosenCalories({
+      maxKcalDeltaPct: value.report.request.maxKcalDeltaPct,
+      notHigherKcal: value.report.request.notHigherKcal,
+    });
     setHistorical(true);
     setStage(3);
     setMessage("저장한 검토를 불러왔습니다. 저장 당시의 자료를 보여드립니다.");
@@ -717,6 +741,9 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
                             )}
                             onChange={(e) => {
                               setShowPreferences(true);
+                              setInferredPreferences((keys) =>
+                                keys.filter((x) => x !== key),
+                              );
                               setRequest((r) => ({
                                 ...r,
                                 preferredProteins: e.target.checked
@@ -938,6 +965,7 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
               document.getElementById("decision-reason")?.focus();
             }}
             onToleranceChange={(value) => {
+              setChosenCalories((c) => ({ ...c, maxKcalDeltaPct: value }));
               const next = {
                 ...request,
                 maxKcalDeltaPct: value,

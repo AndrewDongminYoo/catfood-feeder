@@ -41,8 +41,10 @@ The "ACANA Grasslands" case in `src/lib/fixtures.ts` drives `src/lib/fixtures.te
 Optional protein preferences prioritize the first declared animal ingredient supported by complete source proof, excluding standalone fat, oil, broth, stock, and flavor entries from that preference assessment.
 Preferences never change hard eligibility, and ingredient order does not establish taste or meat proportions.
 An unclassified leading ingredient blocks a positive preference claim, and a compound meat-and-fat entry is not a standalone fat.
-Question reinterpretation unions exclusions and preferences with the current selections and retains the current-calorie ceiling and old hard poultry-order condition.
-Only explicit controls remove those selections.
+Question reinterpretation replaces the previous question's inferred exclusions, calorie conditions, and protein preferences while retaining directly selected conditions and the old hard poultry-order condition.
+Keep direct calorie selections separately: a new explicit percentage applies to that question, and a later question without a percentage restores the direct selection or the initial 10% default.
+Confirmation accepts a proposal for the current question; only editing the condition controls or selecting a sensitivity limit makes it a direct selection.
+Restored brief conditions are treated as owner selections because stored snapshots do not record inference provenance; historical briefs remain unchanged.
 `src/lib/decision-question.ts` validates interpretation proposals; `/api/advisor/question` bounds optional model work using the existing durable quota with a 30-attempt daily ceiling.
 The only Anthropic transport remains in `source-extraction.ts`.
 The structured form continues to work when model interpretation is unavailable.
