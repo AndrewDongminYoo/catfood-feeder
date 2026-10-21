@@ -14,6 +14,7 @@ import {
   exportDecisionBrief,
 } from "@/lib/food-decision";
 import { projectAdequacy } from "@/lib/adequacy-evidence";
+import type { QuestionInterpretation } from "@/lib/decision-question";
 import { DecisionWorkspace } from "./decision-workspace";
 
 const kcal = (value: number): NutrientEvidence => ({
@@ -108,7 +109,10 @@ function chickenOnlyProps() {
     },
   };
 }
-function aiInterpretation(exclusions: string[]) {
+function aiInterpretation(
+  exclusions: string[],
+  conditions: Partial<QuestionInterpretation> = {},
+) {
   return {
     ok: true,
     json: async () => ({
@@ -120,6 +124,7 @@ function aiInterpretation(exclusions: string[]) {
         outsideScope: false,
         clarifications: [],
         notHigherKcal: false,
+        ...conditions,
       },
     }),
   } as Response;
@@ -744,6 +749,203 @@ describe("decision workspace", () => {
       );
     },
   );
+  it.each(["offline", "ai"])(
+    "replaces inferred calorie and protein conditions in the %s saved and exported brief",
+    async (mode) => {
+      vi.stubGlobal(
+        "fetch",
+        mode === "offline"
+          ? vi.fn().mockRejectedValue(new Error("offline"))
+          : vi
+              .fn()
+              .mockResolvedValueOnce(
+                aiInterpretation([], {
+                  maxKcalDeltaPct: 3,
+                  notHigherKcal: true,
+                  clarifications: ["poultry"],
+                }),
+              )
+              .mockResolvedValueOnce(aiInterpretation(["duck"])),
+      );
+      render(<DecisionWorkspace {...chickenOnlyProps()} />);
+      await prepare(
+        "열량 차이는 3% 이내. 열량이 높지 않은 사료. 가금육을 선호해요.",
+      );
+      fireEvent.click(
+        screen.getByRole("button", { name: "이 선호로 후보 먼저 보기" }),
+      );
+      compare();
+      save();
+      const previous = savedRequests()[0]!;
+      expect(previous.request.maxKcalDeltaPct).toBe(3);
+      expect(previous.request.notHigherKcal).toBe(true);
+      expect(previous.request.preferredProteins).toEqual(["poultry"]);
+      expect(previous.excluded.map((c) => c.food.id)).toEqual([2]);
+      edit();
+      await reinterpret("no duck");
+      expect(
+        (
+          screen.getByLabelText(
+            "현재 사료와 허용할 열량 차이",
+          ) as HTMLSelectElement
+        ).value,
+      ).toBe("10");
+      expect(checked("현재 사료보다 열량이 높지 않은 후보")).toBe(false);
+      compare();
+      save();
+      const [latest, earlier] = savedRequests();
+      expect(latest!.request.preferredProteins).toEqual([]);
+      expect(latest!.eligible.map((c) => c.food.id)).toEqual([2]);
+      expect(earlier).toEqual(previous);
+      const exported = exportDecisionBrief(
+        decisionSnapshotSchema.parse({
+          version: 1,
+          report: latest,
+          selectedFoodId: null,
+          reason: "",
+        }),
+      );
+      expect(exported).toContain("허용 열량 차이: 10% 이내");
+      expect(exported).toContain("현재 열량 이하 조건: 미적용");
+    },
+  );
+  it("drops an inferred ceiling and percentage when a later calorie request is ambiguous", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    render(<DecisionWorkspace {...props()} />);
+    await prepare("열량 차이는 3% 이내. 열량이 높지 않은 사료.");
+    await reinterpret("열량이 높은 것도 상관없어요");
+    expect(checked("현재 사료보다 열량이 높지 않은 후보")).toBe(false);
+    expect(
+      (
+        screen.getByLabelText(
+          "현재 사료와 허용할 열량 차이",
+        ) as HTMLSelectElement
+      ).value,
+    ).toBe("10");
+    expect(
+      screen.getByRole("button", { name: "이 열량 기준으로 비교하기" }),
+    ).toBeTruthy();
+    compare();
+    save();
+    const latest = savedRequests()[0]!;
+    expect(latest.request.pendingClarifications).toContain("calories");
+    expect(latest.eligible).toHaveLength(0);
+    expect(latest.unresolved.map((c) => c.food.id)).toEqual([2]);
+  });
+  it("preserves direct calorie and protein choices across repeated inferred replacements", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    render(<DecisionWorkspace {...chickenOnlyProps()} />);
+    await prepare("가금육을 선호해요");
+    fireEvent.click(screen.getByLabelText("가금육 선호"));
+    fireEvent.click(screen.getByLabelText("가금육 선호"));
+    fireEvent.click(screen.getByLabelText("생선 선호"));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "지금보다 높지 않게 · 차이 10% 이내",
+      }),
+    );
+    fireEvent.change(screen.getByLabelText("현재 사료와 허용할 열량 차이"), {
+      target: { value: "5" },
+    });
+    await reinterpret("열량 차이는 8% 이내");
+    expect(
+      (
+        screen.getByLabelText(
+          "현재 사료와 허용할 열량 차이",
+        ) as HTMLSelectElement
+      ).value,
+    ).toBe("8");
+    await reinterpret("no duck");
+    expect(
+      (
+        screen.getByLabelText(
+          "현재 사료와 허용할 열량 차이",
+        ) as HTMLSelectElement
+      ).value,
+    ).toBe("5");
+    expect(checked("현재 사료보다 열량이 높지 않은 후보")).toBe(true);
+    expect(checked("가금육 선호")).toBe(true);
+    expect(checked("생선 선호")).toBe(true);
+    compare();
+    save();
+    expect(savedRequests()[0]!.request.preferredProteins).toEqual([
+      "poultry",
+      "fish",
+    ]);
+  });
+  it("keeps an explicitly disabled calorie limit after a temporary question limit", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    render(<DecisionWorkspace {...chickenOnlyProps()} />);
+    await prepare();
+    fireEvent.click(
+      screen.getByRole("button", { name: "열량으로 후보를 제한하지 않을게요" }),
+    );
+    fireEvent.click(
+      screen.getByLabelText("현재 사료보다 열량이 높지 않은 후보"),
+    );
+    await reinterpret("열량 차이는 3% 이내");
+    await reinterpret("no duck");
+    expect(
+      (
+        screen.getByLabelText(
+          "현재 사료와 허용할 열량 차이",
+        ) as HTMLSelectElement
+      ).value,
+    ).toBe("none");
+    expect(checked("현재 사료보다 열량이 높지 않은 후보")).toBe(true);
+  });
+  it("keeps a sensitivity choice when a later question omits calories", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    render(<DecisionWorkspace {...chickenOnlyProps()} />);
+    await prepare("열량 차이는 3% 이내");
+    compare();
+    fireEvent.click(screen.getByText("열량 기준을 바꾸며 더 비교하기"));
+    fireEvent.click(
+      screen.getByRole("button", { name: /^15% 이내.*이 조건으로 다시 비교/ }),
+    );
+    edit();
+    await reinterpret("no duck");
+    expect(
+      (
+        screen.getByLabelText(
+          "현재 사료와 허용할 열량 차이",
+        ) as HTMLSelectElement
+      ).value,
+    ).toBe("15");
+    compare();
+    save();
+    expect(savedRequests()[0]!.request.maxKcalDeltaPct).toBe(15);
+  });
+  it("treats restored calorie and protein conditions as owner choices without changing history", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    render(<DecisionWorkspace {...chickenOnlyProps()} />);
+    await prepare("열량 차이는 8% 이내. 가금육을 선호해요.");
+    fireEvent.click(
+      screen.getByRole("button", { name: "이 선호로 후보 먼저 보기" }),
+    );
+    compare();
+    save();
+    const previous = savedRequests()[0]!;
+    fireEvent.click(
+      await screen.findByRole("button", { name: /저장한 검토 불러오기/ }),
+    );
+    edit();
+    await reinterpret("no duck");
+    expect(
+      (
+        screen.getByLabelText(
+          "현재 사료와 허용할 열량 차이",
+        ) as HTMLSelectElement
+      ).value,
+    ).toBe("8");
+    expect(checked("가금육 선호")).toBe(true);
+    compare();
+    save();
+    const [latest, earlier] = savedRequests();
+    expect(latest!.request.maxKcalDeltaPct).toBe(8);
+    expect(latest!.request.preferredProteins).toEqual(["poultry"]);
+    expect(earlier).toEqual(previous);
+  });
   it("replaces exclusions inferred from an earlier question and keeps the saved brief", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
     render(<DecisionWorkspace {...chickenOnlyProps()} />);
