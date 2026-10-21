@@ -344,6 +344,84 @@ describe("food decision", () => {
       }
     },
   );
+  it.each([
+    ["닭고기 지방", "chicken"],
+    ["오리고기 지방", "duck"],
+    ["소고기 지방", "beef"],
+    ["닭 지방", "chicken"],
+    ["Chicken fat", "chicken"],
+    ["Salmon oil", "fish"],
+  ] as const)(
+    "skips standalone %s for protein preference but still detects its exclusion",
+    (name, exclusion) => {
+      const input = catalog();
+      input.foods[1]!.ingredients = [
+        { name, position: 1 },
+        { name: "Salmon", position: 2 },
+      ];
+      input.ingredientEvidenceByFoodId[2]!.excerpt = `${name}, Salmon`;
+      expect(
+        assessIngredientExclusion(input.foods[1]!.ingredients, exclusion, true)
+          .status,
+      ).toBe("failed");
+      const report = buildFoodDecision(input, {
+        ...request,
+        exclusions: [],
+        preferredProteins: ["fish"],
+      });
+      const candidate = report.eligible.find((c) => c.food.id === 2)!;
+      expect(candidate.preference.status).toBe("preferred");
+      expect(candidate.preference.detail).toContain("2번째 “Salmon”");
+      expect(candidate.preference.detail).not.toContain(`1번째 “${name}”`);
+      const excluded = buildFoodDecision(input, {
+        ...request,
+        exclusions: [exclusion],
+        preferredProteins: ["fish"],
+      }).excluded.find((c) => c.food.id === 2)!;
+      expect(excluded.preference.status).toBe("preferred");
+      expect(excluded.conditions).toContainEqual(
+        expect.objectContaining({ key: exclusion, status: "failed" }),
+      );
+    },
+  );
+  it.each([
+    "닭고기와 지방",
+    "닭고기 지방과 닭고기",
+    "닭고기·지방",
+    "Chicken meat and fat",
+    "닭고기 육분",
+  ])("retains %s as the first animal ingredient", (name) => {
+    const input = catalog();
+    input.foods[1]!.ingredients = [
+      { name, position: 1 },
+      { name: "Salmon", position: 2 },
+    ];
+    input.ingredientEvidenceByFoodId[2]!.excerpt = `${name}, Salmon`;
+    const report = buildFoodDecision(input, {
+      ...request,
+      exclusions: [],
+      preferredProteins: ["fish"],
+    });
+    const candidate = report.eligible.find((c) => c.food.id === 2)!;
+    expect(candidate.preference.status).toBe("other");
+    expect(candidate.preference.detail).toContain(`1번째 “${name}”`);
+  });
+  it("does not infer a preferred protein when full ingredient evidence is absent", () => {
+    const input = catalog();
+    input.foods[1]!.ingredients = [
+      { name: "오리고기 지방", position: 1 },
+      { name: "Salmon", position: 2 },
+    ];
+    delete input.ingredientEvidenceByFoodId[2];
+    const report = buildFoodDecision(input, {
+      ...request,
+      exclusions: [],
+      preferredProteins: ["fish"],
+    });
+    expect(
+      report.eligible.find((c) => c.food.id === 2)?.preference.status,
+    ).toBe("unknown");
+  });
   it.each(["poultrymeal", "poultryfat", "animalmeal", "animalfat", "meatmeal"])(
     "leaves the species of compact broad derivative %s unknown",
     (name) => {

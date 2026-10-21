@@ -277,6 +277,13 @@ function assessPreference(
       .split(/[（(]/, 1)[0]!
       .replace(/\b(?:preserved|stabilized)\b.*$/i, "")
       .trim();
+    // '닭고기 지방'의 '고기'만으로 단백질 원료로 간주하지 않습니다.
+    if (
+      /^(?:신선한\s*|생\s*)?(?:닭|오리|칠면조|소|쇠|돼지|양)고기\s*지방$/u.test(
+        mainName,
+      )
+    )
+      continue;
     const includesTissue =
       /\b(?:meat|meal|liver|heart|kidney|organ|offal|protein)\b|고기|육분|생육|내장|단백|간(?:\s|$)/i.test(
         mainName,
