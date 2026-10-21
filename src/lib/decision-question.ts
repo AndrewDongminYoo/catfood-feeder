@@ -32,6 +32,181 @@ const NAMES: Record<IngredientExclusion, string> = {
   grain: "곡물|그레인|grains?",
 };
 
+type GrainFreeIntent = "requested" | "optional" | "retracted" | "unknown";
+const GRAIN_FREE_WORDING = String.raw`\bgrain[-\s]?free\b|그레인\s*프리`;
+
+function normalizeGrainFreeWording(text: string) {
+  return text
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/(찾아|추천해)\s+주세요/g, "$1주세요");
+}
+
+function grainFreeRetractionLength(text: string) {
+  const marker = text.match(/^\s*(?:(?:actually|sorry|well)[,\s]+)*/i)![0];
+  const reply = text.slice(marker.length);
+  const target = String.raw`(?:it|that|this|(?:${GRAIN_FREE_WORDING})(?:\s+(?:cat\s+)?(?:food|diet))?)`;
+  const patterns = [
+    /^(?:no[, ]+)?not\s+(?:necessary|required|needed)\s*(?=$|,)/i,
+    new RegExp(
+      `^(?:i\\s+)?(?:don't|do not)\\s+(?:need|want)(?:\\s+${target}(?:\\s+anymore)?)?\\s*(?=$|,)`,
+      "i",
+    ),
+    /^(?:no[, ]+(?:thanks|thank you)|never\s*mind)\b/i,
+    /^(?:아니요[,\s]*)?(?:꼭\s*)?필요(?:(?:는|가|도)?\s*없(?:어요|습니다)?|하지는?\s*않(?:아요|습니다)?)/i,
+    /^(?:no(?=$|,)|(?:아니요|아니)(?=$|[,\s]))/i,
+  ];
+  const match = patterns
+    .map((pattern) => reply.match(pattern))
+    .find((match) => match !== null);
+  return match ? marker.length + match[0].length : 0;
+}
+
+function grainFreeClauseIntent(
+  before: string,
+  after: string,
+  isQuestion: boolean,
+): GrainFreeIntent {
+  const namedIngredient = `(?:${Object.values(NAMES).join("|")})`;
+  const otherExclusion = `(?:no|without)\\s+${namedIngredient}(?:\\s+(?:and|or)\\s+${namedIngredient})*`;
+  const companionJoin = String.raw`(?:\s*,\s*(?:and\s+)?|\s+and\s+)`;
+  const prefix = normalizeGrainFreeWording(before)
+    .replace(new RegExp(`^${otherExclusion}${companionJoin}`, "i"), "")
+    .replace(
+      new RegExp(
+        `^${namedIngredient}(?:고기)?(?:[은는을를이가도]\\s*|\\s)*(?:빼고|제외하고|피하고)\\s*`,
+        "i",
+      ),
+      "",
+    )
+    .replace(/^please,\s*/i, "please ");
+  const suffix = normalizeGrainFreeWording(after)
+    .replace(new RegExp(`${companionJoin}${otherExclusion}$`, "i"), "")
+    .replace(
+      new RegExp(
+        `\\s*,\\s*${namedIngredient}(?:고기)?[은는을를이가도]?\\s*(?:빼|제외해|피해)\\s*주세요$`,
+        "i",
+      ),
+      "",
+    );
+  const englishFood = String.raw`(?:\s+(?:cat\s+)?(?:food|diet))?`;
+  const koreanFood = String.raw`(?:\s*(?:인\s*)?사료)?`;
+  const koreanRequest = String.raw`찾아주세요|추천해주세요|원해요|바꾸고\s*싶어요`;
+  const explicitKoreanRequest = new RegExp(
+    `^${koreanFood}(?:를|로|는)?\\s*(?:${koreanRequest})$`,
+  ).test(suffix);
+  const retracted =
+    (/^(?:i\s+)?(?:don't|do not)\s+(?:need|want)$|^not$/i.test(prefix) &&
+      new RegExp(`^${englishFood}(?:\\s+anymore)?\\s*$`, "i").test(
+        ` ${suffix}`,
+      )) ||
+    (prefix === "" &&
+      new RegExp(
+        `^${englishFood}\\s+(?:is\\s+)?not\\s+(?:necessary|required|needed)\\s*$`,
+        "i",
+      ).test(` ${suffix}`)) ||
+    (prefix === "" &&
+      new RegExp(
+        `^${koreanFood}(?:(?:일|는)?\\s*필요(?:는|가|도)?\\s*없어요|(?:는|를)?\\s*원하지\\s*않아요)$`,
+      ).test(suffix));
+  if (retracted) return "retracted";
+  const optional =
+    prefix === "" &&
+    (new RegExp(
+      `^${englishFood}\\s+(?:is\\s+)?(?:okay|ok|fine|allowed|optional)\\s*$`,
+      "i",
+    ).test(` ${suffix}`) ||
+      new RegExp(
+        `^${koreanFood}(?:(?:가\\s*)?아니어도\\s*괜찮아요|(?:는|도|여도)?\\s*(?:괜찮아요|상관없어요))$`,
+      ).test(suffix));
+  if (optional) return "optional";
+  const requested =
+    (/^(?:(?:(?:i\s+)?(?:want|need)|i'd\s+like|i\s+am\s+looking\s+for|(?:please\s+)?(?:find|show me))(?:\s+a)?|please)?$/i.test(
+      prefix,
+    ) &&
+      new RegExp(`^${englishFood}(?:(?:\\s*,\\s*|\\s+)please)?\\s*$`, "i").test(
+        ` ${suffix}`,
+      )) ||
+    (prefix === "" && explicitKoreanRequest) ||
+    (prefix === "" && new RegExp(`^${koreanFood}$`).test(suffix));
+  const explicitRequest =
+    prefix !== "" || /\bplease$/i.test(suffix) || explicitKoreanRequest;
+  return requested && (!isQuestion || explicitRequest)
+    ? "requested"
+    : "unknown";
+}
+
+function analyzeGrainFreeQuestion(question: string) {
+  const clauses = [
+    ...question.matchAll(/((?:[^.!?。;]|\.(?<=\d\.)(?=\d))+)([.!?。;]|$)/g),
+  ]
+    .filter((match) => match[1]!.trim() !== "")
+    .map((match) => {
+      const text = match[1]!;
+      const isQuestion = match[2] === "?";
+      const mentions = [...text.matchAll(new RegExp(GRAIN_FREE_WORDING, "gi"))];
+      const intents = mentions.map((mention) =>
+        grainFreeClauseIntent(
+          text.slice(0, mention.index),
+          text.slice(mention.index! + mention[0].length),
+          isQuestion,
+        ),
+      );
+      return {
+        text,
+        remainder: text,
+        start: match.index!,
+        isQuestion,
+        intents,
+        mentions,
+        handled: intents.length > 0 && !intents.includes("unknown"),
+      };
+    });
+  const retractions: { start: number; length: number }[] = [];
+  for (let index = 1; index < clauses.length; index++) {
+    const previous = clauses[index - 1]!;
+    const clause = clauses[index]!;
+    if (
+      previous.intents.length === 0 ||
+      (!previous.isQuestion && !previous.intents.includes("requested"))
+    )
+      continue;
+    const length = grainFreeRetractionLength(clause.text);
+    if (!length) continue;
+    previous.intents = previous.intents.map(() => "retracted");
+    previous.handled = true;
+    clause.intents = clause.intents.map((intent, mentionIndex) =>
+      clause.mentions[mentionIndex]!.index! < length ? "retracted" : intent,
+    );
+    clause.handled ||= clause.text.slice(length).trim() === "";
+    clause.remainder = clause.text.slice(length).replace(/^[,\s]+/, "");
+    retractions.push({ start: clause.start, length });
+  }
+  const intents = clauses.flatMap((clause) => clause.intents);
+  const latestDecision = intents.findLast(
+    (intent) => intent === "requested" || intent === "retracted",
+  );
+  return {
+    requested: latestDecision === "requested" && !intents.includes("optional"),
+    unresolved:
+      intents.includes("unknown") ||
+      (intents.includes("requested") && intents.includes("optional")),
+    fullyHandled:
+      clauses.length > 0 && clauses.every((clause) => clause.handled),
+    otherClauses:
+      retractions.length > 0
+        ? clauses
+            .filter(
+              (clause) =>
+                !clause.handled &&
+                !new RegExp(GRAIN_FREE_WORDING, "i").test(clause.remainder),
+            )
+            .map((clause) => clause.remainder)
+        : [],
+    retractions,
+  };
+}
+
 export function parseDecisionQuestion(
   question: string,
 ): QuestionInterpretation {
@@ -39,6 +214,22 @@ export function parseDecisionQuestion(
   const permitted = new Set<IngredientExclusion>();
   let remaining = question;
   let incompleteExclusions = false;
+  const grainFree = new RegExp(GRAIN_FREE_WORDING, "gi");
+  const grainFreeMentions = [...question.matchAll(grainFree)];
+  const grainFreeAnalysis = analyzeGrainFreeQuestion(question);
+  let ingredientQuestion = question;
+  for (const { start, length } of grainFreeAnalysis.retractions)
+    ingredientQuestion =
+      ingredientQuestion.slice(0, start) +
+      "\0".repeat(length) +
+      ingredientQuestion.slice(start + length);
+  // Keep "프리" and "필요 없어요" out of the generic exclusion grammar.
+  ingredientQuestion = ingredientQuestion
+    .replace(
+      /그레인\s*프리(?:\s*(?:인\s*)?사료)?(?:일|는)?\s*필요(?:는|가|도)?\s*없어요/gi,
+      (match) => "\0".repeat(match.length),
+    )
+    .replace(grainFree, (match) => "\0".repeat(match.length));
   const keys = Object.keys(NAMES) as IngredientExclusion[];
   const knownName = Object.values(NAMES).join("|");
   // Unknown list members stay visible instead of disappearing beside known ones.
@@ -73,23 +264,24 @@ export function parseDecisionQuestion(
     }
     remaining = remaining.replace(match[0], "\0");
   };
-  for (const match of question.matchAll(korean))
+  for (const match of ingredientQuestion.matchAll(korean))
     record(
       match,
       match[1]!,
       new RegExp(`^(?:${negativeAction})`, "i").test(match[2]!),
     );
-  for (const match of question.matchAll(english))
+  for (const match of ingredientQuestion.matchAll(english))
     record(match, match[1]!, false);
   const permission = new RegExp(
     `\\b(${list})\\s+(?:(?:is|are)\\s+)?(?:fine|okay|ok|allowed)\\b`,
     "gi",
   );
-  for (const match of question.matchAll(permission))
+  for (const match of ingredientQuestion.matchAll(permission))
     record(match, match[1]!, true);
-  if (/\bgrain[-\s]?free\b|그레인\s*프리/i.test(question)) {
-    exclusions.add("grain");
-    remaining = remaining.replace(/\bgrain[-\s]?free\b|그레인\s*프리/gi, " ");
+  if (grainFreeMentions.length) {
+    if (grainFreeAnalysis.requested) exclusions.add("grain");
+    if (grainFreeAnalysis.unresolved) incompleteExclusions = true;
+    remaining = remaining.replace(grainFree, " ");
   }
   for (const key of permitted) {
     if (exclusions.delete(key)) incompleteExclusions = true;
@@ -152,6 +344,9 @@ export function parseDecisionQuestion(
   )
     clarifications.push("poultry");
   const unhandled: string[] = [];
+  // These clauses have no grain-free mentions, so they cannot recurse here.
+  for (const clause of grainFreeAnalysis.otherClauses)
+    unhandled.push(...parseDecisionQuestion(clause).unhandled);
   if (/\d+(?:\.\d+)?\s*%/.test(unboundRatioText))
     unhandled.push(
       `이 비율 조건은 확인하지 못했습니다: “${unboundRatioText.trim().slice(0, 180)}”. 이번 비교에서 제외할지 확인해 주세요.`,
@@ -216,6 +411,7 @@ export function parseDecisionQuestion(
     numericDelta === null &&
     clarifications.length === 0 &&
     unhandled.length === 0 &&
+    !grainFreeAnalysis.fullyHandled &&
     !isClinicalDecisionQuestion(question)
   )
     unhandled.push(
@@ -224,7 +420,7 @@ export function parseDecisionQuestion(
   return {
     exclusions: keys.filter((key) => exclusions.has(key)),
     maxKcalDeltaPct: numericDelta,
-    unhandled,
+    unhandled: [...new Set(unhandled)],
     outsideScope: isClinicalDecisionQuestion(question),
     clarifications,
     notHigherKcal,
