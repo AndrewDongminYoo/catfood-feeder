@@ -78,6 +78,52 @@ function save() {
 function edit() {
   fireEvent.click(screen.getByRole("button", { name: "조건 바꾸기" }));
 }
+async function reinterpret(question: string) {
+  fireEvent.click(screen.getByRole("button", { name: "이전: 바꾸려는 이유" }));
+  fireEvent.change(screen.getByLabelText("다음 사료에 대해 궁금한 점"), {
+    target: { value: question },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "질문에서 조건 읽기" }));
+  await screen.findByRole("button", { name: "조건 확인하고 후보 비교하기" });
+}
+function checked(label: string) {
+  return (screen.getByLabelText(label) as HTMLInputElement).checked;
+}
+function savedRequests() {
+  return (
+    JSON.parse(localStorage.getItem("catfood.decisions.v1")!) as unknown[]
+  ).map((value) => decisionSnapshotSchema.parse(value).report);
+}
+function chickenOnlyProps() {
+  const data = props();
+  data.foods[1]!.ingredients = [{ name: "Chicken", position: 1 }];
+  return {
+    ...data,
+    ingredientEvidenceByFoodId: {
+      2: {
+        excerpt: "Chicken",
+        capturedAt: "2026-10-01",
+        url: "https://example.test/ingredients",
+      },
+    },
+  };
+}
+function aiInterpretation(exclusions: string[]) {
+  return {
+    ok: true,
+    json: async () => ({
+      mode: "ai",
+      interpretation: {
+        exclusions,
+        maxKcalDeltaPct: null,
+        unhandled: [],
+        outsideScope: false,
+        clarifications: [],
+        notHigherKcal: false,
+      },
+    }),
+  } as Response;
+}
 const originalQuestion =
   "지금 먹이는 사료와 비슷하면서 열량이 너무 높지 않은 건강한 사료를 찾고 있어요. 생선보다는 가금육을 더 좋아해요.";
 
@@ -698,6 +744,113 @@ describe("decision workspace", () => {
       );
     },
   );
+  it("replaces exclusions inferred from an earlier question and keeps the saved brief", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    render(<DecisionWorkspace {...chickenOnlyProps()} />);
+    await prepare("no chicken");
+    expect(checked("닭고기 표기 제외")).toBe(true);
+    compare();
+    save();
+    edit();
+    await reinterpret("no fish");
+    expect(checked("닭고기 표기 제외")).toBe(false);
+    expect(checked("생선 표기 제외")).toBe(true);
+    compare();
+    save();
+    const [latest, earlier] = savedRequests();
+    expect(latest!.request.question).toBe("no fish");
+    expect(latest!.request.exclusions).toEqual(["fish"]);
+    expect(latest!.excluded).toHaveLength(0);
+    expect(latest!.eligible.map((candidate) => candidate.food.id)).toEqual([2]);
+    expect(
+      exportDecisionBrief(
+        decisionSnapshotSchema.parse({
+          version: 1,
+          report: latest,
+          selectedFoodId: null,
+          reason: "",
+        }),
+      ),
+    ).not.toContain("닭고기 표기 제외");
+    expect(earlier!.request.question).toBe("no chicken");
+    expect(earlier!.request.exclusions).toEqual(["chicken"]);
+    expect(earlier!.excluded.map((candidate) => candidate.food.id)).toEqual([
+      2,
+    ]);
+  });
+  it("keeps exclusions the owner selected directly when the question changes", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    render(<DecisionWorkspace {...chickenOnlyProps()} />);
+    await prepare("no chicken");
+    fireEvent.click(screen.getByLabelText("소고기 표기 제외"));
+    await reinterpret("no fish");
+    expect(checked("닭고기 표기 제외")).toBe(false);
+    expect(checked("소고기 표기 제외")).toBe(true);
+    expect(checked("생선 표기 제외")).toBe(true);
+    fireEvent.click(screen.getByLabelText("생선 표기 제외"));
+    fireEvent.click(screen.getByLabelText("생선 표기 제외"));
+    await reinterpret("no duck");
+    expect(checked("소고기 표기 제외")).toBe(true);
+    expect(checked("생선 표기 제외")).toBe(true);
+    expect(checked("오리 표기 제외")).toBe(true);
+    compare();
+    save();
+    expect(savedRequests()[0]!.request.exclusions).toEqual([
+      "beef",
+      "fish",
+      "duck",
+    ]);
+  });
+  it("keeps restored brief exclusions when the restored question changes", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    const view = render(<DecisionWorkspace {...chickenOnlyProps()} />);
+    await prepare("no chicken");
+    compare();
+    save();
+    view.unmount();
+    render(<DecisionWorkspace {...chickenOnlyProps()} />);
+    await prepare("no chicken");
+    fireEvent.click(
+      await screen.findByRole("button", { name: /저장한 검토 불러오기/ }),
+    );
+    edit();
+    await reinterpret("no fish");
+    expect(checked("닭고기 표기 제외")).toBe(true);
+    expect(checked("생선 표기 제외")).toBe(true);
+  });
+  it("does not accumulate exclusions across repeated interpretations", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    render(<DecisionWorkspace {...chickenOnlyProps()} />);
+    await prepare("no chicken");
+    await reinterpret("no chicken, no duck");
+    expect(checked("오리 표기 제외")).toBe(true);
+    await reinterpret("no chicken");
+    expect(checked("닭고기 표기 제외")).toBe(true);
+    expect(checked("오리 표기 제외")).toBe(false);
+    compare();
+    save();
+    expect(savedRequests()[0]!.request.exclusions).toEqual(["chicken"]);
+  });
+  it("replaces earlier AI-inferred exclusions with the new AI interpretation", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(aiInterpretation(["chicken"]))
+        .mockResolvedValueOnce(aiInterpretation(["fish"])),
+    );
+    render(<DecisionWorkspace {...chickenOnlyProps()} />);
+    await prepare("닭고기는 피하고 싶어요");
+    expect(checked("닭고기 표기 제외")).toBe(true);
+    await reinterpret("생선은 피하고 싶어요");
+    expect(checked("닭고기 표기 제외")).toBe(false);
+    expect(checked("생선 표기 제외")).toBe(true);
+    compare();
+    save();
+    const [latest] = savedRequests();
+    expect(latest!.request.exclusions).toEqual(["fish"]);
+    expect(latest!.eligible.map((candidate) => candidate.food.id)).toEqual([2]);
+  });
   it("requires an explicit omission of an unsupported exclusion", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
     render(<DecisionWorkspace {...props()} />);

@@ -94,6 +94,10 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
   );
   const data = refreshed ?? props;
   const [interpretedQuestion, setInterpretedQuestion] = useState("");
+  // 직전 질문 해석이 추가한 제외 조건만 기억합니다. 보호자가 직접 고른 조건은 여기에 넣지 않습니다.
+  const [inferredExclusions, setInferredExclusions] = useState<
+    readonly IngredientExclusion[]
+  >([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [snapshot, setSnapshot] = useState<DecisionSnapshot | null>(null);
@@ -166,10 +170,17 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
     question: string,
     result: ReturnType<typeof parseDecisionQuestion>,
   ) {
+    // 새 질문은 이전 질문에서 추론한 조건을 대체하고, 직접 고른 조건은 그대로 둡니다.
+    const chosen = request.exclusions.filter(
+      (key) => !inferredExclusions.includes(key),
+    );
     setInterpretedQuestion(question);
+    setInferredExclusions(
+      result.exclusions.filter((key) => !chosen.includes(key)),
+    );
     setRequest((r) => ({
       ...r,
-      exclusions: [...new Set([...r.exclusions, ...result.exclusions])],
+      exclusions: [...new Set([...chosen, ...result.exclusions])],
       maxKcalDeltaPct: result.maxKcalDeltaPct ?? r.maxKcalDeltaPct,
       unresolvedRequirements: result.unhandled,
       ignoredRequirements: [],
@@ -336,6 +347,8 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
     setRequest(value.report.request);
     setManual(value.report.request.currentFoodId === null);
     setInterpretedQuestion(value.report.request.question);
+    // 저장 기록에는 추론 여부가 없으므로 불러온 조건은 모두 보호자가 확인한 조건으로 둡니다.
+    setInferredExclusions([]);
     setHistorical(true);
     setStage(3);
     setMessage("저장한 검토를 불러왔습니다. 저장 당시의 자료를 보여드립니다.");
@@ -655,6 +668,10 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
                             checked={request.exclusions.includes(key)}
                             onChange={(e) => {
                               setShowExclusions(true);
+                              // 직접 바꾼 조건은 보호자의 선택으로 보고 재해석 때 지우지 않습니다.
+                              setInferredExclusions((keys) =>
+                                keys.filter((x) => x !== key),
+                              );
                               update(
                                 "exclusions",
                                 e.target.checked
