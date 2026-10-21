@@ -167,6 +167,16 @@ describe("decision question", () => {
     expect(result.exclusions).toEqual(["chicken"]);
     expect(result.unhandled.length).toBeGreaterThan(0);
   });
+  it.each([
+    "I don't need grain-free food. I want grain-free food.",
+    "그레인프리 사료는 필요 없어요. 그레인프리 사료를 찾아주세요.",
+    "I want grain-free food. No thanks. I want grain-free food.",
+  ])("honors a later request after a withdrawal: %s", (question) => {
+    expect(parseDecisionQuestion(question)).toMatchObject({
+      exclusions: ["grain"],
+      unhandled: [],
+    });
+  });
   it("preserves an explicit request beside an ambiguous repeated mention", () => {
     const result = parseDecisionQuestion(
       "I want grain-free food. Is grain-free better?",

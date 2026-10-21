@@ -183,12 +183,11 @@ function analyzeGrainFreeQuestion(question: string) {
     retractions.push({ start: clause.start, length });
   }
   const intents = clauses.flatMap((clause) => clause.intents);
+  const latestDecision = intents.findLast(
+    (intent) => intent === "requested" || intent === "retracted",
+  );
   return {
-    requested:
-      intents.includes("requested") &&
-      !intents.some(
-        (intent) => intent === "optional" || intent === "retracted",
-      ),
+    requested: latestDecision === "requested" && !intents.includes("optional"),
     unresolved:
       intents.includes("unknown") ||
       (intents.includes("requested") && intents.includes("optional")),
