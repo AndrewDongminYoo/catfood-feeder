@@ -61,6 +61,12 @@ pnpm research:run --food 123              # research one skeleton draft
 Requires `RESEARCH_AGENT_SECRET` in `$HOME/.config/catfood-feeder/env`, a standalone `codex` executable, and a CLI login using `cli_auth_credentials_store = "file"`.
 Optional: `RESEARCH_BROKER_URL` (default `http://localhost:3000`), `RESEARCH_AGENT_MODEL` (default `gpt-5.6-terra`).
 
+The curation and transcription entrypoints (`curate-source.mjs`, `curate-brand.mjs`, `research-brand.mjs`, `transcribe-brand.mjs`, and `research-missing.mjs`) resolve `RESEARCH_BROKER_URL` after loading the external environment file.
+An existing process environment value takes precedence over that file.
+Missing or whitespace-only broker values use `http://localhost:3000`.
+An explicit value must be an HTTP(S) origin without embedded credentials, a path prefix, query parameters, or a fragment; a trailing slash is accepted.
+Invalid values fail before credential-bearing work, and error messages do not echo the configured value.
+
 What holds the boundary:
 
 - `RESEARCH_AGENT_SECRET` opens **only** `/api/research/*`. No admin or publish route accepts it, and `src/lib/research-boundary.test.ts` pins that.

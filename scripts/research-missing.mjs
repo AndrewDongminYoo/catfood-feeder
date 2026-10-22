@@ -19,12 +19,13 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createClient } from "@supabase/supabase-js";
-import { BASE_URL, adminSecret } from "./curate-source.mjs";
+import { getBrokerBaseUrl, adminSecret } from "./curate-source.mjs";
 import { buildAgentEnv, buildCodexArgs } from "./research-run.mjs";
 import { selectAll } from "./select-all.mjs";
 import { SECRETS_FILE, loadSecrets } from "./with-secrets.mjs";
 
 loadSecrets();
+const BASE_URL = getBrokerBaseUrl();
 
 const arg = (name) => {
   const i = process.argv.indexOf(`--${name}`);
