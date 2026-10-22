@@ -750,6 +750,80 @@ describe("decision workspace", () => {
     },
   );
   it.each(["offline", "ai"])(
+    "exports pending and confirmed poultry preferences through %s save and restore",
+    async (mode) => {
+      vi.stubGlobal(
+        "fetch",
+        mode === "offline"
+          ? vi.fn().mockRejectedValue(new Error("offline"))
+          : vi
+              .fn()
+              .mockResolvedValueOnce(
+                aiInterpretation([], { maxKcalDeltaPct: 10 }),
+              )
+              .mockResolvedValueOnce(
+                aiInterpretation([], {
+                  maxKcalDeltaPct: 10,
+                  clarifications: ["poultry"],
+                }),
+              ),
+      );
+      const view = render(<DecisionWorkspace {...chickenOnlyProps()} />);
+      await prepare();
+      fireEvent.click(
+        screen.getByRole("button", { name: "좋아하는 원료도 정할게요" }),
+      );
+      fireEvent.click(screen.getByLabelText("생선 선호"));
+      await reinterpret("열량 차이는 10% 이내. 가금육을 선호해요.");
+      compare();
+      save();
+      const pendingRaw = localStorage.getItem("catfood.decisions.v1")!;
+      const pending = decisionSnapshotSchema.parse(JSON.parse(pendingRaw)[0]);
+      expect(pending.report.request.preferredProteins).toEqual([
+        "fish",
+        "poultry",
+      ]);
+      expect(pending.report.request.pendingClarifications).toEqual(["poultry"]);
+      expect(pending.report.eligible).toHaveLength(0);
+      expect(pending.report.unresolved[0]?.conditions).toContainEqual(
+        expect.objectContaining({ key: "clarify-poultry", status: "unknown" }),
+      );
+      expect(exportDecisionBrief(pending)).toContain(
+        "선호 원료: 생선 (제외 조건이 아닌 우선순위)",
+      );
+      expect(exportDecisionBrief(pending)).toContain(
+        "확인 대기 중인 선호 원료: 가금육",
+      );
+      view.unmount();
+      render(<DecisionWorkspace {...chickenOnlyProps()} />);
+      fireEvent.click(
+        await screen.findByRole("button", { name: /저장한 검토 불러오기/ }),
+      );
+      expect(localStorage.getItem("catfood.decisions.v1")).toBe(pendingRaw);
+      edit();
+      fireEvent.click(
+        screen.getByRole("button", { name: "이 선호로 후보 먼저 보기" }),
+      );
+      compare();
+      save();
+      const [confirmed, earlier] = JSON.parse(
+        localStorage.getItem("catfood.decisions.v1")!,
+      ).map((value: unknown) => decisionSnapshotSchema.parse(value));
+      expect(earlier).toEqual(pending);
+      expect(confirmed.report.request.pendingClarifications).toEqual([]);
+      expect(
+        confirmed.report.eligible.map(
+          (candidate: { food: { id: number } }) => candidate.food.id,
+        ),
+      ).toEqual([2]);
+      const text = exportDecisionBrief(confirmed);
+      expect(text).toContain(
+        "선호 원료: 생선, 가금육 (제외 조건이 아닌 우선순위)",
+      );
+      expect(text).not.toContain("확인 대기 중인 선호 원료:");
+    },
+  );
+  it.each(["offline", "ai"])(
     "replaces inferred calorie and protein conditions in the %s saved and exported brief",
     async (mode) => {
       vi.stubGlobal(

@@ -716,6 +716,60 @@ describe("food decision", () => {
     expect(text).toContain("4000 kcal/kg");
     expect(text).toContain("2026-10-01T00:00:00Z");
   });
+  it.each([
+    {
+      preferredProteins: ["poultry"],
+      pendingClarifications: ["poultry"],
+      confirmed: "없음",
+      pending: true,
+    },
+    {
+      preferredProteins: ["fish", "poultry"],
+      pendingClarifications: ["poultry"],
+      confirmed: "생선",
+      pending: true,
+    },
+    {
+      preferredProteins: ["fish", "poultry"],
+      pendingClarifications: [],
+      confirmed: "생선, 가금육",
+      pending: false,
+    },
+    {
+      preferredProteins: ["poultry"],
+      pendingClarifications: ["calories"],
+      confirmed: "가금육",
+      pending: false,
+    },
+    {
+      preferredProteins: [],
+      pendingClarifications: ["poultry"],
+      confirmed: "없음",
+      pending: false,
+    },
+  ] as const)(
+    "exports confirmed preferences separately from pending proposals: $confirmed / $pending",
+    ({ preferredProteins, pendingClarifications, confirmed, pending }) => {
+      const snapshot = decisionSnapshotSchema.parse({
+        version: 1,
+        report: buildFoodDecision(catalog(), {
+          ...request,
+          preferredProteins: [...preferredProteins],
+          pendingClarifications: [...pendingClarifications],
+        }),
+        selectedFoodId: null,
+        reason: "",
+      });
+      const before = JSON.stringify(snapshot);
+      const restored = decisionSnapshotSchema.parse(JSON.parse(before));
+      const text = exportDecisionBrief(restored);
+      expect(text.split("\n")).toContain(
+        `선호 원료: ${confirmed} (제외 조건이 아닌 우선순위)`,
+      );
+      expect(text.includes("확인 대기 중인 선호 원료: 가금육")).toBe(pending);
+      expect(JSON.stringify(restored)).toBe(before);
+    },
+  );
   it("does not offer kitten or explicitly therapeutic products to an adult non-prescription request", () => {
     const input = catalog();
     input.foods[1]!.product_name = "Recipe Kitten";

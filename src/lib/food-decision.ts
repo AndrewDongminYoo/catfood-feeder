@@ -752,6 +752,12 @@ export function buildFoodDecision(
 
 export function exportDecisionBrief(snapshot: DecisionSnapshot): string {
   const { report } = snapshot;
+  const pendingPoultry =
+    report.request.pendingClarifications.includes("poultry") &&
+    report.request.preferredProteins.includes("poultry");
+  const confirmedPreferences = report.request.preferredProteins.filter(
+    (key) => key !== "poultry" || !pendingPoultry,
+  );
   const selected = [...report.eligible, ...report.unresolved].find(
     (c) => c.food.id === snapshot.selectedFoodId,
   );
@@ -770,7 +776,8 @@ export function exportDecisionBrief(snapshot: DecisionSnapshot): string {
       : []),
     `질문: ${report.request.question || "입력한 조건으로 비교"}`,
     `바꾸려는 이유: ${report.request.changeReason || "별도 기록 없음"}`,
-    `선호 원료: ${report.request.preferredProteins.map((key) => PREFERENCE_LABELS[key]).join(", ") || "없음"} (제외 조건이 아닌 우선순위)`,
+    `선호 원료: ${confirmedPreferences.map((key) => PREFERENCE_LABELS[key]).join(", ") || "없음"} (제외 조건이 아닌 우선순위)`,
+    ...(pendingPoultry ? ["확인 대기 중인 선호 원료: 가금육"] : []),
     `현재 사료: ${report.baseline.name}`,
     `현재 열량: ${report.baseline.kcal ?? "미확인"} kcal/kg (${report.baseline.origin === "owner" ? "직접 입력" : "카탈로그 근거"})`,
     ...(report.baseline.evidence
