@@ -288,6 +288,12 @@ describe("decision question", () => {
     "그레인프리일 필요 없습니다.",
     "I want grain-free food. Grain-free? No.",
     "그레인프리 사료를 찾아주세요. 그레인프리? 아니요.",
+    "Do you want grain-free food? No.",
+    "Would you like grain-free cat food? No thanks.",
+    "Do you need grain-free? No.",
+    "그레인프리로 할까요? 아니요.",
+    "그레인프리 사료로 할까요? 아니요.",
+    "I want grain-free food. Do you want grain-free food? No.",
   ])(
     "handles a withdrawn grain condition without asking again: %s",
     (question) => {

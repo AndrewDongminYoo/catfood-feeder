@@ -12,6 +12,7 @@ An earlier permission must not veto a later explicit request; a later permission
 Ambiguous mentions remain unresolved and must not silently erase a separately supported request.
 A short negative reply to a comparative question such as `Is grain-free better?` does not retract an earlier separate request.
 Direct replies to a standalone grain-free confirmation question retain their existing withdrawal behavior.
+This includes `Do you want grain-free food? No.` and `그레인프리로 할까요? 아니요.`; these preference confirmations do not resolve comparative questions.
 Preserve other ingredient exclusions and explicit calorie limits.
 Model proposals must match the full question and may not restore a withdrawn condition using a partial quotation.
 

@@ -168,14 +168,18 @@ function analyzeGrainFreeQuestion(question: string) {
     const clause = clauses[index]!;
     const isGrainFreeConfirmation =
       previous.isQuestion &&
-      previous.mentions.some(
-        (mention) =>
-          grainFreeClauseIntent(
-            previous.text.slice(0, mention.index),
-            previous.text.slice(mention.index! + mention[0].length),
-            false,
-          ) === "requested",
-      );
+      (new RegExp(
+        `^\\s*(?:(?:do you (?:want|need)|would you like)\\s+(?:a\\s+)?(?:${GRAIN_FREE_WORDING})(?:\\s+(?:cat\\s+)?(?:food|diet))?|(?:${GRAIN_FREE_WORDING})(?:\\s*사료)?로\\s*할까요)\\s*$`,
+        "i",
+      ).test(previous.text) ||
+        previous.mentions.some(
+          (mention) =>
+            grainFreeClauseIntent(
+              previous.text.slice(0, mention.index),
+              previous.text.slice(mention.index! + mention[0].length),
+              false,
+            ) === "requested",
+        ));
     if (!previous.intents.includes("requested") && !isGrainFreeConfirmation)
       continue;
     const length = grainFreeRetractionLength(clause.text);

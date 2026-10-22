@@ -33,6 +33,8 @@ This is a pre-existing omission of #52's ambiguous-context and explicit-request 
 Before changing code, add a failing regression that preserves the supported request and leaves the comparison unresolved.
 Limit conversational withdrawal attachment to a recognized request or a standalone grain-free confirmation question.
 Keep direct bare confirmation replies working and do not change general ingredient interpretation.
+Hosted review found that ordinary preference confirmations were excluded by that guard.
+Add failing English and Korean confirmation regressions, then recognize bounded preference-question forms while retaining the comparative-question guard.
 
 ## Evidence limits
 
