@@ -35,6 +35,9 @@ Limit conversational withdrawal attachment to a recognized request or a standalo
 Keep direct bare confirmation replies working and do not change general ingredient interpretation.
 Hosted review found that ordinary preference confirmations were excluded by that guard.
 Add failing English and Korean confirmation regressions, then recognize bounded preference-question forms while retaining the comparative-question guard.
+The next hosted round found repeated transitions joined within one sentence were not classified locally.
+Add failing connected-transition regressions and split only grain-bearing transition segments, preserving original question context and source offsets for reply masking.
+Require grain-free wording in the immediate following segment so conjunctions inside companion ingredient lists remain intact.
 
 ## Evidence limits
 

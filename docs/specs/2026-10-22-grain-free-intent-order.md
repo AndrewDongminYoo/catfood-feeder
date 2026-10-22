@@ -8,6 +8,7 @@ These are existing negation, explicit-request, and ambiguous-context requirement
 
 Recognize formal Korean named withdrawals such as `그레인프리 사료는 필요 없습니다` alongside the existing conversational forms.
 The latest recognized grain-free request, permission, or withdrawal determines the condition.
+Recognized transitions retain their order when joined with commas or contrastive conjunctions within one sentence.
 An earlier permission must not veto a later explicit request; a later permission or withdrawal must not retain an earlier hard request.
 Ambiguous mentions remain unresolved and must not silently erase a separately supported request.
 A short negative reply to a comparative question such as `Is grain-free better?` does not retract an earlier separate request.

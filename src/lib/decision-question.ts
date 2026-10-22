@@ -141,9 +141,47 @@ function analyzeGrainFreeQuestion(question: string) {
     ...question.matchAll(/((?:[^.!?。;]|\.(?<=\d\.)(?=\d))+)([.!?。;]|$)/g),
   ]
     .filter((match) => match[1]!.trim() !== "")
-    .map((match) => {
+    .flatMap((match) => {
       const text = match[1]!;
       const isQuestion = match[2] === "?";
+      const segments: { text: string; start: number; isQuestion: boolean }[] =
+        [];
+      let start = 0;
+      const connectors = [
+        ...text.matchAll(
+          /,\s*(?:(?:but|and|however)\s+|(?:하지만|그런데|그리고)\s*)?|(?:^|\s+)(?:but|and|however|하지만|그런데|그리고)\s+/gi,
+        ),
+      ];
+      for (const [connectorIndex, connector] of connectors.entries()) {
+        const before = text.slice(start, connector.index);
+        const after = text.slice(
+          connector.index! + connector[0].length,
+          connectors[connectorIndex + 1]?.index,
+        );
+        if (
+          new RegExp(GRAIN_FREE_WORDING, "i").test(after) &&
+          (before.trim() === "" ||
+            new RegExp(GRAIN_FREE_WORDING, "i").test(
+              text.slice(0, connector.index),
+            ))
+        ) {
+          if (before.trim())
+            segments.push({
+              text: before,
+              start: match.index! + start,
+              isQuestion,
+            });
+          start = connector.index! + connector[0].length;
+        }
+      }
+      segments.push({
+        text: text.slice(start),
+        start: match.index! + start,
+        isQuestion,
+      });
+      return segments;
+    })
+    .map(({ text, start, isQuestion }) => {
       const mentions = [...text.matchAll(new RegExp(GRAIN_FREE_WORDING, "gi"))];
       const intents = mentions.map((mention) =>
         grainFreeClauseIntent(
@@ -155,7 +193,7 @@ function analyzeGrainFreeQuestion(question: string) {
       return {
         text,
         remainder: text,
-        start: match.index!,
+        start,
         isQuestion,
         intents,
         mentions,
@@ -211,6 +249,10 @@ function analyzeGrainFreeQuestion(question: string) {
             .map((clause) => clause.remainder)
         : [],
     retractions,
+    contexts: clauses.map(({ start, text }) => ({
+      start,
+      end: start + text.length,
+    })),
   };
 }
 
@@ -225,6 +267,14 @@ export function parseDecisionQuestion(
   const grainFreeMentions = [...question.matchAll(grainFree)];
   const grainFreeAnalysis = analyzeGrainFreeQuestion(question);
   let ingredientQuestion = question;
+  for (let index = 1; index < grainFreeAnalysis.contexts.length; index++) {
+    const start = grainFreeAnalysis.contexts[index - 1]!.end;
+    const end = grainFreeAnalysis.contexts[index]!.start;
+    ingredientQuestion =
+      ingredientQuestion.slice(0, start) +
+      ".".repeat(end - start) +
+      ingredientQuestion.slice(end);
+  }
   for (const { start, length } of grainFreeAnalysis.retractions)
     ingredientQuestion =
       ingredientQuestion.slice(0, start) +
@@ -251,11 +301,16 @@ export function parseDecisionQuestion(
   const english = new RegExp(`\\b(?:without|no)\\s+(${list})`, "gi");
   const record = (match: RegExpMatchArray, names: string, negated: boolean) => {
     const start = match.index!;
+    const context = grainFreeAnalysis.contexts.find(
+      (clause) => clause.start <= start && start < clause.end,
+    );
     const before = question
-      .slice(0, start)
+      .slice(context?.start ?? 0, start)
       .split(/[.!?。;]/)
       .at(-1)!;
-    const after = question.slice(start + match[0].length).split(/[.!?。;]/)[0]!;
+    const after = question
+      .slice(start + match[0].length, context?.end)
+      .split(/[.!?。;]/)[0]!;
     const exception =
       /\b(?:except|but)\b|하지만|다만/i.test(after) ||
       /^\s*(?:(?:is|are)\s+)?(?:fine|okay|ok)\b/i.test(after);
