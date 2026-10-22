@@ -204,7 +204,9 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
       unresolvedRequirements: result.unhandled,
       ignoredRequirements: [],
       scopeConcern: result.outsideScope,
-      pendingClarifications: result.clarifications,
+      pendingClarifications: result.clarifications.filter(
+        (key) => key !== "poultry" || !chosenPreferences.includes("poultry"),
+      ),
       notHigherKcal: chosenCalories.notHigherKcal || result.notHigherKcal,
       poultryFirst: r.poultryFirst ?? false,
       preferredProteins: [
