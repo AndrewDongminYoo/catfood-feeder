@@ -16,7 +16,7 @@ import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BASE_URL, adminSecret } from "./curate-source.mjs";
+import { getBrokerBaseUrl, adminSecret } from "./curate-source.mjs";
 import {
   PROMPT_VERSION,
   SCHEMA_VERSION,
@@ -26,6 +26,7 @@ import {
 import { loadSecrets } from "./with-secrets.mjs";
 
 loadSecrets();
+const BASE_URL = getBrokerBaseUrl();
 
 const arg = (name) => {
   const i = process.argv.indexOf(`--${name}`);

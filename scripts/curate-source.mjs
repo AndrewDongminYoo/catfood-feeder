@@ -15,8 +15,28 @@
 import { fileURLToPath } from "node:url";
 import { SECRETS_FILE, loadSecrets } from "./with-secrets.mjs";
 
-export const BASE_URL =
-  process.env.RESEARCH_BROKER_URL ?? "http://localhost:3000";
+export function getBrokerBaseUrl() {
+  const configured = process.env.RESEARCH_BROKER_URL?.trim();
+  if (!configured) return "http://localhost:3000";
+  let parsed;
+  try {
+    parsed = new URL(configured);
+  } catch {
+    throw new Error("RESEARCH_BROKER_URL must be an HTTP(S) origin.");
+  }
+  if (
+    !/^https?:\/\/[^\s/?#\\@]+\/?$/i.test(configured) ||
+    !["http:", "https:"].includes(parsed.protocol) ||
+    parsed.username ||
+    parsed.password ||
+    parsed.pathname !== "/" ||
+    parsed.search ||
+    parsed.hash
+  ) {
+    throw new Error("RESEARCH_BROKER_URL must be an HTTP(S) origin.");
+  }
+  return parsed.origin;
+}
 
 export function adminSecret() {
   const secret = process.env.ADMIN_WRITE_SECRET;
@@ -25,8 +45,8 @@ export function adminSecret() {
   return secret;
 }
 
-async function call(path, body, secret) {
-  const response = await fetch(`${BASE_URL}${path}`, {
+async function call(baseUrl, path, body, secret) {
+  const response = await fetch(`${baseUrl}${path}`, {
     body: body === undefined ? undefined : JSON.stringify(body),
     headers: { "content-type": "application/json", "x-admin-secret": secret },
     method: "POST",
@@ -53,7 +73,9 @@ export async function curateSource({
   kind = "manufacturer",
   secret,
 }) {
+  const baseUrl = getBrokerBaseUrl();
   const registered = await call(
+    baseUrl,
     `/api/foods/${foodId}/sources`,
     { captureMethod: "fetch", kind, url },
     secret,
@@ -62,6 +84,7 @@ export async function curateSource({
   if (!sourceId) throw new Error("출처 등록 응답에 source.id가 없습니다");
 
   const { candidates = [] } = await call(
+    baseUrl,
     `/api/foods/${foodId}/sources/extract`,
     { sourceIds: [sourceId] },
     secret,
@@ -76,6 +99,7 @@ export async function curateSource({
   }
 
   const { results } = await call(
+    baseUrl,
     `/api/foods/${foodId}/sources/apply`,
     {
       evidence: candidates.map(({ excerpt, nutrientKey, sourceId, value }) => ({
@@ -97,6 +121,7 @@ export async function curateSource({
 
 async function main() {
   loadSecrets();
+  getBrokerBaseUrl();
   const arg = (name) => {
     const i = process.argv.indexOf(`--${name}`);
     return i === -1 ? null : process.argv[i + 1];

@@ -16,7 +16,7 @@ import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { captureImage } from "../src/lib/image-fetcher.ts";
 import { normalizeVisionSliceName } from "../src/lib/transcription-locator.ts";
-import { BASE_URL } from "./curate-source.mjs";
+import { getBrokerBaseUrl } from "./curate-source.mjs";
 import {
   buildAgentEnv,
   buildVisionCodexArgs,
@@ -29,6 +29,7 @@ import { selectAll } from "./select-all.mjs";
 import { SECRETS_FILE, loadSecrets } from "./with-secrets.mjs";
 
 loadSecrets();
+const BASE_URL = getBrokerBaseUrl();
 
 const arg = (name) => {
   const i = process.argv.indexOf(`--${name}`);

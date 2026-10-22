@@ -17,11 +17,16 @@ import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BASE_URL, adminSecret, curateSource } from "./curate-source.mjs";
+import {
+  getBrokerBaseUrl,
+  adminSecret,
+  curateSource,
+} from "./curate-source.mjs";
 import { buildAgentEnv, buildCodexArgs } from "./research-run.mjs";
 import { loadSecrets } from "./with-secrets.mjs";
 
 loadSecrets();
+const BASE_URL = getBrokerBaseUrl();
 
 const arg = (name) => {
   const i = process.argv.indexOf(`--${name}`);
