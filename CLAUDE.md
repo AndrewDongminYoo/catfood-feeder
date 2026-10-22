@@ -44,7 +44,7 @@ An unclassified leading ingredient blocks a positive preference claim, and a com
 Question reinterpretation replaces the previous question's inferred exclusions, calorie conditions, and protein preferences while retaining directly selected conditions and the old hard poultry-order condition.
 Keep direct calorie selections separately: a new explicit percentage applies to that question, and a later question without a percentage restores the direct selection or the initial 10% default.
 Confirmation accepts a proposal for the current question; only editing the condition controls or selecting a sensitivity limit makes it a direct selection.
-Restored brief conditions are treated as owner selections because stored snapshots do not record inference provenance; historical briefs remain unchanged.
+Restored brief conditions are treated as owner selections because stored snapshots do not record inference provenance, except that a pending poultry proposal retains its inferred provenance; historical briefs remain unchanged.
 `src/lib/decision-question.ts` validates interpretation proposals; `/api/advisor/question` bounds optional model work using the existing durable quota with a 30-attempt daily ceiling.
 The only Anthropic transport remains in `source-extraction.ts`.
 The structured form continues to work when model interpretation is unavailable.

@@ -750,6 +750,57 @@ describe("decision workspace", () => {
     },
   );
   it.each(["offline", "ai"])(
+    "keeps restored pending poultry unconfirmed after %s reinterpretation",
+    async (mode) => {
+      vi.stubGlobal(
+        "fetch",
+        mode === "offline"
+          ? vi.fn().mockRejectedValue(new Error("offline"))
+          : vi.fn().mockResolvedValue(
+              aiInterpretation([], {
+                maxKcalDeltaPct: 10,
+                clarifications: ["poultry"],
+              }),
+            ),
+      );
+      const view = render(<DecisionWorkspace {...chickenOnlyProps()} />);
+      await prepare("열량 차이는 10% 이내. 가금육을 선호해요.");
+      compare();
+      save();
+      const previous = savedRequests()[0]!;
+      expect(previous.request.pendingClarifications).toEqual(["poultry"]);
+      view.unmount();
+      render(<DecisionWorkspace {...chickenOnlyProps()} />);
+      fireEvent.click(
+        await screen.findByRole("button", { name: /저장한 검토 불러오기/ }),
+      );
+      edit();
+      await reinterpret("가금육을 선호해요. 열량 차이는 10% 이내.");
+      expect(
+        screen.getByRole("button", { name: "이 선호로 후보 먼저 보기" }),
+      ).toBeTruthy();
+      compare();
+      save();
+      const [latest, earlier] = savedRequests();
+      expect(earlier).toEqual(previous);
+      expect(latest!.request.pendingClarifications).toEqual(["poultry"]);
+      expect(latest!.eligible).toHaveLength(0);
+      expect(latest!.unresolved.map((candidate) => candidate.food.id)).toEqual([
+        2,
+      ]);
+      expect(
+        exportDecisionBrief(
+          decisionSnapshotSchema.parse({
+            version: 1,
+            report: latest,
+            selectedFoodId: null,
+            reason: "",
+          }),
+        ),
+      ).toContain("확인 대기 중인 선호 원료: 가금육");
+    },
+  );
+  it.each(["offline", "ai"])(
     "keeps directly selected poultry confirmed in the %s exported brief after reinterpretation",
     async (mode) => {
       vi.stubGlobal(

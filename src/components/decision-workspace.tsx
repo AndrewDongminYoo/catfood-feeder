@@ -368,9 +368,13 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
     setRequest(value.report.request);
     setManual(value.report.request.currentFoodId === null);
     setInterpretedQuestion(value.report.request.question);
-    // 저장 기록에는 추론 여부가 없으므로 불러온 조건은 모두 보호자가 확인한 조건으로 둡니다.
+    // 확인 대기 중인 가금육 제안을 제외한 나머지 조건은 보호자가 직접 고른 조건으로 둡니다.
     setInferredExclusions([]);
-    setInferredPreferences([]);
+    setInferredPreferences(
+      value.report.request.pendingClarifications.includes("poultry")
+        ? ["poultry"]
+        : [],
+    );
     setChosenCalories({
       maxKcalDeltaPct: value.report.request.maxKcalDeltaPct,
       notHigherKcal: value.report.request.notHigherKcal,
