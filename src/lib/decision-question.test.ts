@@ -185,6 +185,65 @@ describe("decision question", () => {
     expect(result.unhandled.length).toBeGreaterThan(0);
   });
   it.each([
+    "I want grain-free food. Is grain-free better? No.",
+    "그레인프리 사료를 찾아주세요. 그레인프리가 더 좋나요? 아니요.",
+  ])(
+    "does not retract a request through a different ambiguous question: %s",
+    (question) => {
+      const result = parseDecisionQuestion(question);
+      expect(result.exclusions).toEqual(["grain"]);
+      expect(result.unhandled.length).toBeGreaterThan(0);
+    },
+  );
+  it("keeps an answered comparative grain-free question unresolved", () => {
+    const result = parseDecisionQuestion("Is grain-free better? No.");
+    expect(result.exclusions).toEqual([]);
+    expect(result.unhandled.length).toBeGreaterThan(0);
+  });
+  it.each([
+    ["Grain-free is okay. I want grain-free food.", "I want grain-free food"],
+    [
+      "그레인프리도 괜찮아요. 그레인프리 사료를 찾아주세요.",
+      "그레인프리 사료를 찾아주세요",
+    ],
+    [
+      "I want grain-free food. Grain-free is okay. I want grain-free food.",
+      "I want grain-free food",
+    ],
+  ])(
+    "honors a later explicit request after permission: %s",
+    (question, quote) => {
+      expect(parseDecisionQuestion(question)).toMatchObject({
+        exclusions: ["grain"],
+        unhandled: [],
+      });
+      expect(
+        validateQuestionProposal(
+          {
+            exclusions: ["grain"],
+            maxKcalDeltaPct: null,
+            citations: [quote],
+            unhandled: [],
+          },
+          question,
+        ),
+      ).toMatchObject({ exclusions: ["grain"], unhandled: [] });
+    },
+  );
+  it.each([
+    "I want grain-free food. Grain-free is okay.",
+    "그레인프리 사료를 찾아주세요. 그레인프리도 괜찮아요.",
+    "Grain-free is okay. I want grain-free food. Grain-free is okay.",
+  ])(
+    "handles a later permission without retaining the earlier request: %s",
+    (question) => {
+      expect(parseDecisionQuestion(question)).toMatchObject({
+        exclusions: [],
+        unhandled: [],
+      });
+    },
+  );
+  it.each([
     "I want grain-free food. Grain-free is not necessary.",
     "I want grain-free food. Please find grain-free food? No thanks.",
   ])(
@@ -224,6 +283,11 @@ describe("decision question", () => {
     "그레인프리 사료를 찾아주세요. 그레인프리일 필요 없어요.",
     "그레인프리 사료를 찾아주세요? 그레인프리 사료는 필요 없어요.",
     "그레인프리 사료를 찾아주세요? 그레인프리는 필요 없어요.",
+    "그레인프리 사료를 찾아주세요. 그레인프리 사료는 필요 없습니다.",
+    "그레인프리 사료를 찾아주세요. 그레인프리 사료는 원하지 않습니다.",
+    "그레인프리일 필요 없습니다.",
+    "I want grain-free food. Grain-free? No.",
+    "그레인프리 사료를 찾아주세요. 그레인프리? 아니요.",
   ])(
     "handles a withdrawn grain condition without asking again: %s",
     (question) => {

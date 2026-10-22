@@ -133,7 +133,12 @@ const originalQuestion =
   "지금 먹이는 사료와 비슷하면서 열량이 너무 높지 않은 건강한 사료를 찾고 있어요. 생선보다는 가금육을 더 좋아해요.";
 
 describe("decision workspace", () => {
-  it.each(["grain-free is okay", "그레인프리일 필요 없어요"])(
+  it.each([
+    "grain-free is okay",
+    "그레인프리일 필요 없어요",
+    "그레인프리 사료를 찾아주세요. 그레인프리 사료는 필요 없습니다",
+    "그레인프리 사료를 찾아주세요. 그레인프리 사료는 원하지 않습니다",
+  ])(
     "does not save or enforce an optional grain-free condition: %s",
     async (wording) => {
       vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
@@ -170,6 +175,47 @@ describe("decision workspace", () => {
         saved.report.eligible.map((candidate) => candidate.food.id),
       ).toEqual([2]);
       expect(exportDecisionBrief(saved)).not.toContain("곡물 표기 제외");
+    },
+  );
+  it.each([
+    "Grain-free is okay. I want grain-free food.",
+    "그레인프리도 괜찮아요. 그레인프리 사료를 찾아주세요.",
+  ])(
+    "saves and enforces a later grain-free request after permission: %s",
+    async (question) => {
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+      const data = props();
+      data.foods[1]!.ingredients = [{ name: "Wheat", position: 1 }];
+      render(
+        <DecisionWorkspace
+          {...data}
+          ingredientEvidenceByFoodId={{
+            2: {
+              excerpt: "Wheat",
+              capturedAt: "2026-10-01",
+              url: "https://example.test/ingredients",
+            },
+          }}
+        />,
+      );
+      await prepare(`${question} no chicken. 열량 차이는 8% 이내`);
+      expect(checked("곡물 표기 제외")).toBe(true);
+      expect(checked("닭고기 표기 제외")).toBe(true);
+      compare();
+      save();
+      const saved = decisionSnapshotSchema.parse(
+        JSON.parse(localStorage.getItem("catfood.decisions.v1")!)[0],
+      );
+      expect(saved.report.request.exclusions).toEqual(["chicken", "grain"]);
+      expect(saved.report.request.maxKcalDeltaPct).toBe(8);
+      expect(saved.report.eligible).toHaveLength(0);
+      expect(
+        saved.report.excluded.map((candidate) => candidate.food.id),
+      ).toEqual([2]);
+      expect(saved.report.excluded[0]!.conditions).toContainEqual(
+        expect.objectContaining({ key: "grain", status: "failed" }),
+      );
+      expect(exportDecisionBrief(saved)).toContain("곡물 표기 제외");
     },
   );
   it("keeps an unverified ingredient percentage unresolved instead of applying it to calories", async () => {

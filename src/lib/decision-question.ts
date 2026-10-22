@@ -107,7 +107,7 @@ function grainFreeClauseIntent(
       ).test(` ${suffix}`)) ||
     (prefix === "" &&
       new RegExp(
-        `^${koreanFood}(?:(?:일|는)?\\s*필요(?:는|가|도)?\\s*없어요|(?:는|를)?\\s*원하지\\s*않아요)$`,
+        `^${koreanFood}(?:(?:일|는)?\\s*필요(?:는|가|도)?\\s*없(?:어요|습니다)|(?:는|를)?\\s*원하지\\s*않(?:아요|습니다))$`,
       ).test(suffix));
   if (retracted) return "retracted";
   const optional =
@@ -166,10 +166,17 @@ function analyzeGrainFreeQuestion(question: string) {
   for (let index = 1; index < clauses.length; index++) {
     const previous = clauses[index - 1]!;
     const clause = clauses[index]!;
-    if (
-      previous.intents.length === 0 ||
-      (!previous.isQuestion && !previous.intents.includes("requested"))
-    )
+    const isGrainFreeConfirmation =
+      previous.isQuestion &&
+      previous.mentions.some(
+        (mention) =>
+          grainFreeClauseIntent(
+            previous.text.slice(0, mention.index),
+            previous.text.slice(mention.index! + mention[0].length),
+            false,
+          ) === "requested",
+      );
+    if (!previous.intents.includes("requested") && !isGrainFreeConfirmation)
       continue;
     const length = grainFreeRetractionLength(clause.text);
     if (!length) continue;
@@ -183,14 +190,10 @@ function analyzeGrainFreeQuestion(question: string) {
     retractions.push({ start: clause.start, length });
   }
   const intents = clauses.flatMap((clause) => clause.intents);
-  const latestDecision = intents.findLast(
-    (intent) => intent === "requested" || intent === "retracted",
-  );
+  const latestDecision = intents.findLast((intent) => intent !== "unknown");
   return {
-    requested: latestDecision === "requested" && !intents.includes("optional"),
-    unresolved:
-      intents.includes("unknown") ||
-      (intents.includes("requested") && intents.includes("optional")),
+    requested: latestDecision === "requested",
+    unresolved: intents.includes("unknown"),
     fullyHandled:
       clauses.length > 0 && clauses.every((clause) => clause.handled),
     otherClauses:
@@ -223,10 +226,10 @@ export function parseDecisionQuestion(
       ingredientQuestion.slice(0, start) +
       "\0".repeat(length) +
       ingredientQuestion.slice(start + length);
-  // Keep "프리" and "필요 없어요" out of the generic exclusion grammar.
+  // Keep grain-free wording and named withdrawals out of the generic grammar.
   ingredientQuestion = ingredientQuestion
     .replace(
-      /그레인\s*프리(?:\s*(?:인\s*)?사료)?(?:일|는)?\s*필요(?:는|가|도)?\s*없어요/gi,
+      /그레인\s*프리(?:\s*(?:인\s*)?사료)?(?:일|는)?\s*필요(?:는|가|도)?\s*없(?:어요|습니다)/gi,
       (match) => "\0".repeat(match.length),
     )
     .replace(grainFree, (match) => "\0".repeat(match.length));
