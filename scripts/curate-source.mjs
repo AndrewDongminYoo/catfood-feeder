@@ -15,8 +15,9 @@
 import { fileURLToPath } from "node:url";
 import { SECRETS_FILE, loadSecrets } from "./with-secrets.mjs";
 
-export function getBrokerBaseUrl() {
-  const configured = process.env.RESEARCH_BROKER_URL?.trim();
+/** @param {Record<string, string | undefined>} [env] */
+export function getBrokerBaseUrl(env = process.env) {
+  const configured = env.RESEARCH_BROKER_URL?.trim();
   if (!configured) return "http://localhost:3000";
   let parsed;
   try {
