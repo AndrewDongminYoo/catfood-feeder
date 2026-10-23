@@ -21,6 +21,7 @@ Use the current main workspace and one branch; no worktree is required.
 
 - src/lib/decision-question.ts
 - src/lib/decision-question.test.ts
+- src/components/decision-workspace.tsx
 - src/components/decision-workspace.test.tsx
 - docs/specs/2026-10-18-next-food-decision.md
 - This plan and its companion specification.
@@ -45,3 +46,21 @@ The fixtures exercise actual parsing, deterministic proposal validation, DOM int
 They do not exercise a live model, broker, database, or deployment.
 No layout or visual judgment is changed, so visual approval is not applicable.
 Branch cleanup and durable memory recording were not requested by this invocation.
+
+## Approved confirmation direction
+
+The operator approved replacing open-ended expression repairs with a bounded grammar and explicit owner confirmation.
+This supersedes the earlier requirement to retain an inferred grain exclusion beside an ambiguous comparative mention.
+
+1. Add parser and model-validation regressions for unknown grain wording, including the latest connector-punctuation and formal-withdrawal reports.
+   Observe intended assertion failures before implementation.
+2. Suspend inferred grain exclusion when any grain-free mention has unknown intent and preserve the dedicated unresolved confirmation in both deterministic and model paths.
+   Reuse the existing unresolved-requirement schema rather than adding another saved-state variant.
+3. Add the two explicit owner actions in the existing condition screen.
+   Verify pending, allowed, and excluded Wheat candidates through real interactions, saved snapshots, and exported briefs while preserving chicken and the numeric calorie limit.
+4. Update this specification and the affected consumer direction statement.
+   Run focused and full tests, typecheck, lint, Knip, explicit-path formatting and Trunk checks, and the production build.
+5. Review the changed implementation and capture the rendered confirmation for operator visual approval before merge.
+   Keep the original hosted-round accounting and incomplete independent security gate; do not manufacture a new clean audit or reset its remaining budget.
+
+No new regex wording support, dependency, database write, or public schema change is proposed.

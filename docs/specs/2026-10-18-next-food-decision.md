@@ -30,7 +30,9 @@ The product must do the comparison work before asking the owner to validate dema
   Permission, negation, and statements that grain-free food is unnecessary do not create that exclusion; ambiguous wording remains unresolved.
   Recognized withdrawals are handled conditions, not unresolved requirements; preserve unrelated unknown clauses and do not attach a later question's reply to an earlier request.
   Recognize conversational and formal Korean named withdrawals, including `그레인프리 사료는 필요 없습니다`.
-  The latest recognized grain-free request, permission, or withdrawal determines the condition; a later explicit request supersedes earlier permission or withdrawal, and later permission or withdrawal cancels the earlier request.
+  Within supported wording, the latest recognized grain-free request, permission, or withdrawal determines the proposed condition.
+  If any grain-free mention has unknown intent, suspend automatic grain exclusion and ask the owner whether to exclude grain labels; preserve their explicit selections and the unresolved requirement until they answer.
+  Supported grammar is bounded by regression fixtures; arbitrary Korean or English phrasing is not promised.
   Model citations cannot turn a partial grain-free phrase into an exclusion that the full question does not support.
   Assess preferred proteins from the first declared animal ingredient with complete literal source proof, ignoring standalone fat, oil, broth, stock, and flavor entries for this preference assessment.
   Preserve the original meaning of older saved hard poultry-order requests.

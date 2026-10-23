@@ -8,6 +8,45 @@ import {
 
 describe("decision question", () => {
   it.each([
+    "I want grain-free food. Grain-free depends on what you mean.",
+    "그레인프리 사료를 찾아주세요. 그레인프리 사료는 필요하지 않습니다.",
+    "Grain-free is okay; however, I want grain-free food.",
+    "그레인프리도 괜찮아요. 그런데, 그레인프리 사료를 찾아주세요.",
+    "I want grain-free food. Is grain-free better? No.",
+    "No grain. 그레인프리 여부는 아직 고민 중이에요.",
+  ])(
+    "requires owner confirmation for unsupported grain wording: %s",
+    (question) => {
+      const result = parseDecisionQuestion(question);
+      expect(result.exclusions).not.toContain("grain");
+      expect(result.unhandled.join(" ")).toContain(
+        "곡물 표기 제외를 적용할까요?",
+      );
+      expect(
+        validateQuestionProposal(
+          {
+            exclusions: ["grain"],
+            maxKcalDeltaPct: null,
+            citations: [question],
+            unhandled: [],
+          },
+          question,
+        ),
+      ).toBeNull();
+      expect(
+        validateQuestionProposal(
+          {
+            exclusions: [],
+            maxKcalDeltaPct: null,
+            citations: [],
+            unhandled: [],
+          },
+          question,
+        )?.unhandled,
+      ).toEqual(result.unhandled);
+    },
+  );
+  it.each([
     "grain-free is okay",
     "grain free is fine",
     "I don't need grain-free food",
@@ -177,12 +216,14 @@ describe("decision question", () => {
       unhandled: [],
     });
   });
-  it("preserves an explicit request beside an ambiguous repeated mention", () => {
+  it("defers a request beside an ambiguous repeated mention to the owner", () => {
     const result = parseDecisionQuestion(
       "I want grain-free food. Is grain-free better?",
     );
-    expect(result.exclusions).toEqual(["grain"]);
-    expect(result.unhandled.length).toBeGreaterThan(0);
+    expect(result.exclusions).toEqual([]);
+    expect(result.unhandled.join(" ")).toContain(
+      "곡물 표기 제외를 적용할까요?",
+    );
   });
   it.each([
     "I want grain-free food. Is grain-free better? No.",
@@ -190,11 +231,13 @@ describe("decision question", () => {
     "I want grain-free food, but is grain-free better? No.",
     "그레인프리 사료를 찾아주세요, 하지만 그레인프리가 더 좋나요? 아니요.",
   ])(
-    "does not retract a request through a different ambiguous question: %s",
+    "asks the owner instead of treating an ambiguous reply as a decision: %s",
     (question) => {
       const result = parseDecisionQuestion(question);
-      expect(result.exclusions).toEqual(["grain"]);
-      expect(result.unhandled.length).toBeGreaterThan(0);
+      expect(result.exclusions).toEqual([]);
+      expect(result.unhandled.join(" ")).toContain(
+        "곡물 표기 제외를 적용할까요?",
+      );
     },
   );
   it("keeps an answered comparative grain-free question unresolved", () => {

@@ -133,6 +133,88 @@ const originalQuestion =
   "지금 먹이는 사료와 비슷하면서 열량이 너무 높지 않은 건강한 사료를 찾고 있어요. 생선보다는 가금육을 더 좋아해요.";
 
 describe("decision workspace", () => {
+  it("preserves a directly selected grain exclusion until the owner answers", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+    render(<DecisionWorkspace {...props()} />);
+    await prepare("no chicken. 열량 차이는 8% 이내");
+    fireEvent.click(screen.getByLabelText("곡물 표기 제외"));
+    await reinterpret(
+      "그레인프리 사료는 필요하지 않습니다. no chicken. 열량 차이는 8% 이내",
+    );
+    expect(checked("곡물 표기 제외")).toBe(true);
+    expect(
+      screen.getByRole("heading", { name: "곡물 표기 제외를 적용할까요?" }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "곡물 표기 허용하기" }));
+    expect(checked("곡물 표기 제외")).toBe(false);
+    expect(checked("닭고기 표기 제외")).toBe(true);
+  });
+  it.each([true, false])(
+    "uses the owner's grain confirmation in saved and exported decisions: %s",
+    async (exclude) => {
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+      const data = props();
+      data.foods[1]!.ingredients = [{ name: "Wheat", position: 1 }];
+      render(
+        <DecisionWorkspace
+          {...data}
+          ingredientEvidenceByFoodId={{
+            2: {
+              excerpt: "Wheat",
+              capturedAt: "2026-10-01",
+              url: "https://example.test/ingredients",
+            },
+          }}
+        />,
+      );
+      await prepare(
+        "그레인프리 사료를 찾아주세요. 그레인프리 사료는 필요하지 않습니다. no chicken. 열량 차이는 8% 이내",
+      );
+      expect(
+        screen.getByRole("heading", { name: "곡물 표기 제외를 적용할까요?" }),
+      ).toBeTruthy();
+      expect(checked("곡물 표기 제외")).toBe(false);
+      compare();
+      save();
+      const pending = savedRequests()[0]!;
+      expect(pending.eligible).toHaveLength(0);
+      expect(pending.request.unresolvedRequirements.join(" ")).toContain(
+        "곡물 표기 제외를 적용할까요?",
+      );
+      edit();
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: exclude ? "곡물 표기 제외하기" : "곡물 표기 허용하기",
+        }),
+      );
+      expect(
+        screen.queryByRole("heading", { name: "곡물 표기 제외를 적용할까요?" }),
+      ).toBeNull();
+      expect(checked("곡물 표기 제외")).toBe(exclude);
+      compare();
+      save();
+      const saved = decisionSnapshotSchema.parse(
+        JSON.parse(localStorage.getItem("catfood.decisions.v1")!)[0],
+      );
+      expect(saved.report.request.unresolvedRequirements).toEqual([]);
+      expect(saved.report.request.exclusions).toEqual(
+        exclude ? ["chicken", "grain"] : ["chicken"],
+      );
+      expect(saved.report.request.maxKcalDeltaPct).toBe(8);
+      expect(saved.report.eligible.map((c) => c.food.id)).toEqual(
+        exclude ? [] : [2],
+      );
+      expect(saved.report.excluded.map((c) => c.food.id)).toEqual(
+        exclude ? [2] : [],
+      );
+      expect(exportDecisionBrief(saved).includes("곡물 표기 제외")).toBe(
+        exclude,
+      );
+      expect(savedRequests()[1]!.request.unresolvedRequirements).toEqual(
+        pending.request.unresolvedRequirements,
+      );
+    },
+  );
   it.each([
     "grain-free is okay",
     "그레인프리일 필요 없어요",

@@ -1,33 +1,50 @@
-# Grain-free intent order and formal withdrawals
+# Bounded grain-free interpretation and owner confirmation
 
-Issue #49 is the parent acceptance gate for completed child issues #50–#53.
-This change addresses the two unmet #52 conditions reproduced in PR #55 review comments 4332513025 and 4332513028, plus the same child's ambiguous-context omission found during local review.
-These are existing negation, explicit-request, and ambiguous-context requirements, so no new issue or child-state change is needed.
+Issue #49 is the parent acceptance gate for child issues #50–#53.
+This PR completes the grain-free interpretation work in #52 and verifies the unchanged behavior of the other children.
+After repeated expression-specific review findings, the operator approved a bounded grammar with explicit owner confirmation rather than expanding regex rules to cover arbitrary Korean or English.
 
 ## Behavior
 
-Recognize formal Korean named withdrawals such as `그레인프리 사료는 필요 없습니다` alongside the existing conversational forms.
-The latest recognized grain-free request, permission, or withdrawal determines the condition.
-Recognized transitions retain their order when joined with commas or contrastive conjunctions within one sentence.
-An earlier permission must not veto a later explicit request; a later permission or withdrawal must not retain an earlier hard request.
-Ambiguous mentions remain unresolved and must not silently erase a separately supported request.
-A short negative reply to a comparative question such as `Is grain-free better?` does not retract an earlier separate request.
-Direct replies to a standalone grain-free confirmation question retain their existing withdrawal behavior.
-This includes `Do you want grain-free food? No.` and `그레인프리로 할까요? 아니요.`; these preference confirmations do not resolve comparative questions.
-Preserve other ingredient exclusions and explicit calorie limits.
-Model proposals must match the full question and may not restore a withdrawn condition using a partial quotation.
+Automatically propose a grain exclusion only when every grain-free mention has a supported interpretation and the latest supported intent requests it.
+Supported forms retain the existing tested requests, permissions, named withdrawals, and direct confirmation replies.
+Within those forms, later recognized requests, permissions, and withdrawals determine the condition in order.
+A grain-free mention whose intent is unknown suspends automatic grain exclusion for the entire question, including a separately recognized earlier request or a generic `no grain` clause.
+This is pending confirmation, not a withdrawal or permission inferred from ambiguous text.
+Other ingredient exclusions and explicit calorie limits remain available.
+An explicitly selected condition remains the owner's choice and is not silently removed during question interpretation.
+
+The conditions screen asks `곡물 표기 제외를 적용할까요?` with two actions: `곡물 표기 제외하기` and `곡물 표기 허용하기`.
+Until the owner answers, the unresolved requirement remains in the decision and prevents candidates from being presented as eligible.
+The answer changes only grain exclusion, clears that confirmation requirement, and becomes a direct owner choice.
+Saved decisions and exported briefs reflect the selected condition; historical pending records retain their original state.
+The existing unresolved-requirement and snapshot schemas remain compatible.
+Model output cannot bypass confirmation or restore a suspended condition using a partial quotation.
+
+## Supported grammar boundary
+
+The regression fixtures define the supported forms, not a promise of complete natural-language understanding.
+Representative supported requests are `I want grain-free food` and `그레인프리 사료를 찾아주세요`.
+Representative permissions are `grain-free is okay` and `그레인프리도 괜찮아요`.
+Representative withdrawals are `I do not need grain-free food` and `그레인프리 사료는 필요 없습니다`.
+Direct replies to tested standalone preference-confirmation questions retain their existing withdrawal behavior.
+A comparative question such as `Is grain-free better?` has no supported exclusion intent and therefore asks for owner confirmation even beside an earlier request.
+Untested wording does not become supported merely because its meaning seems similar to one of these examples.
+
+The current review examples `however, I want grain-free food` and `그레인프리 사료는 필요하지 않습니다` may remain outside the supported grammar.
+Their acceptance result is a visible confirmation request with no automatic grain exclusion, not another grammar extension.
+This boundary concerns detected grain-free wording; it does not claim to detect every implicit reference or resolve all free-text requests.
 
 ## Acceptance
 
-1. A request followed by a formal Korean withdrawal produces no grain exclusion and no unresolved requirement for that handled withdrawal.
-2. Permission followed by an explicit request produces a grain exclusion without an artificial ambiguity warning.
-3. The opposite ordering and repeated request/permission/withdrawal transitions preserve their actual order.
-4. Offline UI, saved requests, candidate classification, and exported briefs agree, using complete Wheat evidence and an independently supported calorie difference.
-5. Existing #50, #51, and #53 reproductions and acceptance checks remain passing before #49 is closed.
+1. Existing supported requests, permissions, withdrawals, and connected transitions retain their tested behavior.
+2. Unknown English and Korean grain-free wording produces no inferred grain exclusion and an explicit confirmation requirement, including both current hosted review examples.
+3. An accepted model proposal preserves that requirement; a proposal or partial quotation adding grain is rejected.
+4. Before confirmation, fully sourced Wheat remains unresolved rather than eligible; either owner answer produces the corresponding saved candidate classification and exported brief.
+5. Separate chicken exclusion, an explicit 8% calorie limit, historical snapshots, and the unchanged #50, #51, and #53 behavior remain verified.
 
 ## Boundaries
 
-Do not change generic ingredient matching, protein preference ranking, question reinterpretation state, saved schemas, dependencies, data collection, or database state.
-No UI layout or style change is planned.
-This is one #52 follow-up PR; verification of the other children does not authorize new fixes for them.
-If another child criterion fails, retain #49 and report that separate work instead of expanding this diff.
+Do not expand generic ingredient matching, protein preference ranking, saved schemas, dependencies, data collection, or database state.
+Reuse the existing condition screen and visual styles for the confirmation section.
+Source-based security concerns remain a separate incomplete gate and are not waived by this product decision.

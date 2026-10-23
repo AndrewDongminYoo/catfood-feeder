@@ -32,6 +32,8 @@ const NAMES: Record<IngredientExclusion, string> = {
   grain: "곡물|그레인|grains?",
 };
 
+export const GRAIN_FREE_CONFIRMATION = "곡물 표기 제외를 적용할까요?";
+
 type GrainFreeIntent = "requested" | "optional" | "retracted" | "unknown";
 const GRAIN_FREE_WORDING = String.raw`\bgrain[-\s]?free\b|그레인\s*프리`;
 
@@ -234,7 +236,7 @@ function analyzeGrainFreeQuestion(question: string) {
   const intents = clauses.flatMap((clause) => clause.intents);
   const latestDecision = intents.findLast((intent) => intent !== "unknown");
   return {
-    requested: latestDecision === "requested",
+    requested: latestDecision === "requested" && !intents.includes("unknown"),
     unresolved: intents.includes("unknown"),
     fullyHandled:
       clauses.length > 0 && clauses.every((clause) => clause.handled),
@@ -342,7 +344,7 @@ export function parseDecisionQuestion(
     record(match, match[1]!, true);
   if (grainFreeMentions.length) {
     if (grainFreeAnalysis.requested) exclusions.add("grain");
-    if (grainFreeAnalysis.unresolved) incompleteExclusions = true;
+    if (grainFreeAnalysis.unresolved) exclusions.delete("grain");
     remaining = remaining.replace(grainFree, " ");
   }
   for (const key of permitted) {
@@ -406,6 +408,7 @@ export function parseDecisionQuestion(
   )
     clarifications.push("poultry");
   const unhandled: string[] = [];
+  if (grainFreeAnalysis.unresolved) unhandled.push(GRAIN_FREE_CONFIRMATION);
   // These clauses have no grain-free mentions, so they cannot recurse here.
   for (const clause of grainFreeAnalysis.otherClauses)
     unhandled.push(...parseDecisionQuestion(clause).unhandled);
