@@ -25,6 +25,17 @@ import { tmpdir } from "node:os";
 import { delimiter, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SECRETS_FILE, loadSecrets } from "./with-secrets.mjs";
+import { getBrokerBaseUrl } from "./curate-source.mjs";
+
+/** @param {Record<string, string | undefined>} [env] */
+export function getResearchConfig(env = process.env) {
+  const brokerUrl = getBrokerBaseUrl(env);
+  const model = env.RESEARCH_AGENT_MODEL?.trim() || "gpt-5.6-terra";
+  if (!/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(model)) {
+    throw new Error("RESEARCH_AGENT_MODEL must be a model identifier.");
+  }
+  return { brokerUrl, model };
+}
 
 export const PROMPT_VERSION = "2026-09-08";
 export const SCHEMA_VERSION = "2";
@@ -463,8 +474,7 @@ async function main() {
     );
     process.exit(1);
   }
-  const brokerUrl = process.env.RESEARCH_BROKER_URL ?? "http://localhost:3000";
-  const model = process.env.RESEARCH_AGENT_MODEL ?? "gpt-5.6-terra";
+  const { brokerUrl, model } = getResearchConfig();
 
   const target = await fetchTarget(brokerUrl, secret, foodId);
   const workdir = await createResearchWorkdir(process.env);

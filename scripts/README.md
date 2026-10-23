@@ -60,6 +60,10 @@ pnpm research:run --food 123              # research one skeleton draft
 
 Requires `RESEARCH_AGENT_SECRET` in `$HOME/.config/catfood-feeder/env`, a standalone `codex` executable, and a CLI login using `cli_auth_credentials_store = "file"`.
 Optional: `RESEARCH_BROKER_URL` (default `http://localhost:3000`), `RESEARCH_AGENT_MODEL` (default `gpt-5.6-terra`).
+For `pnpm research:run`, missing, empty and whitespace-only optional settings use those defaults, and surrounding whitespace is trimmed.
+The runner uses the same HTTP(S)-origin broker policy described below.
+An explicit model is an opaque identifier beginning with an ASCII letter or digit and containing only letters, digits, dots, underscores, colons, slashes and hyphens; this syntax check does not verify model availability.
+Malformed settings fail before a broker request or Codex launch, without echoing their configured values.
 
 The curation and transcription entrypoints (`curate-source.mjs`, `curate-brand.mjs`, `research-brand.mjs`, `transcribe-brand.mjs`, and `research-missing.mjs`) resolve `RESEARCH_BROKER_URL` after loading the external environment file.
 An existing process environment value takes precedence over that file.
