@@ -8,6 +8,45 @@ import {
 
 describe("decision question", () => {
   it.each([
+    "I want grain-free food. Grain-free depends on what you mean.",
+    "그레인프리 사료를 찾아주세요. 그레인프리 사료는 필요하지 않습니다.",
+    "Grain-free is okay; however, I want grain-free food.",
+    "그레인프리도 괜찮아요. 그런데, 그레인프리 사료를 찾아주세요.",
+    "I want grain-free food. Is grain-free better? No.",
+    "No grain. 그레인프리 여부는 아직 고민 중이에요.",
+  ])(
+    "requires owner confirmation for unsupported grain wording: %s",
+    (question) => {
+      const result = parseDecisionQuestion(question);
+      expect(result.exclusions).not.toContain("grain");
+      expect(result.unhandled.join(" ")).toContain(
+        "곡물 표기 제외를 적용할까요?",
+      );
+      expect(
+        validateQuestionProposal(
+          {
+            exclusions: ["grain"],
+            maxKcalDeltaPct: null,
+            citations: [question],
+            unhandled: [],
+          },
+          question,
+        ),
+      ).toBeNull();
+      expect(
+        validateQuestionProposal(
+          {
+            exclusions: [],
+            maxKcalDeltaPct: null,
+            citations: [],
+            unhandled: [],
+          },
+          question,
+        )?.unhandled,
+      ).toEqual(result.unhandled);
+    },
+  );
+  it.each([
     "grain-free is okay",
     "grain free is fine",
     "I don't need grain-free food",
@@ -177,13 +216,124 @@ describe("decision question", () => {
       unhandled: [],
     });
   });
-  it("preserves an explicit request beside an ambiguous repeated mention", () => {
+  it("defers a request beside an ambiguous repeated mention to the owner", () => {
     const result = parseDecisionQuestion(
       "I want grain-free food. Is grain-free better?",
     );
-    expect(result.exclusions).toEqual(["grain"]);
+    expect(result.exclusions).toEqual([]);
+    expect(result.unhandled.join(" ")).toContain(
+      "곡물 표기 제외를 적용할까요?",
+    );
+  });
+  it.each([
+    "I want grain-free food. Is grain-free better? No.",
+    "그레인프리 사료를 찾아주세요. 그레인프리가 더 좋나요? 아니요.",
+    "I want grain-free food, but is grain-free better? No.",
+    "그레인프리 사료를 찾아주세요, 하지만 그레인프리가 더 좋나요? 아니요.",
+  ])(
+    "asks the owner instead of treating an ambiguous reply as a decision: %s",
+    (question) => {
+      const result = parseDecisionQuestion(question);
+      expect(result.exclusions).toEqual([]);
+      expect(result.unhandled.join(" ")).toContain(
+        "곡물 표기 제외를 적용할까요?",
+      );
+    },
+  );
+  it("keeps an answered comparative grain-free question unresolved", () => {
+    const result = parseDecisionQuestion("Is grain-free better? No.");
+    expect(result.exclusions).toEqual([]);
     expect(result.unhandled.length).toBeGreaterThan(0);
   });
+  it.each([
+    ["Grain-free is okay. I want grain-free food.", "I want grain-free food"],
+    [
+      "그레인프리도 괜찮아요. 그레인프리 사료를 찾아주세요.",
+      "그레인프리 사료를 찾아주세요",
+    ],
+    [
+      "I want grain-free food. Grain-free is okay. I want grain-free food.",
+      "I want grain-free food",
+    ],
+  ])(
+    "honors a later explicit request after permission: %s",
+    (question, quote) => {
+      expect(parseDecisionQuestion(question)).toMatchObject({
+        exclusions: ["grain"],
+        unhandled: [],
+      });
+      expect(
+        validateQuestionProposal(
+          {
+            exclusions: ["grain"],
+            maxKcalDeltaPct: null,
+            citations: [quote],
+            unhandled: [],
+          },
+          question,
+        ),
+      ).toMatchObject({ exclusions: ["grain"], unhandled: [] });
+    },
+  );
+  it.each([
+    "I want grain-free food. Grain-free is okay.",
+    "그레인프리 사료를 찾아주세요. 그레인프리도 괜찮아요.",
+    "Grain-free is okay. I want grain-free food. Grain-free is okay.",
+  ])(
+    "handles a later permission without retaining the earlier request: %s",
+    (question) => {
+      expect(parseDecisionQuestion(question)).toMatchObject({
+        exclusions: [],
+        unhandled: [],
+      });
+    },
+  );
+  it.each<[string, string[]]>([
+    ["Grain-free is okay, but I want grain-free food.", ["grain"]],
+    ["Grain-free is okay but I want grain-free food.", ["grain"]],
+    ["Grain-free is okay and I want grain-free food.", ["grain"]],
+    [
+      "Grain-free is okay, no chicken and fish, but I want grain-free food.",
+      ["chicken", "fish", "grain"],
+    ],
+    [
+      "I want grain-free food, no chicken and fish, but grain-free is okay.",
+      ["chicken", "fish"],
+    ],
+    ["그레인프리도 괜찮아요 그리고 그레인프리 사료를 찾아주세요.", ["grain"]],
+    ["Grain-free is okay, I want grain-free food.", ["grain"]],
+    ["그레인프리도 괜찮아요, 하지만 그레인프리 사료를 찾아주세요.", ["grain"]],
+    ["그레인프리도 괜찮아요. 하지만 그레인프리 사료를 찾아주세요.", ["grain"]],
+    ["I want grain-free food, but grain-free is okay.", []],
+    ["I want grain-free food, but grain-free is not necessary.", []],
+    [
+      "그레인프리 사료를 찾아주세요, 하지만 그레인프리 사료는 필요 없습니다.",
+      [],
+    ],
+    [
+      "Grain-free is okay, but I want grain-free food, but grain-free is okay.",
+      [],
+    ],
+  ])(
+    "resolves connected grain-free transitions in order: %s",
+    (question, exclusions) => {
+      expect(parseDecisionQuestion(question)).toMatchObject({
+        exclusions,
+        unhandled: [],
+      });
+      expect(
+        validateQuestionProposal(
+          {
+            exclusions,
+            maxKcalDeltaPct: null,
+            citations: [question],
+            unhandled: [],
+          },
+          question,
+        ),
+      ).toMatchObject({ exclusions, unhandled: [] });
+    },
+  );
   it.each([
     "I want grain-free food. Grain-free is not necessary.",
     "I want grain-free food. Please find grain-free food? No thanks.",
@@ -211,6 +361,36 @@ describe("decision question", () => {
       ).exclusions,
     ).toEqual(["grain"]);
   });
+  it("preserves companion conditions across connected grain transitions", () => {
+    expect(
+      parseDecisionQuestion(
+        "Grain-free is okay, no chicken, but I want grain-free food.",
+      ),
+    ).toMatchObject({ exclusions: ["chicken", "grain"], unhandled: [] });
+    expect(
+      parseDecisionQuestion(
+        "I want grain-free food, no chicken, but grain-free is okay.",
+      ),
+    ).toMatchObject({ exclusions: ["chicken"], unhandled: [] });
+    expect(
+      parseDecisionQuestion(
+        "No chicken, grain-free is okay, but I want grain-free food. 열량 차이는 8% 이내",
+      ),
+    ).toMatchObject({
+      exclusions: ["chicken", "grain"],
+      maxKcalDeltaPct: 8,
+      unhandled: [],
+    });
+    expect(
+      parseDecisionQuestion(
+        "Grain-free is okay, but please find grain-free food? No thanks, but no chicken. 열량 차이는 8% 이내",
+      ),
+    ).toMatchObject({
+      exclusions: ["chicken"],
+      maxKcalDeltaPct: 8,
+      unhandled: [],
+    });
+  });
   it.each([
     "Please find grain-free food? No thanks.",
     "Please find grain-free food? I do not need grain-free anymore.",
@@ -224,6 +404,17 @@ describe("decision question", () => {
     "그레인프리 사료를 찾아주세요. 그레인프리일 필요 없어요.",
     "그레인프리 사료를 찾아주세요? 그레인프리 사료는 필요 없어요.",
     "그레인프리 사료를 찾아주세요? 그레인프리는 필요 없어요.",
+    "그레인프리 사료를 찾아주세요. 그레인프리 사료는 필요 없습니다.",
+    "그레인프리 사료를 찾아주세요. 그레인프리 사료는 원하지 않습니다.",
+    "그레인프리일 필요 없습니다.",
+    "I want grain-free food. Grain-free? No.",
+    "그레인프리 사료를 찾아주세요. 그레인프리? 아니요.",
+    "Do you want grain-free food? No.",
+    "Would you like grain-free cat food? No thanks.",
+    "Do you need grain-free? No.",
+    "그레인프리로 할까요? 아니요.",
+    "그레인프리 사료로 할까요? 아니요.",
+    "I want grain-free food. Do you want grain-free food? No.",
   ])(
     "handles a withdrawn grain condition without asking again: %s",
     (question) => {
