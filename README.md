@@ -21,6 +21,9 @@ Seller search does not verify stock, price, formulation, or the sales market.
 
 ## Run locally
 
+Use Node 24.20.0 and the pnpm version pinned in `package.json`.
+The supported Node ranges are `^22.22.2 || ^24.15.0 || >=26.0.0`, matching jsdom's test-runtime requirement; CI uses Node 24 and Trunk uses Node 24.20.0.
+
 ```bash
 pnpm install
 mkdir -p ~/.config/catfood-feeder

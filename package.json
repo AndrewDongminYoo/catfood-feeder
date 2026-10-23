@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "license": "UNLICENSED",
+  "engines": {
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
+  },
   "scripts": {
     "dev": "node scripts/with-secrets.mjs next dev --webpack",
     "build": "node scripts/with-secrets.mjs next build",
