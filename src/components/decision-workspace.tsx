@@ -17,7 +17,10 @@ import {
   type IngredientProof,
   type IngredientExclusion,
 } from "@/lib/food-decision";
-import { parseDecisionQuestion } from "@/lib/decision-question";
+import {
+  GRAIN_FREE_CONFIRMATION,
+  parseDecisionQuestion,
+} from "@/lib/decision-question";
 import { DecisionReport } from "./decision-report";
 
 const CHANGE_REASONS = [
@@ -142,6 +145,12 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
   const needsInterpretation =
     request.question.trim() !== "" && interpretedQuestion !== request.question;
   const parsedRequest = decisionRequestSchema.safeParse(request);
+  const otherRequirements = [
+    ...new Set([
+      ...(request.unresolvedRequirements ?? []),
+      ...(request.ignoredRequirements ?? []),
+    ]),
+  ].filter((text) => text !== GRAIN_FREE_CONFIRMATION);
   const conditionsChanged =
     snapshot !== null &&
     (!parsedRequest.success ||
@@ -631,21 +640,58 @@ export function DecisionWorkspace(props: DecisionWorkspaceProps) {
                 {request.catName || "우리 고양이"}에게 중요한 조건만 확인할게요
               </h2>
               <p>꼭 피할 원료와 더 좋아하는 원료는 따로 반영합니다.</p>
-              {(request.unresolvedRequirements?.length ?? 0) +
-                (request.ignoredRequirements?.length ?? 0) >
-              0 ? (
+              {request.unresolvedRequirements?.includes(
+                GRAIN_FREE_CONFIRMATION,
+              ) && (
+                <section className="warn" aria-labelledby="grain-confirmation">
+                  <h3 id="grain-confirmation">{GRAIN_FREE_CONFIRMATION}</h3>
+                  <p>
+                    질문에서 곡물 조건을 확정하지 못했어요. 앞에서 읽은 요청도
+                    자동으로 적용하지 않아요. 이번 비교에 쓸 조건을 골라주세요.
+                  </p>
+                  <div className="decision-actions">
+                    {[true, false].map((exclude) => (
+                      <button
+                        type="button"
+                        className="ghost"
+                        key={String(exclude)}
+                        onClick={() => {
+                          setShowExclusions(true);
+                          setInferredExclusions((keys) =>
+                            keys.filter((key) => key !== "grain"),
+                          );
+                          setRequest((r) => ({
+                            ...r,
+                            exclusions: exclude
+                              ? [
+                                  ...new Set([
+                                    ...r.exclusions,
+                                    "grain" as const,
+                                  ]),
+                                ]
+                              : r.exclusions.filter((key) => key !== "grain"),
+                            unresolvedRequirements: (
+                              r.unresolvedRequirements ?? []
+                            ).filter(
+                              (text) => text !== GRAIN_FREE_CONFIRMATION,
+                            ),
+                          }));
+                        }}
+                      >
+                        {exclude ? "곡물 표기 제외하기" : "곡물 표기 허용하기"}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+              {otherRequirements.length > 0 ? (
                 <div className="warn">
                   <strong>이 요구는 아직 확인하지 못했습니다</strong>
                   <p>
                     아래 요구는 결과에서도 확인 필요로 남깁니다. 이번 비교에서
                     빼려면 직접 선택해 주세요.
                   </p>
-                  {[
-                    ...new Set([
-                      ...(request.unresolvedRequirements ?? []),
-                      ...(request.ignoredRequirements ?? []),
-                    ]),
-                  ].map((text) => (
+                  {otherRequirements.map((text) => (
                     <label className="check" key={text}>
                       <input
                         type="checkbox"
