@@ -34,6 +34,65 @@ const validDraft: FoodPublicationDraft = {
 };
 
 describe("prepareFoodPublication", () => {
+  describe.each(["manufacturer", "kr_label"] as const)(
+    "carbohydrate tagged %s without a stated value",
+    (source) => {
+      it.each([
+        {
+          name: "measured ash",
+          ash: 9,
+          cooking: "extrusion",
+          carb: 23,
+          tag: "derived",
+        },
+        {
+          name: "estimated ash",
+          ash: null,
+          cooking: "extrusion",
+          carb: 23,
+          tag: "estimated",
+        },
+        {
+          name: "non-computable input",
+          ash: null,
+          cooking: "baked",
+          carb: null,
+          tag: undefined,
+        },
+      ] as const)("normalizes $name", (testCase) => {
+        const result = prepareFoodPublication({
+          ...validDraft,
+          ashPct: testCase.ash,
+          cookingMethod: testCase.cooking,
+          carbPct: null,
+          nutrientSources: { ...validDraft.nutrientSources, carb_pct: source },
+        });
+        expect(result.kind).toBe("ready");
+        if (result.kind !== "ready")
+          throw new Error("Expected ready publication");
+        expect(result.derived.carbPct).toBe(testCase.carb);
+        if (testCase.tag === undefined) {
+          expect(result.derived.nutrientSources).not.toHaveProperty("carb_pct");
+        } else {
+          expect(result.derived.nutrientSources.carb_pct).toBe(testCase.tag);
+        }
+      });
+
+      it("preserves an explicit measured zero", () => {
+        const result = prepareFoodPublication({
+          ...validDraft,
+          carbPct: 0,
+          nutrientSources: { ...validDraft.nutrientSources, carb_pct: source },
+        });
+        expect(result.kind).toBe("ready");
+        if (result.kind !== "ready")
+          throw new Error("Expected ready publication");
+        expect(result.derived.carbPct).toBe(0);
+        expect(result.derived.nutrientSources.carb_pct).toBe(source);
+      });
+    },
+  );
+
   it("keeps a manufacturer-declared P/F/C split instead of recalculating it", () => {
     const result = prepareFoodPublication({
       ...validDraft,

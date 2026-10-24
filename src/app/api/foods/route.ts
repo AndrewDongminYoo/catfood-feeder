@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
     const derived = computeDerived(
       nutrients,
       cookingMethod,
-      suppliedAshSource,
+      resolvedAsh.estimated ? "estimated" : suppliedAshSource,
       payload.mfg_energy,
     );
     const errors = validate(nutrients, derived).filter(
@@ -93,6 +93,7 @@ export async function POST(req: NextRequest) {
 
     const nutrientSources = derivedNutrientSources(
       payload.nutrient_sources,
+      statedCarb,
       resolvedAsh.estimated,
       derived,
       payload.mfg_energy,
@@ -175,6 +176,7 @@ function missingNutrientSources(
 
 function derivedNutrientSources(
   suppliedSources: Record<string, Source>,
+  statedCarb: number | null,
   ashIsEstimated: boolean,
   derived: ReturnType<typeof computeDerived>,
   mfgEnergy: FoodPayload["mfg_energy"],
@@ -183,10 +185,13 @@ function derivedNutrientSources(
   if (ashIsEstimated) nutrientSources.ash_pct = "estimated";
   // 실측 carb는 태그를 그대로 둔다. 여기서 derived로 덮으면 라벨이 쓴 값이
   // 계산값으로 둔갑해 measured/estimated 구분이 무너진다.
-  if (!isMeasured(suppliedSources.carb_pct) && derived.carb_pct !== null) {
-    nutrientSources.carb_pct = derived.carb_is_estimated
-      ? "estimated"
-      : "derived";
+  if (statedCarb === null) {
+    if (derived.carb_pct === null) delete nutrientSources.carb_pct;
+    else {
+      nutrientSources.carb_pct = derived.carb_is_estimated
+        ? "estimated"
+        : "derived";
+    }
   }
 
   const hasManufacturerEnergy =
