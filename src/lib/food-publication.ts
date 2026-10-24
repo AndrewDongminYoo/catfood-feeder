@@ -128,10 +128,13 @@ export function prepareFoodPublication(
   };
   // 실측 carb는 태그를 그대로 둔다. 여기서 derived로 덮으면 라벨이 쓴 값이
   // 계산값으로 둔갑해 measured/estimated 구분이 무너진다.
-  if (statedCarb === null && derived.carb_pct !== null) {
-    nutrientSources.carb_pct = derived.carb_is_estimated
-      ? "estimated"
-      : "derived";
+  if (statedCarb === null) {
+    if (derived.carb_pct === null) delete nutrientSources.carb_pct;
+    else {
+      nutrientSources.carb_pct = derived.carb_is_estimated
+        ? "estimated"
+        : "derived";
+    }
   }
   if (derived.energy_p_pct !== null) {
     const energySource: Source =
