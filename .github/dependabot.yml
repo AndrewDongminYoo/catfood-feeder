@@ -25,6 +25,13 @@ updates:
       day: monday
       timezone: Asia/Seoul
     open-pull-requests-limit: 3
+    ignore:
+      # Runtime majors without a security fix stay off (operator, 2026-10-24); undici 8.12.3 came as #72.
+      # The code passes an undici Agent to the built-in fetch of Node 24, and undici 8 removed the legacy handler contract that this fetch still uses.
+      # update-types limits this to version updates; security updates still open.
+      - dependency-name: undici
+        update-types:
+          - version-update:semver-major
     groups:
       npm-minor-patch:
         patterns:
