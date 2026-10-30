@@ -5,12 +5,12 @@ import { describe, expect, it } from "vitest";
 /**
  * 보안 권고 하한 가드.
  *
- * fast-uri와 qs는 package.json에 선언된 적이 없는 전이 의존성이라
- * pnpm-workspace.yaml의 overrides로만 고정된다. override가 지워지거나
- * lockfile이 재생성되면서 해상도가 하한 아래로 내려가도 설치는 성공하므로,
+ * fast-uri는 package.json에 직접 선언하지 않는 전이 의존성이다.
+ * 전이 의존성 범위가 바뀌거나 lockfile이 재생성되면서 해상도가 하한 아래로
+ * 내려가도 설치는 성공하므로,
  * "무엇이 실제로 잠겼는지"를 lockfile에서 직접 읽어 여기서 고정한다.
  *
- * override와 같은 방식으로 major 단위로 범위를 잡는다. 하나의 권고가 여러
+ * major 단위로 범위를 잡는다. 하나의 권고가 여러
  * major를 덮더라도 패치 버전은 major마다 다르기 때문이다.
  */
 const LOCKFILE = join(import.meta.dirname, "..", "..", "pnpm-lock.yaml");
@@ -25,9 +25,8 @@ interface SecurityFloor {
   /**
    * 이 하한을 요구하는 권고들. 하한이 깨졌을 때 실패 메시지에 실린다.
    *
-   * 같은 override가 더 낮은 하한을 요구하는 다른 권고도 함께 막고 있을 수 있으므로,
-   * 이 목록이 모두 닫혔다는 사실만으로 override를 걷어낼 수는 없다.
-   * 제거 판단은 pnpm-workspace.yaml 주석에 적힌 권고 목록 전체를 보고 한다.
+   * 같은 버전 하한이 더 낮은 하한을 요구하는 다른 권고도 함께 막을 수 있으므로,
+   * 제거 판단은 실제 의존성 그래프와 해당 major의 권고 전체를 보고 한다.
    */
   advisories: string[];
 }
@@ -43,12 +42,6 @@ const SECURITY_FLOORS: SecurityFloor[] = [
       "GHSA-fph4-wmhf-6fwf",
       "GHSA-jqff-g426-hqxp",
     ],
-  },
-  {
-    name: "qs",
-    major: 6,
-    floor: "6.16.0",
-    advisories: ["GHSA-x5fp-wj9c-mxmx"],
   },
 ];
 

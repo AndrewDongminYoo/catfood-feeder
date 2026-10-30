@@ -23,14 +23,22 @@ pnpm lint         # eslint .
 pnpm test         # vitest run (src/**/*.test.{ts,tsx})
 pnpm typecheck    # tsc --noEmit
 pnpm exec knip    # find unused files/exports/deps
-trunk check       # markdownlint, prettier, yamllint, trufflehog, checkov (pre-push gate)
-trunk fmt         # format
+trunk check       # configured lint, formatting, workflow and security checks (pre-push gate)
+trunk fmt README.md # format an explicitly named task-owned path (example)
 ```
 
 **`pnpm dev` deliberately uses `next dev --webpack`.** Next 16 defaults to Turbopack, which reaches `Ready` but hangs on the first request on this project (build and `next start` are fine). See `docs/specs/dev-server-webpack-fallback-adr.md` for the reversal criteria — do not "fix" this back to plain `next dev` without meeting them.
 
 `pnpm test` runs Vitest over `src/**/*.test.{ts,tsx}`.
 The "ACANA Grasslands" case in `src/lib/fixtures.ts` drives `src/lib/fixtures.test.ts` — the fixture's recorded values are asserted against live `computeDerived`/`validate` output, so a change to the domain math fails there.
+
+`pnpm build` loads the external secrets file before invoking `next build`.
+For fixture-only maintenance verification, copy only the declared public application/configuration paths and generated lockfile to a disposable directory.
+Run `pnpm exec next build` there with a separate HOME and an allowlisted environment, without copying private runtime files.
+Do not run either build command in the original private-input checkout for this verification.
+That command verifies the underlying production build without executing the secrets loader.
+Use `trunk check --all --no-fix --jobs=2 --monitor=false` for a full maintenance scan; TruffleHog uses `--no-verification --no-update` and a local filesystem reader that preserves decoded findings.
+Run `python3 -B .trunk/configs/tests/test_trufflehog_to_sarif.py` for its standard-library regressions; app CI runs them before dependency installation.
 
 ## Architecture
 

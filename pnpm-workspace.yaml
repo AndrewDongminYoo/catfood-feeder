@@ -4,37 +4,11 @@ packages:
 engineStrict: true
 
 overrides:
-  "@hono/node-server": 2.0.11 # GHSA-9mqv-5hh9-4cgg, GHSA-frvp-7c67-39w9
-  "@modelcontextprotocol/sdk@1": ^1.31.0 # GHSA-6qxp-vccf-f47h
-  "@supabase/supabase-js@>=2.110.5 <3.0.0-0": 2.118.0
-  "body-parser@": 2.3.0 # GHSA-v422-hmwv-36x6
-  "brace-expansion@1": ^1.1.17 # GHSA-mh99-v99m-4gvg
-  "brace-expansion@5": ^5.0.8 # GHSA-mh99-v99m-4gvg, GHSA-3jxr-9vmj-r5cp
-  "fast-uri@3": ^3.1.6 # GHSA-4c8g-83qw-93j6, GHSA-v2hh-gcrm-f6hx, GHSA-5jgf-p345-68v8, GHSA-f65p-4m7j-42xc, GHSA-fph4-wmhf-6fwf, GHSA-jqff-g426-hqxp
-  "hono@4": ^4.13.5 # GHSA-hvrm-45r6-mjfj, GHSA-w62v-xxxg-mg59, GHSA-xgm2-5f3f-mvvc, GHSA-crvj-82cr-hjcx, GHSA-g6gw-c38x-mqfc, GHSA-gqvv-2mrq-wpjv
-  "js-yaml@": 4.3.2 # GHSA-52cp-r559-cp3m, GHSA-2883-xcg3-v3hh
-  "nanoid@3": ^3.3.18 # GHSA-2v37-7h3g-55p8
-  "postcss@8": ^8.5.31
-  "qs@6": ^6.16.0 # GHSA-x5fp-wj9c-mxmx
-  sharp: 0.35.5 # GHSA-f88m-g3jw-g9cj, GHSA-rgj7-g3m4-5g8c, GHSA-wq5f-xc86-pv6w
-  "source-map-js@1": ^1.2.2 # GHSA-68fv-2mgg-jv7q
-  tldts: 7.4.0
-  tldts-core: 7.4.0
+  "body-parser@2": ^2.4.0
+  "fast-uri@3": ^3.1.9
+  "vite@8": ^8.3.3 # GHSA-587h-7wmj-h5pm, GHSA-698v-4r3x-3vcv, GHSA-9jrq-w75r-8gcw, GHSA-r825-w8mm-5pxw, GHSA-rq7h-c2jc-7f22, GHSA-vfpm-58rq-9qcg
 
 allowBuilds:
   msw: true
   sharp: true
   unrs-resolver: true
-
-minimumReleaseAgeExclude:
-  - "@ai-sdk/anthropic@3.0.97"
-  - "@ai-sdk/gateway@3.0.150"
-  - "@ai-sdk/provider-utils@4.0.39"
-  - "@supabase/auth-js@2.112.1"
-  - "@supabase/functions-js@2.112.1"
-  - "@supabase/postgrest-js@2.112.1"
-  - "@supabase/realtime-js@2.112.1"
-  - "@supabase/ssr@0.12.3"
-  - "@supabase/storage-js@2.112.1"
-  - "@supabase/supabase-js@2.112.1"
-  - ai@6.0.226

@@ -62,12 +62,23 @@ supabase/migrations/              Ordered schema source of truth
 
 ## Verify
 
+Run maintenance checks in the disposable public-source copy described below, with a separate HOME and an allowlisted environment.
+
 ```bash
+pnpm install --frozen-lockfile
 pnpm test
 pnpm typecheck
 pnpm lint
-pnpm build
+pnpm exec next build
+trunk check --all --no-fix --jobs=2 --monitor=false
 ```
+
+`pnpm build` loads the external secrets file before running the production build.
+For credential-free maintenance verification, copy only the declared public application/configuration paths and generated lockfile to a disposable directory.
+Run `pnpm exec next build` there with a separate HOME and an allowlisted environment, without copying private runtime files.
+Do not run either build command in the original private-input checkout for this verification.
+This checks compilation and fixture rendering without exercising configured providers or the secrets loader.
+Trunk runs TruffleHog with `--no-verification`, so secret findings are local pattern matches rather than provider validation.
 
 ## Data and privacy
 
