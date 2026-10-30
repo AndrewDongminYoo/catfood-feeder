@@ -97,7 +97,7 @@ pnpm test
 pnpm typecheck
 pnpm exec knip
 trunk check
-trunk fmt
+trunk fmt README.md
 ```
 
 ## NOTES
@@ -106,3 +106,8 @@ trunk fmt
 - Regenerate `src/types/supabase.d.ts` with the Supabase CLI after applying migrations; never hand-edit it.
 - Run Supabase migrations through the Supabase CLI against the linked project; do not hand-edit generated database state.
 - The build uses Turbopack, while development deliberately uses webpack.
+- `pnpm build` loads the external secrets file; credential-free maintenance verification uses `pnpm exec next build` only in a disposable public-source copy with a separate HOME and an allowlisted environment.
+  Do not copy private runtime files or run either build command in the original private-input checkout for this verification.
+- Format only explicitly named task-owned paths; the README command above is an example.
+- Full maintenance scans use `trunk check --all --no-fix --jobs=2 --monitor=false`; TruffleHog runs with `--no-verification --no-update` and a local reader that preserves decoded findings.
+- `python3 -B .trunk/configs/tests/test_trufflehog_to_sarif.py` verifies the standalone reader contract, and app CI runs it before dependency installation.
