@@ -23,6 +23,7 @@ it.each([
   "https://example.com",
   "http://localhost.evil.test",
   "http://localhost/path",
+  // trunk-ignore(trufflehog/URI): Synthetic credential URL verifies broker rejection.
   "http://user:pass@localhost",
 ])("does not send credentials to %s", async (baseUrl) => {
   const fetchImpl = vi.fn();

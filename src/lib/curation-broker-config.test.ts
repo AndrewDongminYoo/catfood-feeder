@@ -134,6 +134,7 @@ it.each([
   "https:broker.example.test",
   "https://broker.example.test\\other",
   "ftp://broker.example.test",
+  // trunk-ignore(trufflehog/URI): Synthetic credential URL verifies broker rejection.
   "https://user:password@broker.example.test",
   "https://broker.example.test/prefix",
   "https://broker.example.test?token=secret",

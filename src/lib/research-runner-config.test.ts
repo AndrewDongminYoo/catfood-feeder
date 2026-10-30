@@ -62,6 +62,7 @@ describe("research runner configuration boundary", () => {
 
   it("rejects an invalid broker before any request without exposing credentials", () => {
     const result = runUntilBroker({
+      // trunk-ignore(trufflehog/URI): Synthetic credential URL verifies broker rejection.
       RESEARCH_BROKER_URL: "https://user:private-value@broker.example.test",
     });
     expect(result.error).toBeUndefined();

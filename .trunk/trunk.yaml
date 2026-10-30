@@ -3,6 +3,9 @@
 version: 0.1
 cli:
   version: 1.25.0
+  options:
+    - commands: [ALL]
+      args: --monitor=false
 # Trunk provides extensibility via plugins. (https://docs.trunk.io/plugins)
 plugins:
   sources:
@@ -20,20 +23,34 @@ lint:
     - grype
   enabled:
     - actionlint@1.7.12
-    - checkov@3.3.30
+    - checkov@3.4.0
     - eslint@10.13.0
     - git-diff-check
     - markdownlint@0.50.0
     - osv-scanner@2.7.0
-    - oxipng@9.1.5
+    - oxipng@10.2.1
     - pinact@4.1.1!:
         commands: [lint, upgrade]
     - prettier@3.9.10
     - sqlfluff@4.4.0:
         commands: [lint, fix]
     - taplo@0.10.0
-    - trufflehog@3.99.2
+    - trufflehog@3.99.7
     - yamllint@1.38.0
+  definitions:
+    - name: pinact
+      commands:
+        - name: upgrade
+          enabled: true
+    - name: trufflehog
+      commands:
+        - name: lint
+          run: trufflehog filesystem --json --fail --fail-on-scan-errors --no-verification --no-update ${target}
+          direct_configs:
+            - .trunk/configs/trufflehog_to_sarif.py
+          parser:
+            runtime: python
+            run: python3 .trunk/configs/trufflehog_to_sarif.py
   ignore:
     # docs/notes/*.sql은 유지되는 코드가 아니라 한 번 실행하고 남긴 기록이다(중복 병합,
     # 출처 최신성 복구 등). 린터를 만족시키려고 사후에 고치면 무엇을 실행했는지의 기록이
