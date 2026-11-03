@@ -144,4 +144,8 @@ Korean recall data is intentionally not synced (no confirmed public API — see 
 - Hand-rolled classes in `src/app/globals.css` (`.card`, `.panel`, `.primary`) — see `DESIGN.md`.
   Tailwind v4 is config-less, and there is no `@/components/ui` directory yet.
 - Env: `ANTHROPIC_API_KEY` is server-only (never `NEXT_PUBLIC_`). See `.env.example` for the Supabase key set.
-- **Secrets live outside the repository**, at `$HOME/.config/catfood-feeder/env`. `scripts/with-secrets.mjs` loads that path via `process.loadEnvFile` — not `node --env-file`, which Next rejects when it forwards `execArgv` into its Workers' `NODE_OPTIONS`. There is no dotenv file at the repo root by design, because the research runner's `codex` child can read (not write) the filesystem. See `scripts/README.md`.
+- **Runtime configuration** uses the external credential source at `$HOME/.config/catfood-feeder/env`.
+  `scripts/with-secrets.mjs` loads that path via `process.loadEnvFile`, without adding `--env-file` to the worker's `NODE_OPTIONS`.
+  Next.js also loads local dotenv inputs during development and production; the home checkout has `.env.local`, so the external loader does not make the repository root free of private inputs.
+  Keep local overrides untracked and use the disposable public-source copy described above for credential-free maintenance verification.
+  See `scripts/README.md` for the research runner's separate environment and filesystem limitations.

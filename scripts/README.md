@@ -4,13 +4,18 @@ Two-phase pipeline that turns an external product list into the project's core a
 
 ## Where credentials live
 
-**Secrets live outside the repository, at `$HOME/.config/catfood-feeder/env` (mode 600).**
-`scripts/with-secrets.mjs` is the single loader: package scripts run through it (`node scripts/with-secrets.mjs next dev --webpack`), and the `.mjs` scripts import its `loadSecrets()` directly.
+**The explicit credential source is `$HOME/.config/catfood-feeder/env` (mode 600).**
+`scripts/with-secrets.mjs` is the custom credential loader: package scripts run through it (`node scripts/with-secrets.mjs next dev --webpack`), and the `.mjs` scripts import its `loadSecrets()` directly.
 It uses `process.loadEnvFile` rather than `node --env-file`, because Next propagates the parent's `execArgv` into its Workers' `NODE_OPTIONS`, where `--env-file` is rejected outright.
 A missing file is tolerated so platform-provided environments (Vercel) still build.
 
+Next.js also loads local dotenv inputs during development and production.
+The home checkout has `.env.local`; the external loader does not disable that loading or prove the repository root contains no private inputs.
+Keep local overrides untracked.
+For credential-free maintenance verification, use the disposable public-source copy with a separate HOME and an allowlisted environment described in the root README.
+
 The reason is the research runner: its `codex` child runs under a read-only sandbox, and read-only restricts writes, not reads.
-An agent following instructions injected into a product page would look for a dotenv file at the repository root first, so there is nothing there to find.
+Keeping the explicit credential source outside the repository reduces exposure through repository files, but does not prevent other local inputs from being readable.
 The runner also copies only `auth.json` into an ephemeral `CODEX_HOME`; it never gives the child the operator's real home path, from which the fixed secrets path could be derived.
 The staged file is a byte copy with a distinct inode, so filesystem searches cannot use it to rediscover the operator's credential path.
 Because a copy does not need the credential's filesystem, the workdir is always created under the system temp root — never beside the credential, whose sibling entries a read-only child could still read.
@@ -25,7 +30,8 @@ That write-back replaces the original only while it still holds those staging-ti
 Only the parent knows the original path, and the read-only sandbox refuses the child every write into the workdir, so nothing the child controls can reach that write-back.
 These measures shrink the exposure; they are not a same-UID filesystem boundary.
 The boundary is a separate OS account or a container, which stays the next hardening step.
-`src/lib/research-boundary.test.ts` pins that no package script reads an in-repo dotenv file.
+`src/lib/research-boundary.test.ts` checks explicit dotenv references in package scripts and `.mjs` source.
+It does not establish that local dotenv files are absent or prevent Next.js from loading them implicitly.
 
 ## Phase A — `ingest-petfriends.mjs` (worklist)
 
