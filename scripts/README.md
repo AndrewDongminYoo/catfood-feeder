@@ -16,15 +16,15 @@ For credential-free maintenance verification, use the disposable public-source c
 
 The reason is the research runner: its `codex` child runs under a read-only sandbox, and read-only restricts writes, not reads.
 Keeping the explicit credential source outside the repository reduces exposure through repository files, but does not prevent other local inputs from being readable.
-The runner also copies only `auth.json` into an ephemeral `CODEX_HOME`; it never gives the child the operator's real home path, from which the fixed secrets path could be derived.
-The staged file is a byte copy with a distinct inode, so filesystem searches cannot use it to rediscover the operator's credential path.
+The runner also copies only `auth.json` into an ephemeral `CODEX_HOME`; it never gives the child the user's real home path, from which the fixed secrets path could be derived.
+The staged file is a byte copy with a distinct inode, so filesystem searches cannot use it to rediscover the user's credential path.
 Because a copy does not need the credential's filesystem, the workdir is always created under the system temp root — never beside the credential, whose sibling entries a read-only child could still read.
-The system temp root is resolved before use and rejected when it is inside the operator's real `HOME`.
-The runner also stages the resolved `codex` executable under the workdir and gives the child only that directory plus system binary directories in `PATH`, so home-scoped package-manager paths do not disclose the operator's home.
-That executable is copied rather than hard-linked for the same reason as the credential: a shared inode is a searchable handle back to the original path, which for a home-scoped install is the operator's home.
-Nothing staged into the workdir shares an inode with a file the operator owns.
+The system temp root is resolved before use and rejected when it is inside the user's real `HOME`.
+The runner also stages the resolved `codex` executable under the workdir and gives the child only that directory plus system binary directories in `PATH`, so home-scoped package-manager paths do not disclose the user's home.
+That executable is copied rather than hard-linked for the same reason as the credential: a shared inode is a searchable handle back to the original path, which for a home-scoped install is the user's home.
+Nothing staged into the workdir shares an inode with a file the user owns.
 This runner therefore requires Codex's file credential store; a keyring-only login is rejected with an explicit error because an isolated `CODEX_HOME` hashes to a different keyring entry.
-The child also forces `cli_auth_credentials_store = "file"` on the command line because `--ignore-user-config` deliberately omits the operator's setting.
+The child also forces `cli_auth_credentials_store = "file"` on the command line because `--ignore-user-config` deliberately omits the user's setting.
 The copy is discarded with the workdir, so the parent compares it against the staging-time bytes afterwards and writes it back when the CLI refreshed the login; otherwise a rotated refresh token would be lost and the next run would fail to authenticate.
 That write-back replaces the original only while it still holds those staging-time bytes, so a login another run or a `codex login` refreshed meanwhile is reported and left alone rather than rolled back to this run's older copy.
 Only the parent knows the original path, and the read-only sandbox refuses the child every write into the workdir, so nothing the child controls can reach that write-back.
@@ -80,7 +80,7 @@ Invalid values fail before credential-bearing work, and error messages do not ec
 What holds the boundary:
 
 - `RESEARCH_AGENT_SECRET` opens **only** `/api/research/*`. No admin or publish route accepts it, and `src/lib/research-boundary.test.ts` pins that.
-- The child `codex exec` process gets an allowlisted environment (`PATH` → a staged Codex executable plus system binary directories, `HOME` and `CODEX_HOME` → an empty temp dir, `LANG`, `TMPDIR`) and runs `--sandbox read-only --ephemeral --ignore-user-config` outside the repo. Only Codex's `auth.json` is staged into that temporary home; the child never receives the operator's real home path, broker secret, or any Supabase key.
+- The child `codex exec` process gets an allowlisted environment (`PATH` → a staged Codex executable plus system binary directories, `HOME` and `CODEX_HOME` → an empty temp dir, `LANG`, `TMPDIR`) and runs `--sandbox read-only --ephemeral --ignore-user-config` outside the repo. Only Codex's `auth.json` is staged into that temporary home; the child never receives the user's real home path, broker secret, or any Supabase key.
 - The target must be a **skeleton** draft: unpublished _and_ carrying no current source. An agent URL must never displace a curator's captured source. The broker checks this before fetching, and both the replacement RPC and the evidence-apply RPC re-check it inside their own row locks — capture and apply are separate transactions, so a curator registering a source in between must be caught at both points. A curator who claims the food mid-run wins the race and the run ends as `claim_conflict` having written no nutrient value.
 - URLs from prior proposals are returned by `GET /api/research/foods/[id]` as "already tried" unless their latest outcome is retryable, so a re-run does not spend a research call on the same dead end.
   URLs from a claim conflict, broker error, or transient network capture failure stay retryable, and the next proposal records the prior run ID and retry reason.
