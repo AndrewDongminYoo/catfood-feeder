@@ -44,7 +44,7 @@ After approval, continue the requested hosted gates, merge, cleanup and memory r
 
 ## Credential-free build evidence
 
-The operator confirmed a private runtime input in the original home checkout.
+A private runtime input in the original home checkout was confirmed.
 Do not run the secrets-loading build or the direct Next build in that checkout for maintenance verification.
 Use a separate source snapshot containing only the declared application/configuration paths and the generated lockfile, with a separate HOME and an allowlisted environment.
 The fixture excludes private runtime files by construction and does not invoke `scripts/with-secrets.mjs`.

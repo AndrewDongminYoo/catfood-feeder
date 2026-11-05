@@ -12,7 +12,7 @@
 - Use immutable full commit SHAs for third-party actions.
 - Do not add dependencies or modify the package manifest or lockfile.
 - Do not provide application secrets; `scripts/with-secrets.mjs` intentionally continues when its external secret file is absent.
-- Do not stage, commit, or push until the operator explicitly requests it.
+- Do not stage, commit, or push until I explicitly request it.
 
 ## Success Criteria
 

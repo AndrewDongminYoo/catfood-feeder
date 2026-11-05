@@ -1277,7 +1277,7 @@ Start the dev server (`pnpm dev`), then run with three targets from Task 1's mat
 
 Run: `node scripts/backfill-ingredients.mjs --dry-run <foodId:sourceId>,<foodId:sourceId>,<foodId:sourceId>`
 
-Attempted on 2026-08-24 with `22:477,51:47,58:46`. All three reached the extraction boundary but returned 502 because the monthly Anthropic limit was exhausted; the apply route was not called. The operator expects access to recover in about one week. After the limit resets, re-run the same three targets before checking this step or authorizing Step 3.
+Attempted on 2026-08-24 with `22:477,51:47,58:46`. All three reached the extraction boundary but returned 502 because the monthly Anthropic limit was exhausted; the apply route was not called. Access is expected to recover in about one week. After the limit resets, re-run the same three targets before checking this step or authorizing Step 3.
 
 Retried on 2026-09-10 after the Anthropic key was replaced. All three dry-run targets returned complete ingredient drafts with 43, 47, and 41 items. The dry-run did not call the apply route.
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Approach and scope approved by the operator on 2026-08-18: the evidence drilldown, with the landing page deliberately split into a later spec.
+Approach and scope approved on 2026-08-18: the evidence drilldown, with the landing page deliberately split into a later spec.
 
 The sections below are awaiting review; they have not been approved individually.
 
@@ -16,7 +16,7 @@ The public detail page shows a provenance _tone_ badge derived from `foods.nutri
 
 ## Why This Scope
 
-The operator's success criterion for this stage is a portfolio and technical demonstration, and the sentence the demonstration must prove is that no unbacked number is stored.
+My success criterion for this stage is a portfolio and technical demonstration, and the sentence the demonstration must prove is that no unbacked number is stored.
 
 Measured against production on 2026-08-18, the claim holds.
 

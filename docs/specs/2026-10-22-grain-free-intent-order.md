@@ -2,7 +2,7 @@
 
 Issue #49 is the parent acceptance gate for child issues #50–#53.
 This PR completes the grain-free interpretation work in #52 and verifies the unchanged behavior of the other children.
-After repeated expression-specific review findings, the operator approved a bounded grammar with explicit owner confirmation rather than expanding regex rules to cover arbitrary Korean or English.
+After repeated expression-specific review findings, a bounded grammar with explicit owner confirmation was approved rather than expanding regex rules to cover arbitrary Korean or English.
 
 ## Behavior
 

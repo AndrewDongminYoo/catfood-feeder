@@ -2,7 +2,7 @@
 
 ## Status
 
-Design approved by the operator on 2026-08-13.
+Design approved on 2026-08-13.
 
 Implementation must proceed as independently testable task streams rather than one repository-wide rewrite.
 
@@ -14,7 +14,7 @@ Resolve the verified codebase-audit findings in risk order while preserving the 
 
 Use one working branch with concern-separated task streams and verification checkpoints.
 
-This keeps the operator-requested current workspace while allowing each stream to be reviewed and committed independently later.
+This keeps the requested current workspace while allowing each stream to be reviewed and committed independently later.
 
 The alternatives are weaker for this program.
 
@@ -30,7 +30,7 @@ The alternatives are weaker for this program.
 - Create database migrations through the Supabase CLI and regenerate generated types only after the migrations replay successfully.
 - Do not weaken RLS, expose service-role credentials, or treat proxy authentication as route or loader authorization.
 - Preserve author-unknown and unrelated work.
-- Do not commit or push until the operator requests it.
+- Do not commit or push until I request it.
 
 ## Task Stream 1: Curator Read Boundary and Nutrition Validation
 

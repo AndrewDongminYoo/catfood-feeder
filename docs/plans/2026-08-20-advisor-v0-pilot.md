@@ -81,7 +81,7 @@ At the eighth valid completed session, choose exactly one outcome:
 
 If ingredient exclusions recur, write a separate ingredient form/specificity and evidence-ingest plan before exposing a filter.
 If `unspecified` comparisons dominate observed tasks, write a separate persistent qualifier and interval-propagation plan instead of weakening literal-evidence rules.
-Natural-language input is eligible only after `proceed` and explicit operator approval.
+Natural-language input is eligible only after `proceed` and explicit approval.
 MCP remains later than the natural-language input decision.
 
 ## Success Criteria

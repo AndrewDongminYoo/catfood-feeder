@@ -4,8 +4,8 @@
 
 **Spec:** `docs/specs/2026-10-18-next-food-decision.md`.
 
-**Method:** Native implementation in the main workspace, as authorized by the operator.
-The operator's autonomous mandate supersedes separate approval, PR lifecycle, and worktree defaults.
+**Method:** Native implementation in the main workspace, as authorized.
+The autonomous mandate supersedes separate approval, PR lifecycle, and worktree defaults.
 
 ## Tasks
 
@@ -39,5 +39,5 @@ The operator's autonomous mandate supersedes separate approval, PR lifecycle, an
 - Final checks: 66 test files and 542 tests passed; lint, typecheck, production build, unused-code check, and scoped Markdown checks passed.
 - The production application was exercised with live catalog evidence and real question interpretation, then saved, restored, explicitly rechecked, and exported.
   Desktop and 375px mobile captures, exact observations, and remaining product limits are recorded in [the QA receipt](../notes/2026-10-18-decision-qa.md).
-- The local production server is left running at `http://localhost:3000` for the operator.
+- The local production server is left running at `http://localhost:3000` for me.
   No remote push, deployment, database migration, or purchase was performed.

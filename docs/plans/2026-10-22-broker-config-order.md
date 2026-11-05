@@ -5,7 +5,7 @@
 3. Add coverage for configuration precedence, origin validation, and CLI initialization before side effects.
 4. Check README.md, CLAUDE.md, AGENTS.md, and scripts/README.md for implementation-caused drift; document the affected script configuration contract.
 5. Run targeted and complete tests, typecheck, lint, build, and scoped formatting checks; review the complete candidate before semantic commits.
-6. Push the scoped branch, open the PR, and complete hosted review and CI within the recorded budget; merge after all required gates pass under the operator's updated pr-loop authority.
+6. Push the scoped branch, open the PR, and complete hosted review and CI within the recorded budget; merge after all required gates pass under the updated pr-loop authority.
 
 ## Owned paths
 

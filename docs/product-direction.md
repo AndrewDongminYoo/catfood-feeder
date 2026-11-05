@@ -1,13 +1,13 @@
 # Product Direction
 
-Status: Accepted by the operator on 2026-10-18.
+Status: Accepted on 2026-10-18.
 This document owns the product positioning, delivery standard, scope, and monetization hypothesis.
 The former direction is preserved in [the historical record](notes/2026-10-18-product-direction-before-consumer-decision.md).
 
 ## Positioning
 
 Help an owner decide what imported dry cat food to buy next by turning their question into explicit conditions, comparing those conditions with source-backed product facts, and preserving the reasons and remaining questions behind their choice.
-The first person this product must serve is the operator choosing the next food for their own cat.
+The first person this product must serve is the user choosing the next food for their own cat.
 
 ## The job to complete
 
@@ -17,7 +17,7 @@ They can save or download the actual brief and revisit it without silently repla
 
 The deliverable is a completed decision workflow.
 A working research pipeline, an issue backlog, a generic chat box, and a catalog page alone do not satisfy it.
-Do not make the operator invent a sales pitch or interview protocol to compensate for a product that cannot yet answer a useful question.
+Do not make me invent a sales pitch or interview protocol to compensate for a product that cannot yet answer a useful question.
 
 ## AI and judgment
 

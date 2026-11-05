@@ -20,7 +20,7 @@
 - Generate `src/types/supabase.d.ts` with Supabase CLI 2.109.1 after applying the migration; never hand-edit it.
 - Use `pnpm` and the repository's existing commands.
 - Preserve the uncommitted turnaround documentation already present in the worktree.
-- Do not commit or push unless the operator explicitly requests it; use the checkpoint steps to inspect concern-scoped diffs.
+- Do not commit or push unless I explicitly request it; use the checkpoint steps to inspect concern-scoped diffs.
 
 ---
 
@@ -366,7 +366,7 @@ git diff -- supabase/migrations/20260805105048_separate_food_publication_state.s
 ```
 
 Require one concern only: publication state and its database contract.
-Do not stage or commit without operator authorization.
+Do not stage or commit without my authorization.
 
 ---
 
@@ -507,7 +507,7 @@ git diff -- src/lib/food-publication.ts src/lib/food-publication.test.ts
 ```
 
 Confirm the file owns only publication preparation and result parsing.
-Do not stage or commit without operator authorization.
+Do not stage or commit without my authorization.
 
 ---
 
@@ -630,7 +630,7 @@ git diff -- 'src/app/api/foods/[id]/publish/route.ts' 'src/app/api/foods/[id]/pu
 ```
 
 Confirm automation remains rejected and no browser-visible code receives privileged credentials.
-Do not stage or commit without operator authorization.
+Do not stage or commit without my authorization.
 
 ---
 
@@ -736,7 +736,7 @@ git diff -- src/components/source-research-client.tsx src/components/source-rese
 ```
 
 Confirm no nutrient values are sent by the publication action and failure preserves research state.
-Do not stage or commit without operator authorization.
+Do not stage or commit without my authorization.
 
 ---
 
@@ -833,4 +833,4 @@ git diff --check
 
 Confirm the diff contains only the already-approved turnaround documentation plus the publication feature files in this plan.
 Report any author-unknown file separately and do not stage it.
-Do not commit or push without operator authorization.
+Do not commit or push without my authorization.
