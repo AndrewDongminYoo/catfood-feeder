@@ -9,7 +9,7 @@ The owner asks a question, confirms explicit conditions, reads source-backed can
 `/` enters `/advisor`; the catalog, feeding history, curator tools, and local research broker are supporting surfaces.
 
 Read `docs/product-direction.md` for the product direction and `BLUEPRINT.md` for domain and trust boundaries.
-Dongmin Yu approved this direction and autonomous implementation on 2026-10-18.
+This direction and autonomous implementation were approved on 2026-10-18.
 Do not replace a working consumer deliverable with an interview assignment or treat a backlog as a product strategy.
 Copy voice: warm.
 
