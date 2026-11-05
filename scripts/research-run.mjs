@@ -215,7 +215,7 @@ export function selectResearchTempRoot({ home, systemTemp }) {
   }
   if (isWithin(home, systemTemp)) {
     throw new Error(
-      "cannot isolate Codex credentials when TMPDIR is inside the operator home",
+      "cannot isolate Codex credentials when TMPDIR is inside the user's home",
     );
   }
 
@@ -322,7 +322,7 @@ export async function persistRefreshedCodexAuth(parentEnv, workdir, baseline) {
     await writeFile(pending, staged, { mode: 0o600 });
     if (!(await readFile(source)).equals(baseline)) {
       throw new Error(
-        "the operator Codex login changed during this run; discarded the isolated refresh rather than overwriting it",
+        "the user's Codex login changed during this run; discarded the isolated refresh rather than overwriting it",
       );
     }
     await rename(pending, source);

@@ -21,7 +21,7 @@ The direct Next.js build runs in the public verification copy described below, w
 Do not execute `scripts/with-secrets.mjs` or provider-backed maintenance scripts for this verification.
 Prove TruffleHog's offline command with a synthetic canary and a clean control, and verify that both Pinact commands execute against the workflow files.
 The reader follow-up adds decoded/literal/clean controls and CI regression tests, explicitly enables Pinact upgrade, and refreshes Checkov without changing application dependencies.
-The operator confirmed private runtime input in the original checkout; the resumed public-copy procedure replaces the earlier presence-only precondition.
+Private runtime input in the original checkout was confirmed; the resumed public-copy procedure replaces the earlier presence-only precondition.
 
 ## Resumed build verification
 

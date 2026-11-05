@@ -36,7 +36,7 @@ The production browser session reported no JavaScript errors during the final pa
 
 ## Observed runtime scenario
 
-This is a hypothetical QA example, not the operator's cat profile or a personalized health recommendation.
+This is a hypothetical QA example, not my cat profile or a personalized health recommendation.
 
 - Question: “지금 먹는 사료와 열량 차이는 10% 이내로, 닭고기 표기는 빼고 싶어요.”
 - Current food: ACANA Grasslands, catalog ID 141, evidence-backed baseline 3,930 kcal/kg.
@@ -61,7 +61,7 @@ This is a hypothetical QA example, not the operator's cat profile or a personali
 - [Mobile candidate](2026-10-18-decision-qa/mobile-candidate.png)
 
 The named isolated browser session `catfood-decision` was closed after verification.
-Its QA saved record does not populate the operator's regular browser.
+Its QA saved record does not populate my regular browser.
 The production server was left running at `http://localhost:3000` using `pnpm start --hostname 127.0.0.1`.
 
 ## Limits and provenance

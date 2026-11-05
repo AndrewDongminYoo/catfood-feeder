@@ -2,9 +2,9 @@
 
 ## Trigger and authority
 
-The operator requested adversarial review after the initial three implementation commits.
+Adversarial review was requested after the initial three implementation commits.
 Two independent read-only reviewers returned `REQUEST_CHANGES` against `cbab949e359a5300f9bd7c192eba20c5ec19531a`.
-The operator then requested continuation under the existing implementation mandate.
+Continuation under the existing implementation mandate was then requested.
 The initial completion claim was withdrawn.
 
 ## Reproduced defects
@@ -52,7 +52,7 @@ The report now removes duplicate displayed questions.
 
 ## Rendered owner-question evidence
 
-The isolated `catfood-review-fix` session used the question from the operator's screenshot and ACANA Homestead Harvest as the current food.
+The isolated `catfood-review-fix` session used the question from my screenshot and ACANA Homestead Harvest as the current food.
 The baseline was 3,760 kcal/kg.
 The real question request used the fallback path, which now explicitly says that AI did not interpret the complete question.
 Before confirmation, the result contained zero met candidates, 78 unknown candidates, and 33 failed candidates.

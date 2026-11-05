@@ -1,6 +1,6 @@
 # Grain-free intent follow-up plan
 
-The operator invoked pr-loop for #49 on 2026-10-22 after the parent acceptance review found two unmet #52 conditions.
+pr-loop for #49 was invoked on 2026-10-22 after the parent acceptance review found two unmet #52 conditions.
 Use the current main workspace and one branch; no worktree is required.
 
 ## Steps and checks
@@ -49,7 +49,7 @@ Branch cleanup and durable memory recording were not requested by this invocatio
 
 ## Approved confirmation direction
 
-The operator approved replacing open-ended expression repairs with a bounded grammar and explicit owner confirmation.
+Replacing open-ended expression repairs with a bounded grammar and explicit owner confirmation was approved.
 This supersedes the earlier requirement to retain an inferred grain exclusion beside an ambiguous comparative mention.
 
 1. Add parser and model-validation regressions for unknown grain wording, including the latest connector-punctuation and formal-withdrawal reports.
@@ -60,7 +60,7 @@ This supersedes the earlier requirement to retain an inferred grain exclusion be
    Verify pending, allowed, and excluded Wheat candidates through real interactions, saved snapshots, and exported briefs while preserving chicken and the numeric calorie limit.
 4. Update this specification and the affected consumer direction statement.
    Run focused and full tests, typecheck, lint, Knip, explicit-path formatting and Trunk checks, and the production build.
-5. Review the changed implementation and capture the rendered confirmation for operator visual approval before merge.
+5. Review the changed implementation and capture the rendered confirmation for visual approval before merge.
    Keep the original hosted-round accounting and incomplete independent security gate; do not manufacture a new clean audit or reset its remaining budget.
 
 No new regex wording support, dependency, database write, or public schema change is proposed.

@@ -20,7 +20,7 @@
 - Use a new migration created by `pnpm exec supabase migration new feeding_period_integrity`; never invent its timestamp.
 - Use a `SECURITY INVOKER` switch function, lock the owned cat row before updating logs, revoke default `PUBLIC` execution, and grant execution only to `authenticated`.
 - Do not add dependencies, broadly refactor components, or change curator/research behavior.
-- Do not stage, commit, or push Stream 3 changes until the operator explicitly requests it.
+- Do not stage, commit, or push Stream 3 changes until I explicitly request it.
 
 ---
 
@@ -44,7 +44,7 @@
 | `src/app/api/feeding-logs/[id]/route.ts`                       | Provide owner-scoped PATCH and DELETE correction endpoints.                                                                              |
 | `src/app/api/feeding-logs/[id]/route.test.ts`                  | Prove corrections remain behind Auth and RLS-visible rows.                                                                               |
 | `src/components/feeding-log-editor.tsx`                        | Offer the minimum product/date/note correction and delete controls.                                                                      |
-| `src/components/feeding-log-editor.test.tsx`                   | Prove PATCH/DELETE payloads and failures are visible to the operator.                                                                    |
+| `src/components/feeding-log-editor.test.tsx`                   | Prove PATCH/DELETE payloads and failures are visible to the user.                                                                        |
 | `src/app/feeding/page.tsx`                                     | Render an explicit retryable dashboard error and mount correction controls.                                                              |
 | `src/app/feeding/page.test.tsx`                                | Prove a configured query failure is not rendered as an empty account.                                                                    |
 | `supabase/migrations/<generated>_feeding_period_integrity.sql` | Repair duplicate open periods, enforce one open period, and add the transactional switch function.                                       |

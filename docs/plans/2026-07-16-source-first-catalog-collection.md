@@ -546,7 +546,7 @@ Run: `pnpm exec vitest run src/lib/source-first-boundary.test.ts`
 
 Expected: FAIL because the legacy script contains `web_search_20260209`.
 
-- [x] **Step 3: Remove the legacy script and update operator documentation.**
+- [x] **Step 3: Remove the legacy script and update user documentation.**
 
 Delete `scripts/research-enrich.mjs`.
 

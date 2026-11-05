@@ -2,7 +2,7 @@
 
 ## Approved scope
 
-The operator invoked pr-loop for issue47.
+pr-loop for issue47 was invoked.
 Use the current workspace and reuse the existing broker URL validation policy.
 Oracle retrieval failed before search, so this plan relies on current repository code rather than claimed precedent.
 

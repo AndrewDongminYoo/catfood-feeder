@@ -1,6 +1,6 @@
 # BLUEPRINT — Next Food Decision
 
-Status: The operator approved the consumer decision direction and autonomous implementation on 2026-10-18.
+Status: The consumer decision direction and autonomous implementation were approved on 2026-10-18.
 
 ## Goal
 
@@ -65,7 +65,7 @@ Use Next.js App Router, TypeScript, the existing CSS tokens, and the pinned pnpm
 Keep the webpack development fallback until its ADR reversal criteria are met.
 No new framework, state library, database migration, or dependency is needed for the first complete decision workflow.
 Run tests, typecheck, lint, production build, and actual rendered desktop/mobile checks.
-Do not stop at a plan, checklist, or request that the operator interview users with an incomplete product.
+Do not stop at a plan, checklist, or request that I interview users with an incomplete product.
 
 ## Operational limits
 

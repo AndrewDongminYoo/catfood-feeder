@@ -1,6 +1,6 @@
 # Next Food Decision
 
-Status: Approved for autonomous implementation by the operator on 2026-10-18.
+Status: Approved for autonomous implementation on 2026-10-18.
 
 ## Outcome
 
@@ -103,9 +103,9 @@ Use the existing Korean register for new product copy and do not expose implemen
 
 ## Authority and limits
 
-The operator authorized foundational document changes and continued implementation in the main workspace.
+Foundational document changes and continued implementation in the main workspace were authorized.
 The initial local delivery did not require a PR, remote push, production schema write, account change, or purchase.
-The operator later authorized applying reviewed manufacturer declarations to the linked database and publishing the completed work as a PR.
+Applying reviewed manufacturer declarations to the linked database and publishing the completed work as a PR were later authorized.
 Merge, account changes, and purchases remain outside this authorization.
 Historical data counts remain dated observations rather than live coverage claims.
 The Google document supplied in this session informs the separation of proposal, evidence, and decision.

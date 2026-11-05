@@ -16,7 +16,7 @@
 - Use `supabase.auth.getUser()` for the human email allowlist because the authorization decision requires the current Auth user record. Do not trust `getSession()` for authorization.
 - Do not move the service-role client into a client component or expose private loader output before authorization succeeds.
 - Write and verify each failing test before editing its production behavior.
-- Do not stage, commit, or push until the operator explicitly requests it.
+- Do not stage, commit, or push until I explicitly request it.
 
 ---
 

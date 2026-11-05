@@ -2,7 +2,7 @@
 
 ## Direction
 
-The operator directly invoked pr-loop39, superseding the earlier security-review start condition.
+pr-loop39 was invoked directly, superseding the earlier security-review start condition.
 Keep PR68 connector polling stopped.
 Normalize invalid measured provenance rather than blocking otherwise valid partial catalog drafts.
 Oracle precedent confirms separating stated, derived, estimated and unknown values, including direct Korean-label NFE without moisture.

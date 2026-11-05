@@ -9,7 +9,7 @@
 > 내가 한달동안 109개의 글을 쓰면서 만든 고양이 건사료 데이터베이스를, 왜 아직도 손으로 재조사해야 하는걸까?
 
 Catfood Admin began with this small question.
-The operator had already done the expensive work once: finding products, reading labels, comparing sources, normalizing inconsistent nutrition fields, and recording the reasoning across 109 articles in one month.
+I had already done the expensive work once: finding products, reading labels, comparing sources, normalizing inconsistent nutrition fields, and recording the reasoning across 109 articles in one month.
 Requiring the same person to repeat that investigation by hand is not a quality guarantee.
 It is a failure to preserve research as executable, inspectable knowledge.
 
@@ -114,7 +114,7 @@ It is waste when it is forgotten and repeated.
 
 ## Admin-Only Scope
 
-The service currently accumulates information only under the operator's administration.
+The service currently accumulates information only under my administration.
 It does not need public contribution workflows, contributor reputation, community moderation, tenant isolation, or consensus editing before the research loop is useful.
 
 This narrower scope removes unnecessary product machinery.

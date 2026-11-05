@@ -79,7 +79,7 @@ describe("research runner subprocess contract", () => {
     expect(env.PATH).not.toContain("/Users/someone");
   });
 
-  it("does not reveal the operator home through CODEX_HOME", () => {
+  it("does not reveal the user's home through CODEX_HOME", () => {
     const env = buildAgentEnv({ HOME: "/Users/someone" }, "/tmp/workdir");
 
     expect(env.HOME).toBe("/tmp/workdir");
@@ -112,13 +112,13 @@ describe("research runner subprocess contract", () => {
     ).toBe("/private/tmp");
   });
 
-  it("rejects a system temp directory inside the operator home", () => {
+  it("rejects a system temp directory inside the user's home", () => {
     expect(() =>
       selectResearchTempRoot({
         home: "/Users/someone",
         systemTemp: "/Users/someone/tmp",
       }),
-    ).toThrow("TMPDIR is inside the operator home");
+    ).toThrow("TMPDIR is inside the user's home");
   });
 
   it("treats dot-prefixed temp paths as inside HOME", () => {
@@ -127,7 +127,7 @@ describe("research runner subprocess contract", () => {
         home: "/Users/someone",
         systemTemp: "/Users/someone/..tmp",
       }),
-    ).toThrow("TMPDIR is inside the operator home");
+    ).toThrow("TMPDIR is inside the user's home");
   });
 
   it("does not treat a sibling of HOME as inside it", () => {
@@ -261,7 +261,7 @@ describe("research runner subprocess contract", () => {
     }
   });
 
-  it("writes a refreshed credential back to the operator login file", async () => {
+  it("writes a refreshed credential back to the user's login file", async () => {
     const fixture = await createStagedAuthFixture();
 
     try {
@@ -283,7 +283,7 @@ describe("research runner subprocess contract", () => {
     }
   });
 
-  it("leaves the operator login file untouched when no refresh happened", async () => {
+  it("leaves the user's login file untouched when no refresh happened", async () => {
     const fixture = await createStagedAuthFixture();
 
     try {
@@ -305,7 +305,7 @@ describe("research runner subprocess contract", () => {
     }
   });
 
-  it("keeps the operator login file when the run died before staging", async () => {
+  it("keeps the user's login file when the run died before staging", async () => {
     const fixture = await createStagedAuthFixture();
 
     try {

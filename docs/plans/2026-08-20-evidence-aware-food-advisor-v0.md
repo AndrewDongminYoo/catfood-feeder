@@ -1,7 +1,7 @@
 # Evidence-aware Food Advisor v0 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement this plan task-by-task.
-> Do not delegate implementation unless the operator explicitly authorizes it and the repository delegation guardrails are satisfied.
+> Do not delegate implementation unless I explicitly authorize it and the repository delegation guardrails are satisfied.
 
 **Goal:** Ship a deterministic `/advisor` baseline that finds up to three next-food candidates by explicit, currently supportable constraints while exposing evidence quality and uncertainty without making health or quality claims.
 
@@ -884,7 +884,7 @@ Expected: every non-null live target passes its DOM assertion, screenshots are a
 The observed pilot this step depended on was retired on 2026-08-22 at 0 of 8 sessions, without running; see [Product Direction](../product-direction.md).
 The release gate is therefore no longer an eight-session observation, and this step is superseded.
 The next slice is the ingredient data slice, and a natural-language input decision waits on it.
-Proceed to a separately planned natural-language input only after the structured page demonstrates useful candidate coverage, the ingredient data slice has landed, and the operator approves the product behavior.
+Proceed to a separately planned natural-language input only after the structured page demonstrates useful candidate coverage, the ingredient data slice has landed, and the product behavior is approved.
 Keep MCP later than the natural-language decision.
 If users repeatedly request ingredient exclusions, create a separate ingredient form/specificity and evidence-ingest plan before exposing that filter.
 If too many requested nutrient comparisons remain `unspecified`, create a separate persistent qualifier and interval-propagation design instead of weakening the literal-evidence rule.

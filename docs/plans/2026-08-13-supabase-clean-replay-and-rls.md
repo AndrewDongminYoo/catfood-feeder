@@ -20,7 +20,7 @@ Use pgTAP against the real local roles and RLS policies, then generate TypeScrip
 - Keep the service-role transcript update limited to `food_research_runs.status`.
 - Use a new migration created by `pnpm exec supabase migration new data_api_privileges` for the forward privilege contract.
 - Keep each pgTAP test inside `BEGIN` and `ROLLBACK`.
-- Do not stage, commit, or push until the operator explicitly requests it.
+- Do not stage, commit, or push until I explicitly request it.
 
 ## File Structure
 
