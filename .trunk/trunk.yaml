@@ -2,7 +2,7 @@
 # To learn more about the format of this file, see https://docs.trunk.io/reference/trunk-yaml
 version: 0.1
 cli:
-  version: 1.25.0
+  version: 1.29.0
   options:
     - commands: [ALL]
       args: --monitor=false
@@ -41,17 +41,17 @@ lint:
     - grype
   enabled:
     - actionlint@1.7.12
-    - checkov@3.4.0
-    - eslint@10.13.0
+    - checkov@3.4.3
+    - eslint@10.14.0
     - git-diff-check
     - markdownlint@0.50.0
     - osv-scanner@2.7.0
     - oxipng@10.2.1
     - pinact@4.1.1!
     - prettier@3.9.10
-    - sqlfluff@4.4.0
+    - sqlfluff@4.5.0
     - taplo@0.10.0
-    - trufflehog@3.99.7
+    - trufflehog@3.99.8
     - yamllint@1.38.0
   ignore:
     # docs/notes/*.sql은 유지되는 코드가 아니라 한 번 실행하고 남긴 기록이다(중복 병합,
