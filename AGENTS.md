@@ -6,7 +6,7 @@
 
 Catfood Feeder is a mobile-first Next.js App Router product that helps an owner choose the next imported dry cat food using explicit conditions and source-backed comparison briefs.
 `/` enters the decision workspace at `/advisor`; catalog, research, and feeding surfaces support that decision.
-The product must complete a useful question-to-brief flow before asking the operator to run interviews or sell it.
+The product must complete a useful question-to-brief flow before asking the user to run interviews or sell it.
 `docs/product-direction.md` owns the product direction; issue lists are backlogs, not strategy.
 Copy voice: warm.
 
