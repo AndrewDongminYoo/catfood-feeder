@@ -35,7 +35,7 @@ It is reached through the production-declared `shadcn@4.23.0` CLI and `@shadcn/r
 The current `src` and `scripts` sources have no observed imports of either package, and the declared application and verification commands do not invoke the CLI.
 Crafted null-prototype merge inputs still reproduce returned-object prototype poisoning in the installed library, so this issue is accepted under the maintenance scope rather than fixed.
 The scoped OSV disposition belongs beside `pnpm-lock.yaml` and must not suppress unrelated advisories.
-AndrewDongminYoo owns re-evaluation when a patched release appears, either parent dependency changes, an application consumer is added, or untrusted CLI input is introduced.
+Re-evaluate when a patched release appears, either parent dependency changes, an application consumer is added, or untrusted CLI input is introduced.
 
 ## Publication
 
