@@ -1,18 +1,24 @@
 name: db-tests
 
-# pgTAP suites in supabase/tests depend only on the migrations, so run them
-# when either the SQL or this workflow changes. A local `supabase db start`
+# pgTAP suites use the CLI installed from the lockfile, so run them when the
+# database, dependencies, or workflow changes. A local `supabase db start`
 # applies every migration to an ephemeral Postgres; no secrets are involved.
 on:
   pull_request:
     paths:
       - supabase/**
       - .github/workflows/db-tests.yml
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
   push:
     branches: [main]
     paths:
       - supabase/**
       - .github/workflows/db-tests.yml
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
 
 permissions:
   contents: read
@@ -24,10 +30,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3.2.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          version: 2.109.1
+          node-version: "24"
+          cache: pnpm
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Show tested CLI version
+        run: pnpm exec supabase --version
       - name: Start local Postgres (applies migrations)
-        run: supabase db start
+        run: pnpm exec supabase db start
       - name: Run pgTAP tests
-        run: supabase test db
+        run: pnpm exec supabase test db
