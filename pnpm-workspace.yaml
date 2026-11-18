@@ -6,7 +6,6 @@ engineStrict: true
 overrides:
   "body-parser@2": ^2.4.0
   "fast-uri@3": ^3.1.9
-  "vite@8": ^8.3.3 # GHSA-587h-7wmj-h5pm, GHSA-698v-4r3x-3vcv, GHSA-9jrq-w75r-8gcw, GHSA-r825-w8mm-5pxw, GHSA-rq7h-c2jc-7f22, GHSA-vfpm-58rq-9qcg
 
 allowBuilds:
   msw: true
