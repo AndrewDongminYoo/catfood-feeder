@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
-    "@supabase/supabase-js": "2.119.0",
+    "@supabase/supabase-js": "2.119.2",
     "@tailwindcss/postcss": "^4.3.5",
     "cheerio": "^1.2.0",
     "clsx": "^2.1.1",
@@ -41,10 +41,10 @@
     "eslint": "^10.15.0",
     "eslint-config-next": "^16.4.6",
     "jsdom": "^31.0.1",
-    "knip": "^6.45.1",
+    "knip": "^6.46.1",
     "supabase": "^3.2.0",
     "typescript": "^6.0.3",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.1"
   },
   "packageManager": "pnpm@12.21.0"
 }
